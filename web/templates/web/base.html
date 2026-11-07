@@ -1,0 +1,26 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}UnitPricer{% endblock %}</title>
+  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <script src="{% static 'web/htmx.min.js' %}" defer></script>
+  <script src="{% static 'web/app.js' %}" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <a class="site-name" href="/">UnitPricer</a>
+    <form class="search" action="/search" method="get" role="search">
+      <input type="search" name="q" aria-label="Search products" placeholder="Search products" value="{{ q|default:'' }}">
+      <button type="submit">Search</button>
+    </form>
+  </header>
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <a href="/disclosure">Disclosure</a>
+  </footer>
+</body>
+</html>
