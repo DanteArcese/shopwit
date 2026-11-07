@@ -24,6 +24,12 @@ def make_request(accept_language=None, session=None):
         ("de-DE", "metric"),
         ("en", "metric"),
         ("de-DE,en-US;q=0.8", "metric"),
+        ("en-Latn-US", "imperial"),
+        ("en_US", "imperial"),
+        ("  en-US , de", "imperial"),
+        ("en-419", "metric"),
+        ("*", "metric"),
+        ("-US", "metric"),
         ("", "metric"),
         (None, "metric"),
     ],
@@ -53,3 +59,19 @@ def test_prefs_round_trip_all_stores():
 def test_invalid_session_prefs_fall_back_to_default():
     request = make_request("en-US", {"prefs": {"unit_system": "bogus", "stores": 5}})
     assert get_prefs(request) == Prefs("imperial", None)
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("junk", Prefs("imperial", None)),
+        (["metric"], Prefs("imperial", None)),
+        ({"unit_system": "metric", "stores": [1, 2]}, Prefs("metric", None)),
+        ({"unit_system": "metric", "stores": "kroger"}, Prefs("metric", None)),
+        ({"unit_system": "metric", "stores": []}, Prefs("metric", None)),
+        ({"unit_system": ["x"], "stores": ["kroger"]}, Prefs("imperial", frozenset({"kroger"}))),
+    ],
+)
+def test_tampered_session_prefs(raw, expected):
+    request = make_request("en-US", {"prefs": raw})
+    assert get_prefs(request) == expected

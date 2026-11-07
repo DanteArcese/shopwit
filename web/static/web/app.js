@@ -1,7 +1,6 @@
 /*
  * UnitPricer client script.
- * HTMX is served locally from this directory (no CDN): htmx.org 2.0.4,
- * downloaded from https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js
- * License text: HTMX-LICENSE (Zero-Clause BSD as shipped in the 2.0.4 release).
+ * web/htmx.min.js is HTMX 2.0.4, vendored unmodified from
+ * https://unpkg.com/htmx.org@2.0.4/dist/htmx.min.js; license (0BSD) in HTMX-LICENSE.
  */
 "use strict";

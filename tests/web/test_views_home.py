@@ -23,6 +23,7 @@ def test_home_renders_search_and_categories(client, categories):
     assert 'name="viewport" content="width=device-width, initial-scale=1"' in html
     assert 'href="/c/dairy/milk/"' in html
     assert 'href="/disclosure"' in html
+    assert 'aria-label="Search all products"' in html
 
 
 def test_no_external_asset_urls(client, categories):
@@ -30,6 +31,6 @@ def test_no_external_asset_urls(client, categories):
     urls = re.findall(r'(?:src|href)="([^"]*)"', html)
     assert urls
     assert not [u for u in urls if re.match(r"(?:https?:)?//", u)]
-    assert "/static/web/htmx.min.js" in urls
+    assert urls.index("/static/web/htmx.min.js") < urls.index("/static/web/app.js")
     assert "/static/web/app.js" in urls
     assert "/static/web/app.css" in urls

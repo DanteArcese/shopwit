@@ -17,11 +17,16 @@ class Prefs:
 
 
 def default_unit_system(accept_language: str) -> UnitSystem:
-    """Imperial iff the first language tag's region is US, LR or MM."""
+    """Imperial iff the first tag's region (2 letters or 3 digits) is US, LR or MM."""
     first = accept_language.split(",", 1)[0].split(";", 1)[0].strip()
-    _, sep, region = first.partition("-")
-    if sep and region.upper() in IMPERIAL_REGIONS:
-        return "imperial"
+    language, *subtags = first.replace("_", "-").split("-")
+    if not language or language == "*":
+        return "metric"
+    for tag in subtags:
+        if (len(tag) == 2 and tag.isascii() and tag.isalpha()) or (
+            len(tag) == 3 and tag.isascii() and tag.isdigit()
+        ):
+            return "imperial" if tag.upper() in IMPERIAL_REGIONS else "metric"
     return "metric"
 
 
@@ -34,7 +39,7 @@ def get_prefs(request) -> Prefs:
     if unit_system not in ("imperial", "metric"):
         unit_system = default
     stores = raw.get("stores")
-    if isinstance(stores, list) and all(isinstance(s, str) for s in stores):
+    if isinstance(stores, list) and stores and all(isinstance(s, str) for s in stores):
         return Prefs(unit_system, frozenset(stores))
     return Prefs(unit_system, None)
 
