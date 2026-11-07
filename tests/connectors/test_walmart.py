@@ -207,7 +207,7 @@ def _search_items(key, items):
     return c.search("x")
 
 
-@pytest.mark.parametrize("bad", ["1/../x", True, 0, -5, 1.5, "", "12a", None])
+@pytest.mark.parametrize("bad", ["1/../x", "9" * 21, True, 0, -5, 1.5, "", "12a", None])
 def test_invalid_item_ids_skipped(key, bad):
     result = _search_items(key, [{"itemId": bad, "name": "A", "salePrice": 1}])
     assert result.offers == [] and result.skipped == 1
@@ -226,3 +226,8 @@ def test_absent_or_null_items_is_empty(key, body):
     )
     result = c.search("x")
     assert result.offers == [] and result.skipped == 0
+
+
+def test_twenty_digit_item_id_accepted(key):
+    (o,) = _search_items(key, [{"itemId": "1" * 20, "name": "A", "salePrice": 1}]).offers
+    assert o.retailer_item_id == "1" * 20

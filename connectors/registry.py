@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 from collections.abc import Mapping
 from dataclasses import dataclass, field
@@ -10,6 +11,9 @@ from importlib import import_module
 import httpx
 
 from connectors.base import Connector, ConnectorError
+
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -77,5 +81,7 @@ def available(environ: Mapping[str, str] = os.environ) -> dict[str, Connector]:
         try:
             found[name] = get(name, environ)
         except ConnectorError:
+            # Name only: messages and chained causes could carry credential text.
+            logger.warning("connector %s is configured but could not be built; skipping", name)
             continue
     return found

@@ -46,7 +46,7 @@ def sign(consumer_id: str, timestamp_ms: str, key_version: str, private_key) -> 
 
 def _valid_item_id(value: object) -> int | None:
     """Positive int, or a string of ASCII digits normalized to int; else None."""
-    if isinstance(value, str) and value.isascii() and value.isdigit():
+    if isinstance(value, str) and value.isascii() and value.isdigit() and len(value) <= 20:
         value = int(value)
     if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
         return None
@@ -78,6 +78,9 @@ class WalmartConnector:
 
     def __repr__(self) -> str:
         return "WalmartConnector()"
+
+    def close(self) -> None:
+        self._client.close()
 
     def _sign(self, timestamp_ms: str) -> str:
         return sign(self._consumer_id, timestamp_ms, self._key_version, self._key)

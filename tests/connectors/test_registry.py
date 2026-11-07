@@ -96,3 +96,14 @@ def test_import_error_wrapped(monkeypatch):
     with pytest.raises(registry.ConnectorError, match="ghost"):
         registry.get("ghost", {"G_TOKEN": "t"})
     assert registry.available({"G_TOKEN": "t"}) == {}
+
+
+def test_available_warns_naming_connector_only(monkeypatch, caplog):
+    monkeypatch.setitem(
+        registry.SPECS, "boom", registry.Spec(f"{__name__}:Boom", {"token": "B_TOKEN"})
+    )
+    with caplog.at_level("WARNING", logger="connectors.registry"):
+        assert registry.available({"B_TOKEN": "hunter2"}) == {}
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "boom" in text and "hunter2" not in text
+    assert all(r.exc_info is None for r in caplog.records)

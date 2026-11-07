@@ -46,14 +46,21 @@ def recording_name(request: httpx.Request) -> str:
     return name + ".json"
 
 
-def recorded_transport(directory: Path) -> httpx.MockTransport:
-    """Transport serving ``{"status": int, "json": ...}`` files from directory."""
+def recorded_transport(directory: Path, *, strict: bool = False) -> httpx.MockTransport:
+    """Transport serving ``{"status": int, "json": ...}`` files from directory.
+
+    A missing recording answers 404 with a JSON body (connectors turn that into
+    a ConnectorError). With ``strict=True`` it raises AssertionError naming the
+    expected file instead, so tests notice unexpected requests.
+    """
     directory = Path(directory)
 
     def handler(request: httpx.Request) -> httpx.Response:
         expected = directory / recording_name(request)
         if not expected.is_file():
-            raise AssertionError(f"No recording for request; expected file: {expected}")
+            if strict:
+                raise AssertionError(f"No recording for request; expected file: {expected}")
+            return httpx.Response(404, json={"error": "no recording"})
         data = json.loads(expected.read_text())
         return httpx.Response(data["status"], json=data["json"])
 

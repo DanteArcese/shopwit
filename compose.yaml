@@ -28,6 +28,8 @@ services:
       db:
         condition: service_healthy
   worker:
+    # First run: apply `migrate` and `sync_categories` (e.g. via `docker compose run --rm web
+    # uv run python manage.py ...`) before starting the worker; it refreshes only synced categories.
     build: .
     command: uv run python manage.py run_scheduler
     env_file:

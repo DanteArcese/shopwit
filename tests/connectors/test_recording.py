@@ -6,9 +6,9 @@ import pytest
 from connectors.recording import recorded_transport, recording_name
 
 
-def _client(directory):
+def _client(directory, **kw):
     return httpx.Client(
-        transport=recorded_transport(directory), base_url="https://api.example.test"
+        transport=recorded_transport(directory, **kw), base_url="https://api.example.test"
     )
 
 
@@ -26,9 +26,14 @@ def test_serves_error_status(tmp_path):
     assert _client(tmp_path).get("/v1/x").status_code == 503
 
 
+def test_missing_recording_is_404_by_default(tmp_path):
+    resp = _client(tmp_path).get("/v1/search", params={"query": "milk"})
+    assert resp.status_code == 404 and isinstance(resp.json(), dict)
+
+
 def test_unmatched_request_names_expected_file(tmp_path):
     with pytest.raises(AssertionError, match=r"GET_v1_search__query=milk\.json"):
-        _client(tmp_path).get("/v1/search", params={"query": "milk"})
+        _client(tmp_path, strict=True).get("/v1/search", params={"query": "milk"})
 
 
 def test_secret_params_not_in_filename(tmp_path):
@@ -44,7 +49,7 @@ def test_secret_params_not_in_filename(tmp_path):
 
 def test_unmatched_error_does_not_leak_secrets(tmp_path):
     with pytest.raises(AssertionError) as exc:
-        _client(tmp_path).get("/v1/search", params={"apiKey": "SECRET2"})
+        _client(tmp_path, strict=True).get("/v1/search", params={"apiKey": "SECRET2"})
     assert "SECRET2" not in str(exc.value)
 
 

@@ -40,9 +40,9 @@ def due(now: datetime, connectors: Mapping[str, Connector]) -> list[tuple[str, s
 def log_run(run: IngestionRun) -> None:
     logger.info(
         "ingest connector=%s category=%s status=%s fetched=%s matched=%s "
-        "fully_parsed=%s unresolved=%s skipped=%s",
+        "fully_parsed=%s unresolved=%s skipped=%s error=%s",
         run.connector, run.category_slug, run.status, run.fetched, run.matched,
-        run.fully_parsed, run.unresolved, run.skipped,
+        run.fully_parsed, run.unresolved, run.skipped, run.error,
     )
 
 
@@ -57,14 +57,28 @@ def _fail_run(name: str, slug: str, now: datetime, exc: Exception) -> IngestionR
     ) or IngestionRun(connector=name, category_slug=slug, started_at=now)
     run.status = IngestionRun.Status.FAILED
     run.error = type(exc).__name__
-    run.finished_at = now
+    run.finished_at = timezone.now()
     run.save()
     return run
+
+
+def close_connectors(connectors: Mapping[str, Connector]) -> None:
+    for connector in connectors.values():
+        close = getattr(connector, "close", None)
+        if close is not None:
+            try:
+                close()
+            except Exception as exc:
+                logger.warning("closing connector %s failed: %s", connector.name, type(exc).__name__)
 
 
 def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> list[IngestionRun]:
     if connectors is None:
         connectors = registry.available()
+        try:
+            return tick(now, connectors)
+        finally:
+            close_connectors(connectors)
     runs = []
     for name, slug in due(now, connectors):
         try:
@@ -90,11 +104,18 @@ def run_loop(
     """Tick, then wait; a stop request ends the wait at once and the loop exits."""
     stop = stop or threading.Event()
     wait = wait or stop.wait
-    while not stop.is_set():
-        tick(now(), connectors)
-        if once:
-            return
-        wait(poll_seconds)
+    owned = connectors is None
+    if owned:
+        connectors = registry.available()  # built once, so HTTP clients are reused, not leaked
+    try:
+        while not stop.is_set():
+            tick(now(), connectors)
+            if once:
+                return
+            wait(poll_seconds)
+    finally:
+        if owned:
+            close_connectors(connectors)
 
 
 @contextmanager

@@ -1,10 +1,24 @@
-"""Deterministic Product view merged from all of its Offers."""
+"""Deterministic Product view merged from all of its Offers.
+
+Unit prices are computed from the merged product attributes, not each offer's
+own: offers share a Product only through identity (a UPC, or the retailer's own
+item id), and the product carries one attribute set (plus manual overrides) that
+every offer's unit price is built from.
+
+Ambiguity is handled asymmetrically on purpose. Disagreeing attribute or
+quantity values across offers are omitted and flagged as a conflict, never
+guessed. An unresolved ``unit_price:*`` entry, however, is reported for the
+product only when it is unresolved on every offer, because one computable offer
+is enough to compare the product; a single offer's missing price stays on that
+offer alone.
+"""
 
 from __future__ import annotations
 
 from datetime import datetime
 
 from django.conf import settings
+from django.db import transaction
 from django.utils import timezone
 
 from normalize import load_categories
@@ -62,19 +76,33 @@ def merged_view(offers: list) -> dict:
 
 
 def merge_product(product: Product, now: datetime | None = None) -> None:
-    """Recompute product fields and ReviewItems from all its offers."""
-    offers = list(product.offers.select_related("category"))
-    if not offers:
-        return
-    view = merged_view(offers)
-    unresolved = _apply_overrides(product, offers, view)
-    product.title = view["title"]
-    product.brand = view["brand"]
-    product.category = view["category"] or product.category
-    product.attributes = view["attributes"]
-    product.measures = view["measures"]
-    product.save()
-    _sync_review_items(product, unresolved, now or timezone.now())
+    """Recompute product fields and ReviewItems from all its offers.
+
+    Runs under a row lock on a freshly fetched Product, so a caller holding a
+    stale instance cannot overwrite a concurrent manual_attributes edit: only
+    derived columns are written, never manual_attributes. With no offers left,
+    the product's open ReviewItems are resolved.
+    """
+    now = now or timezone.now()
+    with transaction.atomic():
+        locked = Product.objects.select_for_update().get(pk=product.pk)
+        offers = list(locked.offers.select_related("category"))
+        if not offers:
+            _sync_review_items(locked, [], now)
+            return
+        view = merged_view(offers)
+        unresolved = _apply_overrides(locked, offers, view)
+        locked.title = view["title"]
+        locked.brand = view["brand"]
+        locked.category = view["category"] or locked.category
+        locked.attributes = view["attributes"]
+        locked.measures = view["measures"]
+        locked.save(
+            update_fields=["title", "brand", "category", "attributes", "measures", "updated_at"]
+        )
+        _sync_review_items(locked, unresolved, now)
+    for field in ("title", "brand", "category", "attributes", "measures", "manual_attributes", "updated_at"):
+        setattr(product, field, getattr(locked, field))
 
 
 def _apply_overrides(product: Product, offers: list, view: dict) -> list[str]:
@@ -114,7 +142,10 @@ def _sync_review_items(product: Product, unresolved: list[str], now: datetime) -
     current = set(unresolved)
     open_items = {i.detail: i for i in product.review_items.filter(status=ReviewItem.Status.OPEN)}
     for detail in sorted(current - open_items.keys()):
-        ReviewItem.objects.create(product=product, detail=detail)
+        # get_or_create: a concurrent writer may have opened the same item.
+        ReviewItem.objects.get_or_create(
+            product=product, detail=detail, status=ReviewItem.Status.OPEN
+        )
     for detail, item in open_items.items():
         if detail not in current:
             item.status = ReviewItem.Status.RESOLVED

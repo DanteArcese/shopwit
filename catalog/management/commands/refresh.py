@@ -7,7 +7,7 @@ from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
 from catalog.ingest import ingest
-from catalog.models import Category
+from catalog.models import Category, IngestionRun
 from connectors import registry
 from connectors.recording import recorded_transport
 from connectors.walmart import WalmartConnector
@@ -68,14 +68,18 @@ class Command(BaseCommand):
                 categories = categories.filter(slug=slug)
                 if not categories.exists():
                     raise CommandError(f"No active category {slug!r}")
+            statuses = []
             for connector_name, connector in connectors.items():
                 for category in categories:
                     run = ingest(connector, category, timezone.now())
+                    statuses.append(run.status)
                     self.stdout.write(
                         f"{connector_name} {category.slug} status={run.status} fetched={run.fetched} "
                         f"matched={run.matched} fully_parsed={run.fully_parsed} "
                         f"unresolved={run.unresolved} skipped={run.skipped}"
                     )
+            if statuses and IngestionRun.Status.SUCCEEDED not in statuses:
+                raise CommandError("All ingestion runs failed")
         finally:
             if client is not None:
                 client.close()

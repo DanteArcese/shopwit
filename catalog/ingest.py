@@ -6,6 +6,7 @@ from datetime import datetime
 
 from django.conf import settings
 from django.db import transaction
+from django.utils import timezone
 
 import enrichment.off
 from connectors.base import Connector, ConnectorError
@@ -18,13 +19,23 @@ from .merge import merge_product
 from .models import Category, IngestionRun, Offer, PriceHistory, Product
 
 
-def _upsert(connector, raw, normalized: NormalizedOffer, model_cache: dict, now: datetime):
-    """Write one offer and refresh its product; returns the normalized offer."""
+def _upsert(
+    connector, raw, normalized: NormalizedOffer, model_cache: dict, now: datetime, touched: set[int]
+) -> NormalizedOffer:
+    """Write one offer; adds the affected product ids (new and previous) to ``touched``.
+
+    Products are merged once per run by the caller, after all offers are written.
+    """
     category = model_cache.get(normalized.category) or Category.objects.get(slug=normalized.category)
     model_cache[normalized.category] = category
     product, _ = Product.objects.get_or_create(
         identity=product_identity(raw),
         defaults={"title": raw.title, "upc": normalize_upc(raw.upc), "category": category},
+    )
+    previous = (
+        Offer.objects.filter(retailer=raw.retailer, retailer_item_id=raw.retailer_item_id)
+        .values_list("product_id", flat=True)
+        .first()
     )
 
     offer, _ = Offer.objects.update_or_create(
@@ -54,8 +65,20 @@ def _upsert(connector, raw, normalized: NormalizedOffer, model_cache: dict, now:
             PriceHistory.objects.create(
                 offer=offer, price=raw.price, currency=raw.currency, observed_at=now
             )
-    merge_product(product, now)
+    touched.add(product.pk)
+    if previous is not None and previous != product.pk:
+        touched.add(previous)  # the offer moved; the old product must be re-merged
     return normalized
+
+
+def _fail(run: IngestionRun, error: str, fetched: int, skipped: int) -> IngestionRun:
+    run.status = IngestionRun.Status.FAILED
+    run.error = error
+    run.fetched = fetched
+    run.skipped = skipped
+    run.finished_at = timezone.now()
+    run.save()
+    return run
 
 
 def ingest(
@@ -80,23 +103,20 @@ def ingest(
             for raw in result.offers:
                 unique.setdefault((raw.retailer, raw.retailer_item_id), raw)
     except ConnectorError as exc:
-        run.status = IngestionRun.Status.FAILED
-        run.error = str(exc)
-        run.fetched = len(unique)
-        run.skipped = skipped
-        run.finished_at = now
-        run.save()
-        return run
+        return _fail(run, str(exc), len(unique), skipped)
+    except Exception as exc:  # never leave a RUNNING row; the type name only, no message text
+        return _fail(run, type(exc).__name__, len(unique), skipped)
 
     run.fetched = len(unique)
     model_cache: dict[str, Category] = {}
+    touched: set[int] = set()
     for raw in unique.values():
         try:
             normalized = normalize(raw, categories, store_brands, off=off_lookup(raw.upc))
             if normalized.category is None:
                 continue
             with transaction.atomic():
-                normalized = _upsert(connector, raw, normalized, model_cache, now)
+                normalized = _upsert(connector, raw, normalized, model_cache, now, touched)
         except Exception as exc:  # one bad offer must not poison the run
             skipped += 1
             if not run.error:
@@ -108,8 +128,16 @@ def ingest(
         else:
             run.fully_parsed += 1
 
+    for pk in sorted(touched):
+        try:
+            merge_product(Product.objects.get(pk=pk), now)
+        except Exception as exc:  # one bad product must not fail the run
+            skipped += 1
+            if not run.error:
+                run.error = f"{type(exc).__name__} merging product {pk}"[:500]
+
     run.skipped = skipped
     run.status = IngestionRun.Status.SUCCEEDED
-    run.finished_at = now
+    run.finished_at = timezone.now()
     run.save()
     return run
