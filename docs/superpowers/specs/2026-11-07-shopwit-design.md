@@ -2,7 +2,7 @@
 
 - **Date:** 2026-11-07
 - **Status:** Draft, awaiting review
-- **Codename:** `shopwit` (working name; final name and domain are a pre-launch task)
+- **Codename:** `shopwit`. **Final name: UnitPricer** (`unitpricer.com`); the rename happens after M2 (#26)
 
 ## 1. Summary
 
@@ -200,7 +200,7 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 
 ## 15. Open decisions
 
-1. Final product name and domain (Checkpoint B). Shortlist so far: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen.
+1. ~~Final product name and domain~~ Decided: UnitPricer, unitpricer.com.
 2. Production hosting (Checkpoint B, before first deploy).
 3. Unofficial data sources for in-store chains (after the core release).
 4. Whether Amazon and Walmart honor links routed through Sovrn's tracking redirect (ask Sovrn at Checkpoint B).
@@ -219,4 +219,4 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Outbound links | Direct to retailer or network tracking link; no redirect, shortener or intermediate page; clicks counted by ping/beacon |
 | First connector (Checkpoint A) | Walmart Affiliate API, built against documented sample responses until walmart.io access works; Sovrn as link router |
 | Units | Metric/imperial user setting; locale-neutral storage |
-| Name | Codename `shopwit` for now |
+| Name | **UnitPricer** (unitpricer.com); codename `shopwit` until the rename (#26) |
