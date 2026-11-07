@@ -1,0 +1,12 @@
+{
+  "_source": "walmart.io docs example (synthetic)",
+  "status": 401,
+  "json": {
+    "errors": [
+      {
+        "code": 4401,
+        "message": "Unauthorized"
+      }
+    ]
+  }
+}

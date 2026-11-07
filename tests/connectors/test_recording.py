@@ -7,7 +7,9 @@ from connectors.recording import recorded_transport, recording_name
 
 
 def _client(directory):
-    return httpx.Client(transport=recorded_transport(directory), base_url="https://api.example.test")
+    return httpx.Client(
+        transport=recorded_transport(directory), base_url="https://api.example.test"
+    )
 
 
 def test_recorded_transport_serves_file(tmp_path):
@@ -52,6 +54,23 @@ def test_recording_name_rules():
 
     assert name("https://h.test/a/b") == "GET_a_b.json"
     assert name("https://h.test/a/b?z=1&a=2") == "GET_a_b__a=2&z=1.json"
-    assert name("https://h.test/a?q=two words&p=50%") == "GET_a__p=50%25&q=two%20words.json"
+    assert (
+        name("https://h.test/a?q=two words&p=50%")
+        == "GET_a__p=50%25&q=two%20words.json"
+    )
     assert name("https://h.test/a?q=a/b&r=x%26y") == "GET_a__q=a%2Fb&r=x%26y.json"
     assert name("https://h.test/a", "POST") == "POST_a.json"
+
+
+def test_redaction_is_case_insensitive_and_covers_tokens():
+    def name(url):
+        return recording_name(httpx.Request("GET", url))
+
+    assert (
+        name("https://h.test/a?q=1&PublisherID=s&APIKEY=s&Api_Key=s")
+        == "GET_a__q=1.json"
+    )
+    assert (
+        name("https://h.test/a?q=1&access_token=s&token=s&Secret=s&KEY=s")
+        == "GET_a__q=1.json"
+    )

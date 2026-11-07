@@ -69,3 +69,30 @@ def test_walmart_spec_registered():
         "key_version": "WALMART_KEY_VERSION",
     }
     assert spec.optional == {"publisher_id": "WALMART_IMPACT_PUBLISHER_ID"}
+
+
+class Boom:
+    def __init__(self, token):
+        raise ValueError(f"bad token {token}")
+
+
+def test_constructor_error_wrapped_without_secret(monkeypatch):
+    monkeypatch.setitem(
+        registry.SPECS, "boom", registry.Spec(f"{__name__}:Boom", {"token": "B_TOKEN"})
+    )
+    with pytest.raises(registry.ConnectorError) as exc:
+        registry.get("boom", {"B_TOKEN": "hunter2"})
+    assert "boom" in str(exc.value) and "hunter2" not in str(exc.value)
+    assert exc.value.__cause__ is None and exc.value.__suppress_context__
+    assert registry.available({"B_TOKEN": "hunter2"}) == {}
+
+
+def test_import_error_wrapped(monkeypatch):
+    monkeypatch.setitem(
+        registry.SPECS,
+        "ghost",
+        registry.Spec("no_such_mod_xyz:X", {"token": "G_TOKEN"}),
+    )
+    with pytest.raises(registry.ConnectorError, match="ghost"):
+        registry.get("ghost", {"G_TOKEN": "t"})
+    assert registry.available({"G_TOKEN": "t"}) == {}

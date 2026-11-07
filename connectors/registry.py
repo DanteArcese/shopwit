@@ -16,7 +16,9 @@ from connectors.base import Connector, ConnectorError
 class Spec:
     path: str  # "package.module:ClassName"
     required: Mapping[str, str]  # constructor kwarg -> required env var
-    optional: Mapping[str, str] = field(default_factory=dict)  # kwarg -> optional env var
+    optional: Mapping[str, str] = field(
+        default_factory=dict
+    )  # kwarg -> optional env var
 
 
 SPECS: dict[str, Spec] = {
@@ -49,19 +51,31 @@ def get(
         raise ConnectorError(
             f"Connector {name!r} needs environment variables: {', '.join(missing)}"
         )
-    module_name, _, cls_name = spec.path.partition(":")
-    cls = getattr(import_module(module_name), cls_name)
-    kwargs = {kw: environ[var] for kw, var in spec.required.items()}
-    kwargs.update({kw: environ[var] for kw, var in spec.optional.items() if environ.get(var)})
-    if client is not None:
-        kwargs["client"] = client
-    return cls(**kwargs)
+    try:
+        module_name, _, cls_name = spec.path.partition(":")
+        cls = getattr(import_module(module_name), cls_name)
+        kwargs = {kw: environ[var] for kw, var in spec.required.items()}
+        kwargs.update(
+            {kw: environ[var] for kw, var in spec.optional.items() if environ.get(var)}
+        )
+        if client is not None:
+            kwargs["client"] = client
+        return cls(**kwargs)
+    except ConnectorError as exc:
+        # Our own errors carry no env values; keep the message, drop the chain.
+        raise ConnectorError(f"Connector {name!r} could not be built: {exc}") from None
+    except Exception:
+        raise ConnectorError(f"Connector {name!r} could not be built") from None
 
 
 def available(environ: Mapping[str, str] = os.environ) -> dict[str, Connector]:
-    """Connectors whose required env vars are all set (others are not imported)."""
-    return {
-        name: get(name, environ)
-        for name, spec in SPECS.items()
-        if not _missing(spec, environ)
-    }
+    """Connectors whose required env vars are set and that construct cleanly."""
+    found: dict[str, Connector] = {}
+    for name, spec in SPECS.items():
+        if _missing(spec, environ):
+            continue
+        try:
+            found[name] = get(name, environ)
+        except ConnectorError:
+            continue
+    return found

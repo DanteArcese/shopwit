@@ -8,7 +8,15 @@ from urllib.parse import quote
 
 import httpx
 
-REDACTED_PARAMS = {"publisherId", "apiKey", "key", "secret"}
+REDACTED_PARAMS = {
+    "publisherid",
+    "apikey",
+    "api_key",
+    "access_token",
+    "token",
+    "key",
+    "secret",
+}  # lowercase
 
 
 def _safe(text: str) -> str:
@@ -28,7 +36,9 @@ def recording_name(request: httpx.Request) -> str:
     """
     path = "_".join(_safe(seg) for seg in request.url.path.lstrip("/").split("/"))
     pairs = sorted(
-        (k, v) for k, v in request.url.params.multi_items() if k not in REDACTED_PARAMS
+        (k, v)
+        for k, v in request.url.params.multi_items()
+        if k.lower() not in REDACTED_PARAMS
     )
     name = f"{request.method}_{path}"
     if pairs:
