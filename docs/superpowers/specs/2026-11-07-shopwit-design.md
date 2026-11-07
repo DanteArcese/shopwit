@@ -92,7 +92,7 @@ Manual corrections from the admin are stored and override extraction on later re
 
 ### 5.3 Catalog (Postgres)
 - `Category`, `AttributeDef`: loaded from the category YAML files; the files are the source of truth.
-- `Product`: identity is the UPC when present, otherwise retailer + item ID. Holds the category, brand, `attributes` (JSONB with per-attribute provenance), and normalized quantity. Filtered attributes get expression indexes.
+- `Product`: identity is the UPC when present, otherwise retailer + item ID. Holds the category, brand, `attributes` (JSONB with per-attribute provenance), and normalized quantity. `attributes` gets a GIN index (`jsonb_path_ops`) for containment filters; per-attribute expression indexes are added only if query plans show a need (M5 performance pass).
 - `Offer`: product × retailer. Holds price, currency, computed unit price in base units, URL, and last-seen time. Offers older than the freshness cutoff (default **24 h**, configurable, never above any source's terms limit) are hidden. Sources refresh about every 12 h so normal operation stays well inside the cutoff.
 - `PriceHistory`: an append-only record of price observations (used by later features). Only sources whose terms allow price tracking are recorded; **Walmart offers are never written here**.
 - Amazon product images are never stored; only the ASIN is kept, and images load directly from Amazon.
@@ -127,6 +127,7 @@ comparison:
 
 **Rules**
 - Each category declares a `dimension` (`volume`, `mass`, `count` or `paper`) that tells the quantity parser what to extract. Paper goods yield rolls, total sheets and total area.
+- An optional `search` list gives the retailer search queries ingestion runs for the category (default: the category name).
 - `brand_tier` (store brand vs. name brand) is a built-in attribute for every category. It is derived from a shared `data/store_brands.yaml` list.
 - Each category declares a default comparison unit plus alternates the user can switch to:
   - milk: per volume
