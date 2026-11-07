@@ -27,3 +27,4 @@ attributes:
     absent: false
 comparison:
   default: per_count
+search: ["large eggs", "cage free eggs", "organic eggs"]
