@@ -13,27 +13,55 @@ from normalize.text import fold
 from normalize.types import AttrValue, RawOffer
 
 
-def _phrase_re(phrase: str) -> re.Pattern:
+def phrase_regex(phrase: str) -> re.Pattern:
     return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)")
+
+
+def _forms(phrase: str, plural: bool) -> list[str]:
+    base = fold(phrase)
+    if not plural:
+        return [base]
+    forms = [base, base + "s"]
+    if base.endswith("s") and len(base) > 1:
+        forms.append(base[:-1])
+    return forms
+
+
+def find_category(
+    text: str, categories: Mapping[str, CategoryDef], plural: bool = False
+) -> tuple[str, tuple[int, int]] | None:
+    """Category whose longest include phrase matches the folded ``text``, with that span.
+
+    Excludes veto exactly as written. With ``plural`` each include phrase also matches
+    with its last word singular or plural; the text itself is never rewritten.
+    Ties between categories give None.
+    """
+    best_len = 0
+    best: list[tuple[str, tuple[int, int]]] = []
+    for slug, cat in categories.items():
+        if any(phrase_regex(p).search(text) for p in cat.exclude):
+            continue
+        hits = [
+            m.span()
+            for p in cat.include
+            for form in _forms(p, plural)
+            if (m := phrase_regex(form).search(text))
+        ]
+        if not hits:
+            continue
+        span = max(hits, key=lambda s: s[1] - s[0])
+        length = span[1] - span[0]
+        if length > best_len:
+            best_len, best = length, [(slug, span)]
+        elif length == best_len:
+            best.append((slug, span))
+    return best[0] if len(best) == 1 else None
 
 
 def match_category(raw: RawOffer, categories: Mapping[str, CategoryDef]) -> str | None:
     """Slug of the category whose longest include phrase matches; ties give None."""
-    text = fold(f"{raw.title} | {raw.brand or ''}")
-    best_len = 0
-    best: list[str] = []
-    for slug, cat in categories.items():
-        if any(_phrase_re(p).search(text) for p in cat.exclude):
-            continue
-        matched = [len(fold(p)) for p in cat.include if _phrase_re(p).search(text)]
-        if not matched:
-            continue
-        longest = max(matched)
-        if longest > best_len:
-            best_len, best = longest, [slug]
-        elif longest == best_len:
-            best.append(slug)
-    return best[0] if len(best) == 1 else None
+    found = find_category(fold(f"{raw.title} | {raw.brand or ''}"), categories)
+    return found[0] if found else None
 
 
 def load_store_brands(path: Path) -> frozenset[str]:

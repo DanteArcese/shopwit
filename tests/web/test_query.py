@@ -67,3 +67,32 @@ def test_absent_defaults_not_filters():
 def test_empty():
     assert r("") == QueryResolution(None, {}, "")
     assert r("   ") == QueryResolution(None, {}, "")
+
+
+@pytest.mark.parametrize(
+    "text", ["chocolate milk", "almond milk", "oat milk", "soy milk", "coconut milk",
+             "egg noodles", "liquid egg", "toilet paper wipes"],
+)
+def test_excluded_queries_not_rewritten(text):
+    res = r(text)
+    assert res.category not in ("dairy/milk", "dairy/eggs", "household/toilet-paper")
+
+
+def test_paper_towels_plural_both_ways():
+    assert r("paper towel").category == r("paper towels").category
+    assert r("paper towel").category is not None
+
+
+def test_leftover_never_mutated():
+    assert r("chocolates milk").leftover == "chocolates"
+    assert r("kirkland large eggs").leftover == "kirkland"
+
+
+def test_filter_after_and_case():
+    assert r("milk 2%").filters == {"fat": "2"}
+    res = r("MILK")
+    assert res == QueryResolution("dairy/milk", {}, "")
+
+
+def test_punctuation_only_leftover_empty():
+    assert r("(2% milk") == QueryResolution("dairy/milk", {"fat": "2"}, "")
