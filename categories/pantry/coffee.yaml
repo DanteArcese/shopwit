@@ -1,0 +1,23 @@
+name: Coffee
+dimension: mass
+match:
+  include: ["coffee"]
+  exclude: [k-cup, k cup, pods, instant, creamer, cold brew, coffee filter, coffee maker, k-cups, k cups, pod, capsules, cake]
+attributes:
+  form:
+    type: enum
+    values: [whole_bean, ground]
+    synonyms:
+      whole_bean: [whole bean]
+      ground: [ground]
+  decaf:
+    type: bool
+    synonyms: {true: [decaf, decaffeinated]}
+    absent: false
+  organic:
+    type: bool
+    synonyms: {true: [organic, o organics]}
+    off_label: en:organic
+    absent: false
+comparison:
+  default: per_mass

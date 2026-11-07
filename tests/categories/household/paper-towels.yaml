@@ -1,0 +1,57 @@
+- title: "Bounty Select-A-Size Paper Towels, 2-Ply, 12 Double Rolls"
+  price: "24.99"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 2, select_a_size: true}
+    measures: {rolls: 12}
+- title: "Kirkland Signature Create-A-Size Paper Towels, 160 sheets per roll, 12 rolls"
+  brand: Kirkland Signature
+  price: "22.99"
+  expect:
+    category: household/paper-towels
+    attributes: {brand_tier: store_brand, select_a_size: true}
+    measures: {rolls: 12, sheets: 1920}
+    unresolved: ["attribute:ply", "unit_price:area_x_ply"]
+- title: "Viva Signature Cloth Choose-A-Sheet Paper Towels, 2-Ply, 6 Triple Rolls"
+  price: "13.97"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 2, select_a_size: true}
+    measures: {rolls: 6}
+- title: "Brawny Pick-A-Size Paper Towels, 16 Giant Rolls, 2-Ply"
+  price: "29.99"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 2, select_a_size: true}
+    measures: {rolls: 16}
+- title: "Sparkle Pick A Size Paper Towels, 6 Big Rolls, 2 Ply"
+  price: "9.48"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 2}
+    measures: {rolls: 6}
+- title: "Great Value Paper Towels, 6 Double Rolls, 2-Ply, 112.5 sq ft"
+  brand: Great Value
+  price: "7.98"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 2, select_a_size: false, brand_tier: store_brand}
+    measures: {rolls: 6, area_m2: 10.452}
+- title: "Scott Paper Towels, Single Ply, 8 Rolls"
+  price: "10.99"
+  expect:
+    category: household/paper-towels
+    attributes: {ply: 1}
+    measures: {rolls: 8}
+- title: "Paper Towel Holder, Stainless Steel Countertop"
+  expect:
+    category: null
+- title: "Wall Mount Paper Towel Dispenser"
+  expect:
+    category: null
+- title: "Bounty Quick-Size Paper Towels, 8 Family Rolls"
+  price: "19.99"
+  expect:
+    category: household/paper-towels
+    attributes: {select_a_size: true}
+    measures: {rolls: 8}

@@ -1,0 +1,81 @@
+- title: "Charmin Ultra Strong Toilet Paper, 18 Mega Rolls = 72 Regular Rolls, 242 sheets per roll, 4 in x 3.92 in"
+  price: "24.99"
+  expect:
+    category: household/toilet-paper
+    measures: {rolls: 18, sheets: 4356, area_m2: 44.07}
+    unit_prices: {per_roll: "1.388333", per_100_sheets: "0.573691"}
+    unit_prices_exact: true
+    unresolved: ["attribute:ply", "attribute:brand_tier", "unit_price:area_x_ply"]
+- title: "Charmin Ultra Strong Toilet Paper, 2-Ply, 18 Mega Rolls = 72 Regular Rolls, 242 sheets per roll, 4 in x 3.92 in"
+  price: "24.99"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 2}
+    measures: {rolls: 18, sheets: 4356, area_m2: 44.07}
+    unit_prices: {area_x_ply: "0.283553", per_roll: "1.388333", per_100_sheets: "0.573691"}
+    unit_prices_exact: true
+    unresolved: ["attribute:brand_tier"]
+- title: "Scott 1000 Toilet Paper, 12 Rolls, 1-Ply"
+  price: "9.98"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 1}
+    measures: {rolls: 12}
+    unit_prices: {per_roll: "0.831667"}
+    unit_prices_exact: true
+    unresolved: ["attribute:brand_tier", "unit_price:area_x_ply"]
+- title: "Kirkland Signature Bath Tissue, 2-Ply, 380 Sheets, 30 Rolls"
+  brand: Kirkland Signature
+  price: "23.99"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 2, brand_tier: store_brand}
+    measures: {rolls: 30, sheets: 11400}
+    unit_prices: {per_roll: "0.799667", per_100_sheets: "0.210439"}
+    unit_prices_exact: true
+- title: "Cottonelle Ultra Comfort Toilet Paper, Double Ply, 24 Family Rolls, 325 sheets per roll"
+  price: "26.97"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 2}
+    measures: {rolls: 24, sheets: 7800}
+- title: "Angel Soft Bathroom Tissue, Single Ply, 12 Double Rolls"
+  price: "8.47"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 1}
+    measures: {rolls: 12}
+- title: "Great Value Ultra Soft Toilet Paper, 3 Ply, 6 Mega Rolls"
+  brand: Great Value
+  price: "5.98"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 3, brand_tier: store_brand}
+    measures: {rolls: 6}
+- title: "Charmin Flushable Wipes, 3 Pack"
+  expect:
+    category: null
+- title: "Toilet Paper Holder, Brushed Nickel"
+  expect:
+    category: null
+- title: "Quilted Northern Ultra Plush Toilet Paper, 2-Ply, 12 Rolls"
+  price: "11.99"
+  expect:
+    category: household/toilet-paper
+    attributes: {ply: 2}
+    measures: {rolls: 12}
+- title: "Charmin  Ultra Soft  Toilet  Paper, 12 Rolls"
+  expect:
+    category: household/toilet-paper
+- title: "Charmin Toilet Paper, 12 Rolls"
+  expect:
+    category: household/toilet-paper
+- title: "Member’s Mark Toilet Paper, 12 Rolls"
+  brand: "Member’s Mark"
+  expect:
+    category: household/toilet-paper
+    attributes: {brand_tier: store_brand}
+- title: "Toilet Paper 12 Rolls 2-Ply, 2 Pack"
+  expect:
+    category: household/toilet-paper
+    unresolved: [quantity, "attribute:brand_tier", "unit_price:area_x_ply"]

@@ -1,0 +1,62 @@
+- title: "Peet's Coffee Major Dickason's Blend Whole Bean, 18 oz"
+  brand: Peet's Coffee
+  price: "11.99"
+  expect:
+    category: pantry/coffee
+    attributes: {form: whole_bean, decaf: false, organic: false, brand_tier: name_brand}
+    measures: {mass_g: 510.29}
+- title: "Folgers Classic Roast Ground Coffee, 25.9 oz"
+  brand: Folgers
+  price: "9.98"
+  expect:
+    category: pantry/coffee
+    attributes: {form: ground, decaf: false}
+    measures: {mass_g: 734.3}
+- title: "Starbucks Decaf Pike Place Roast Ground Coffee, 12 oz"
+  brand: Starbucks
+  expect:
+    category: pantry/coffee
+    attributes: {form: ground, decaf: true}
+    measures: {mass_g: 340.19}
+- title: "Kirkland Signature Organic Whole Bean Coffee, 2 lb"
+  brand: Kirkland Signature
+  expect:
+    category: pantry/coffee
+    attributes: {form: whole_bean, organic: true, brand_tier: store_brand}
+    measures: {mass_g: 907.18}
+- title: "Dunkin' Original Blend Medium Roast Ground Coffee, 12 oz"
+  brand: Dunkin'
+  expect:
+    category: pantry/coffee
+    attributes: {form: ground}
+- title: "Lavazza Super Crema Whole Bean Coffee, 2.2 lb"
+  brand: Lavazza
+  expect:
+    category: pantry/coffee
+    attributes: {form: whole_bean}
+- title: "Café Bustelo Decaffeinated Espresso Ground Coffee, 10 oz"
+  brand: Café Bustelo
+  expect:
+    category: pantry/coffee
+    attributes: {form: ground, decaf: true}
+- title: "Great Value Classic Roast Coffee, 30.6 oz"
+  brand: Great Value
+  expect:
+    category: pantry/coffee
+    attributes: {brand_tier: store_brand}
+    measures: {mass_g: 867.5}
+- title: "Starbucks Pike Place Roast K-Cup Coffee Pods, 22 ct"
+  expect:
+    category: null
+- title: "Nescafe Clasico Instant Coffee, 7 oz"
+  expect:
+    category: null
+- title: "Coffee mate Original Coffee Creamer, 32 fl oz"
+  expect:
+    category: null
+- title: "Green Mountain Coffee K-Cups, 12 oz"
+  expect:
+    category: null
+- title: "Coffee Cake, 16 oz"
+  expect:
+    category: null

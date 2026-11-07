@@ -1,0 +1,29 @@
+name: Eggs
+dimension: count
+match:
+  include: ["eggs"]
+  exclude: [egg whites, liquid egg, egg noodles, chocolate, easter]
+attributes:
+  size:
+    type: enum
+    values: [medium, large, extra_large, jumbo]
+    # "large" must not fire inside "extra large", so the plain sizes are patterns
+    # (which win over synonyms) and only extra_large is a synonym.
+    patterns: ['\b(medium)\b', '(?<!\bextra )(?<!\bextra-)(?<!\bx-)(?<!\bx )\b(large)\b', '\b(jumbo)\b']
+    synonyms:
+      extra_large: [extra large, extra-large, x-large, xl]
+  housing:
+    type: enum
+    values: [caged, cage_free, free_range, pasture_raised]
+    synonyms:
+      caged: [caged]
+      cage_free: [cage free, cage-free]
+      free_range: [free range, free-range]
+      pasture_raised: [pasture raised, pasture-raised]
+  organic:
+    type: bool
+    synonyms: {true: [organic, o organics]}
+    off_label: en:organic
+    absent: false
+comparison:
+  default: per_count
