@@ -39,7 +39,7 @@ def _pem(key):
     ).decode()
 
 
-def _connector(key, query_query=None, **kw):
+def _connector(key, **kw):
     seen = []
 
     def spy(request):
@@ -71,10 +71,11 @@ def test_search_maps_items_to_raw_offers(key):
     o = result.offers[0]
     assert o.retailer == "walmart"
     assert o.retailer_item_id == "10315"
-    assert o.title == "Great Value Whole Milk, 1 gal"
+    assert o.title == "Great Value 2% Reduced Fat Milk, 1 Gallon"
     assert o.price == Decimal("2.98")
     assert o.currency == "USD"
     assert o.url == "https://www.walmart.com/ip/10315"
+    assert "goto.walmart.com" not in o.url
     assert o.upc == "007874201001"
     assert o.brand == "Great Value"
     assert o.size_text == "1 gal"
@@ -82,10 +83,15 @@ def test_search_maps_items_to_raw_offers(key):
         o.fetched_at.tzinfo is UTC
         and abs((datetime.now(UTC) - o.fetched_at).total_seconds()) < 60
     )
-    assert result.offers[1].upc is None and result.offers[1].brand is None
+    assert (
+        result.offers[1].size_text is None
+        and result.offers[1].upc is None
+        and result.offers[1].brand is None
+    )
     req = seen[0]
     assert req.url.params["publisherId"] == "PUB9"
     assert req.url.params["numItems"] == "25"
+    assert req.url.params["responseGroup"] == "full"
     assert req.headers["WM_CONSUMER.ID"] == CONSUMER
     assert req.headers["WM_CONSUMER.INTIMESTAMP"] == "1700000000123"
     assert req.headers["WM_SEC.KEY_VERSION"] == "7"
@@ -143,3 +149,49 @@ def test_registry_builds_walmart_from_env(key):
     assert isinstance(c, WalmartConnector)
     assert c.name == "walmart" and c.records_price_history is False
     assert "walmart" in registry.available(env)
+
+
+def test_max_cache_age_is_24_hours(key):
+    from datetime import timedelta
+
+    assert WalmartConnector(CONSUMER, _der_b64(key), "7").max_cache_age == timedelta(
+        hours=24
+    )
+
+
+def test_non_rsa_pem_key_rejected():
+    from cryptography.hazmat.primitives.asymmetric import ec
+
+    pem = (
+        ec.generate_private_key(ec.SECP256R1())
+        .private_bytes(
+            serialization.Encoding.PEM,
+            serialization.PrivateFormat.PKCS8,
+            serialization.NoEncryption(),
+        )
+        .decode()
+    )
+    with pytest.raises(ConnectorError, match="RSA"):
+        WalmartConnector(CONSUMER, pem, "7")
+
+
+def test_non_list_items_raises_connector_error(key):
+    c, _ = _connector(key)
+    with pytest.raises(ConnectorError, match="shape"):
+        c.search("badshape")
+
+
+def test_non_dict_item_counted_as_skipped(key):
+    c, _ = _connector(key)
+    c._client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(
+                200,
+                json={
+                    "items": ["junk", None, {"itemId": 5, "name": "A", "salePrice": 1}]
+                },
+            )
+        )
+    )
+    result = c.search("x")
+    assert result.skipped == 2 and [o.retailer_item_id for o in result.offers] == ["5"]

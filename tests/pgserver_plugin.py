@@ -30,11 +30,13 @@ def _bindir() -> Path:
         ).stdout.strip()
         if out and (Path(out) / "initdb").exists():
             return Path(out)
+
     def version(p):
         try:
             return int(Path(p).parent.name)
         except ValueError:
             return 0
+
     for p in sorted(glob.glob("/usr/lib/postgresql/*/bin"), key=version, reverse=True):
         if (Path(p) / "initdb").exists():
             return Path(p)
@@ -68,7 +70,14 @@ def _clean_stale(bindir: Path):
             continue
         if (d / "data" / "postmaster.pid").exists():
             subprocess.run(
-                [str(bindir / "pg_ctl"), "-D", str(d / "data"), "-m", "immediate", "stop"],
+                [
+                    str(bindir / "pg_ctl"),
+                    "-D",
+                    str(d / "data"),
+                    "-m",
+                    "immediate",
+                    "stop",
+                ],
                 capture_output=True,
             )
         shutil.rmtree(d, ignore_errors=True)
@@ -93,20 +102,43 @@ def _start() -> str:
     port = _free_port()
     try:
         subprocess.run(
-            [str(bindir / "initdb"), "-D", str(data), "-U", "postgres",
-             "--auth=trust", "-E", "UTF8", "--no-sync"],
-            check=True, capture_output=True, text=True,
+            [
+                str(bindir / "initdb"),
+                "-D",
+                str(data),
+                "-U",
+                "postgres",
+                "--auth=trust",
+                "-E",
+                "UTF8",
+                "--no-sync",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         )
         subprocess.run(
-            [str(bindir / "pg_ctl"), "-D", str(data), "-l", str(run / "log"), "-w",
-             "-o", f"-p {port} -c listen_addresses=127.0.0.1 "
-                   f"-c unix_socket_directories='' -c fsync=off",
-             "start"],
-            check=True, capture_output=True, text=True,
+            [
+                str(bindir / "pg_ctl"),
+                "-D",
+                str(data),
+                "-l",
+                str(run / "log"),
+                "-w",
+                "-o",
+                f"-p {port} -c listen_addresses=127.0.0.1 "
+                f"-c unix_socket_directories='' -c fsync=off",
+                "start",
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
         )
     except subprocess.CalledProcessError as e:
         shutil.rmtree(run, ignore_errors=True)
-        raise pytest.UsageError(f"Could not start test Postgres: {e.stderr or e.stdout}")
+        raise pytest.UsageError(
+            f"Could not start test Postgres: {e.stderr or e.stdout}"
+        )
     _state.update(bindir=bindir, run=run, data=data)
     return f"postgres://postgres@127.0.0.1:{port}/postgres"
 
@@ -121,7 +153,14 @@ def pytest_load_initial_conftests(early_config, parser, args):
 def pytest_unconfigure(config):
     if "run" in _state:
         subprocess.run(
-            [str(_state["bindir"] / "pg_ctl"), "-D", str(_state["data"]), "-m", "fast", "stop"],
+            [
+                str(_state["bindir"] / "pg_ctl"),
+                "-D",
+                str(_state["data"]),
+                "-m",
+                "fast",
+                "stop",
+            ],
             capture_output=True,
         )
         shutil.rmtree(_state["run"], ignore_errors=True)

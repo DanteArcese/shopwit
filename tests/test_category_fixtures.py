@@ -22,7 +22,9 @@ def _cases():
     params = []
     for path in sorted(FIXTURES.rglob("*.yaml")):
         slug = path.relative_to(FIXTURES).with_suffix("").as_posix()
-        for index, case in enumerate(yaml.safe_load(path.read_text(encoding="utf-8")) or []):
+        for index, case in enumerate(
+            yaml.safe_load(path.read_text(encoding="utf-8")) or []
+        ):
             params.append(pytest.param(case, index, id=f"{slug}:{index}"))
     return params
 
@@ -43,7 +45,8 @@ def _build(case, index):
     off = None
     if "off_labels" in case or "off_quantity" in case:
         off = OffProduct(
-            labels=frozenset(case.get("off_labels") or ()), quantity=case.get("off_quantity")
+            labels=frozenset(case.get("off_labels") or ()),
+            quantity=case.get("off_quantity"),
         )
     return raw, off
 
@@ -52,9 +55,13 @@ def test_fixture_files_map_to_categories_and_slugs():
     for path in sorted(FIXTURES.rglob("*.yaml")):
         slug = path.relative_to(FIXTURES).with_suffix("").as_posix()
         assert slug in CATEGORIES, f"fixture file {path} has no category {slug}"
-        for index, case in enumerate(yaml.safe_load(path.read_text(encoding="utf-8")) or []):
+        for index, case in enumerate(
+            yaml.safe_load(path.read_text(encoding="utf-8")) or []
+        ):
             category = case["expect"]["category"]
-            assert category is None or category == slug, f"{slug}:{index} expects {category}"
+            assert category is None or category == slug, (
+                f"{slug}:{index} expects {category}"
+            )
 
 
 @pytest.mark.parametrize("case,index", _cases())

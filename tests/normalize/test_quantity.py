@@ -144,7 +144,9 @@ def test_paper_hyphenated_sheet_token_not_sheet_count():
 
 
 def test_fraction_gallon():
-    assert parse_measures(["Horizon Organic Whole Milk, 1/2 gal"], "volume")["volume_ml"] == _r(1892.71)
+    assert parse_measures(["Horizon Organic Whole Milk, 1/2 gal"], "volume")[
+        "volume_ml"
+    ] == _r(1892.71)
 
 
 def test_half_dozen():

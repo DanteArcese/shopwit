@@ -23,13 +23,18 @@ def test_sync_creates_all_repo_categories():
     milk = Category.objects.get(slug="dairy/milk")
     assert milk.search[0] == "2% milk"
     assert milk.dimension == "volume"
-    assert Category.objects.get(slug="household/toilet-paper").parent_slug == "household/paper-goods"
+    assert (
+        Category.objects.get(slug="household/toilet-paper").parent_slug
+        == "household/paper-goods"
+    )
 
 
 @pytest.mark.django_db
 def test_sync_is_idempotent():
     sync_categories(REPO_CATEGORIES)
-    assert sync_categories(REPO_CATEGORIES) == SyncResult(created=0, updated=0, deactivated=0)
+    assert sync_categories(REPO_CATEGORIES) == SyncResult(
+        created=0, updated=0, deactivated=0
+    )
 
 
 @pytest.mark.django_db
@@ -52,7 +57,11 @@ def test_removed_category_deactivated_not_deleted(root):
 @pytest.mark.django_db
 def test_attribute_defs_replaced(root):
     sync_categories(root)
-    names = set(AttributeDef.objects.filter(category__slug="dairy/milk").values_list("name", flat=True))
+    names = set(
+        AttributeDef.objects.filter(category__slug="dairy/milk").values_list(
+            "name", flat=True
+        )
+    )
     assert {"fat", "organic"} <= names
     fat = AttributeDef.objects.get(category__slug="dairy/milk", name="fat")
     assert fat.type == "enum"
@@ -62,7 +71,11 @@ def test_attribute_defs_replaced(root):
     text = path.read_text()
     path.write_text(text.replace("  lactose_free:", "  lactose_free_renamed:"))
     assert sync_categories(root).updated == 1
-    names = set(AttributeDef.objects.filter(category__slug="dairy/milk").values_list("name", flat=True))
+    names = set(
+        AttributeDef.objects.filter(category__slug="dairy/milk").values_list(
+            "name", flat=True
+        )
+    )
     assert "lactose_free" not in names
     assert "lactose_free_renamed" in names
 

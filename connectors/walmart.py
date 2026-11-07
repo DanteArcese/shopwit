@@ -10,7 +10,7 @@ from decimal import Decimal, InvalidOperation
 
 import httpx
 from cryptography.hazmat.primitives import hashes, serialization
-from cryptography.hazmat.primitives.asymmetric import padding
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from connectors.base import ConnectorError, SearchResult
 from normalize.types import RawOffer
@@ -25,11 +25,17 @@ def load_private_key(text: str):
     text = text.strip()
     try:
         if text.startswith("-----BEGIN"):
-            return serialization.load_pem_private_key(text.encode(), password=None)
-        return serialization.load_der_private_key(base64.b64decode(text), password=None)
+            key = serialization.load_pem_private_key(text.encode(), password=None)
+        else:
+            key = serialization.load_der_private_key(
+                base64.b64decode(text), password=None
+            )
     except Exception:
         # Deliberately no chaining: the original message could echo key material.
         raise ConnectorError("Walmart private key could not be parsed") from None
+    if not isinstance(key, rsa.RSAPrivateKey):
+        raise ConnectorError("Walmart private key must be an RSA key")
+    return key
 
 
 def sign(consumer_id: str, timestamp_ms: str, key_version: str, private_key) -> str:
@@ -77,7 +83,7 @@ class WalmartConnector:
         }
 
     def search(self, query: str, limit: int = 25) -> SearchResult:
-        params = {"query": query, "numItems": str(limit)}
+        params = {"query": query, "numItems": str(limit), "responseGroup": "full"}
         if self._publisher_id:
             params["publisherId"] = self._publisher_id
         try:
@@ -89,11 +95,13 @@ class WalmartConnector:
         if resp.status_code != 200:
             raise ConnectorError(f"Walmart search failed with HTTP {resp.status_code}")
         try:
-            items = resp.json().get("items") or []
+            items = resp.json().get("items", [])
         except (ValueError, AttributeError):
             raise ConnectorError(
                 "Walmart search returned an unreadable response"
             ) from None
+        if not isinstance(items, list):
+            raise ConnectorError("Walmart search returned an unexpected response shape")
         fetched_at = datetime.now(UTC)
         offers: list[RawOffer] = []
         skipped = 0
@@ -106,14 +114,15 @@ class WalmartConnector:
         return SearchResult(offers, skipped)
 
     @staticmethod
-    def _map(item: dict, fetched_at: datetime) -> RawOffer | None:
+    def _map(item: object, fetched_at: datetime) -> RawOffer | None:
+        if not isinstance(item, dict):
+            return None
         name, item_id, sale = (
             item.get("name"),
             item.get("itemId"),
             item.get("salePrice"),
         )
-        url = item.get("productUrl")
-        if not name or item_id is None or sale is None or not url:
+        if not name or item_id is None or sale is None:
             return None
         try:
             price = Decimal(str(sale))
@@ -127,7 +136,7 @@ class WalmartConnector:
             title=name,
             price=price,
             currency="USD",
-            url=url,
+            url=f"https://www.walmart.com/ip/{item_id}",  # canonical; productTrackingUrl is never stored
             fetched_at=fetched_at,
             upc=item.get("upc"),
             brand=item.get("brandName"),

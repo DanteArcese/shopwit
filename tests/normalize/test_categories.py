@@ -65,7 +65,7 @@ def test_rejects_unknown_comparison(tmp_path):
 
 def test_enum_requires_values(tmp_path):
     bad = MINIMAL.replace("    values: [whole, skim]\n", "").replace(
-        "    synonyms:\n      whole: [\"full fat\"]\n", ""
+        '    synonyms:\n      whole: ["full fat"]\n', ""
     )
     write(tmp_path, "dairy/milk.yaml", bad)
     with pytest.raises(CategoryError):
