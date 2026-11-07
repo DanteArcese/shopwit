@@ -9,9 +9,9 @@ attributes:
     values: [medium, large, extra_large, jumbo]
     # "large" must not fire inside "extra large", so the plain sizes are patterns
     # (which win over synonyms) and only extra_large is a synonym.
-    patterns: ['\b(medium)\b', '(?<!extra )(?<!extra  )(?<!extra-)(?<!extra\u00a0)(?<!x-)(?<!x )\b(large)\b', '\b(jumbo)\b']
+    patterns: ['\b(medium)\b', '(?<!\bextra )(?<!\bextra  )(?<!\bextra-)(?<!\bextra\u00a0)(?<!\bx-)(?<!\bx )\b(large)\b', '\b(jumbo)\b']
     synonyms:
-      extra_large: [extra large, "extra  large", extra-large, x-large, xl]
+      extra_large: [extra large, "extra  large", "extra\u00a0large", extra-large, x-large, xl]
   housing:
     type: enum
     values: [caged, cage_free, free_range, pasture_raised]

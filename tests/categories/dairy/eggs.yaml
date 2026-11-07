@@ -74,3 +74,23 @@
   expect:
     category: dairy/eggs
     attributes: {size: extra_large}
+- title: "Six Large Eggs, 6 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: large}
+- title: "Box of Large Brown Eggs, 12 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: large}
+- title: "Mix Large Eggs, 12 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: large}
+- title: "Farmhouse Extra Large Eggs, 12 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}
