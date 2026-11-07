@@ -4,8 +4,6 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from functools import lru_cache
-
 from django.conf import settings
 from django.utils import timezone
 
@@ -79,39 +77,36 @@ def merge_product(product: Product, now: datetime | None = None) -> None:
     _sync_review_items(product, unresolved, now or timezone.now())
 
 
-@lru_cache(maxsize=4)
-def _categories(directory):
-    return load_categories(directory)
-
-
 def _apply_overrides(product: Product, offers: list, view: dict) -> list[str]:
     """Overlay manual attributes on the merged view and refresh offers' unit prices.
 
-    Mutates ``view["attributes"]``; returns the final unresolved list.
+    Mutates ``view["attributes"]``; returns the final unresolved list. Offers'
+    unit prices and ``unit_price:*`` entries are always rebuilt from their own
+    measures plus the product's final attributes, so removing an override
+    restores them.
     """
-    manual = product.manual_attributes
-    if not manual:
-        return view["unresolved"]
-    unresolved = set(view["unresolved"])
-    for name, value in manual.items():
+    unresolved = {e for e in view["unresolved"] if not e.startswith("unit_price:")}
+    for name, value in product.manual_attributes.items():
         view["attributes"][name] = {"value": value, "source": "manual"}
-        unresolved = {e for e in unresolved if not e.startswith(f"attribute:{name}")}
-    categories = _categories(settings.CATEGORIES_DIR)
+        unresolved = {
+            e for e in unresolved if e != f"attribute:{name}" and not e.startswith(f"attribute:{name}:")
+        }
+    categories = load_categories(settings.CATEGORIES_DIR)
     final = {n: AttrValue(a["value"], a["source"]) for n, a in view["attributes"].items()}
+    unit_entries = []
     for offer in offers:
         category = categories.get(offer.category.slug) if offer.category else None
-        if category is None:
-            continue
-        prices = unit_prices(offer.price, category, offer.measures, final)
-        offer.unit_prices = {k: str(v) for k, v in prices.items()}
-        offer.unresolved = [
-            e for e in offer.unresolved
-            if not (e.startswith("unit_price:") and e[len("unit_price:"):] in prices)
-        ]
-        offer.save(update_fields=["unit_prices", "unresolved", "updated_at"])
-    offer_sets = [{e for e in o.unresolved if e.startswith("unit_price:")} for o in offers]
-    shared = set.intersection(*offer_sets)
-    unresolved = {e for e in unresolved if not e.startswith("unit_price:") or e in shared}
+        if category is not None:
+            prices = {
+                k: str(v) for k, v in unit_prices(offer.price, category, offer.measures, final).items()
+            }
+            entries = [] if category.comparison_default in prices else [f"unit_price:{category.comparison_default}"]
+            rebuilt = [e for e in offer.unresolved if not e.startswith("unit_price:")] + entries
+            if (prices, rebuilt) != (offer.unit_prices, offer.unresolved):
+                offer.unit_prices, offer.unresolved = prices, rebuilt
+                offer.save(update_fields=["unit_prices", "unresolved", "updated_at"])
+        unit_entries.append({e for e in offer.unresolved if e.startswith("unit_price:")})
+    unresolved |= set.intersection(*unit_entries)
     return sorted(unresolved)
 
 

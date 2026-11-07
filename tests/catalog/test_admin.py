@@ -81,3 +81,23 @@ def test_admin_save_rejects_invalid_override(admin_client, product):
     assert b"Invalid value for ply" in r.content
     product.refresh_from_db()
     assert product.manual_attributes == {}
+
+
+def test_non_staff_redirected_to_login(client, db):
+    user = get_user_model().objects.create_user("joe", "j@example.com", "pw")
+    client.force_login(user)
+    r = client.get("/admin/catalog/reviewitem/")
+    assert r.status_code == 302 and "/admin/login/" in r["Location"]
+
+
+def test_only_manual_attributes_editable(admin_client, product):
+    import json
+
+    r = admin_client.post(
+        f"/admin/catalog/product/{product.pk}/change/",
+        {"title": "Hacked", "brand": "Evil", "manual_attributes": json.dumps({"ply": 3})},
+    )
+    assert r.status_code == 302
+    product.refresh_from_db()
+    assert product.title == "Soft TP" and product.brand is None
+    assert product.manual_attributes == {"ply": 3}

@@ -13,7 +13,7 @@ from catalog.models import Category, Offer, Product, ReviewItem
 from connectors.base import SearchResult
 from normalize.types import RawOffer
 
-from test_ingest import FakeConnector, no_off, raw
+from tests.catalog.helpers import FakeConnector, no_off, raw
 
 NOW = datetime(2026, 11, 7, 12, 0, tzinfo=timezone.utc)
 
@@ -127,3 +127,71 @@ def test_invalid_override_rejected(cats):
             validate_overrides(cat, bad)
     with pytest.raises(ValidationError, match="nope"):
         validate_overrides(milk, {"nope": 1})
+
+
+def tp_product(cats):
+    tp = Category.objects.get(slug="household/toilet-paper")
+    p = Product.objects.create(identity="x:tp", title="TP", category=tp)
+    o = make_offer(
+        p, tp, "1", measures={"area_m2": 10.0, "sheets": 200, "rolls": 4},
+        unresolved=["attribute:ply", "unit_price:area_x_ply"], price="20.00",
+        attrs={"brand_tier": attr("name_brand")},
+    )
+    return p, o
+
+
+def test_clearing_override_restores_unit_prices_and_reopens_item(cats):
+    p, o = tp_product(cats)
+    p.manual_attributes = {"ply": 2}
+    p.save()
+    merge_product(p, NOW)
+    o.refresh_from_db()
+    assert "area_x_ply" in o.unit_prices
+
+    p.manual_attributes = {}
+    p.save()
+    merge_product(p, NOW)
+    o.refresh_from_db()
+    assert "area_x_ply" not in o.unit_prices
+    assert "unit_price:area_x_ply" in o.unresolved
+    assert "unit_price:area_x_ply" in open_details(p)
+
+
+def test_narrowing_overrides_restores_unit_prices(cats):
+    p, o = tp_product(cats)
+    p.manual_attributes = {"ply": 2, "brand_tier": "store_brand"}
+    p.save()
+    merge_product(p, NOW)
+    p.manual_attributes = {"brand_tier": "store_brand"}
+    p.save()
+    merge_product(p, NOW)
+    o.refresh_from_db()
+    assert "area_x_ply" not in o.unit_prices
+    assert "unit_price:area_x_ply" in open_details(p)
+
+
+def test_override_unit_prices_survive_reingest(cats):
+    tp = Category.objects.get(slug="household/toilet-paper")
+    item = raw(title="Charmin Ultra Strong Toilet Paper, 18 Mega Rolls, 242 sheets per roll, 4 in x 3.92 in", item="T1", brand="Charmin")
+    conn = FakeConnector({tp.search[0]: SearchResult([item], 0)})
+    ingest(conn, tp, NOW, off_lookup=no_off)
+    p = Product.objects.get(identity="fake:T1")
+    p.manual_attributes = {"ply": 2}
+    p.save()
+    merge_product(p, NOW)
+    o = p.offers.get()
+    assert "area_x_ply" in o.unit_prices
+    before = dict(o.unit_prices)
+    ingest(conn, tp, NOW, off_lookup=no_off)
+    o.refresh_from_db()
+    assert o.unit_prices == before
+    assert "unit_price:area_x_ply" not in o.unresolved
+
+
+def test_override_does_not_collide_on_attribute_prefix(cats):
+    milk = Category.objects.get(slug="dairy/milk")
+    p = Product.objects.create(identity="x:4", title="Milk", category=milk)
+    make_offer(p, milk, "1", measures={"volume_ml": 1000}, unresolved=["attribute:fat_free:ambiguous"])
+    p.manual_attributes = {"fat": "2"}
+    merge_product(p, NOW)
+    assert "attribute:fat_free:ambiguous" in open_details(p)

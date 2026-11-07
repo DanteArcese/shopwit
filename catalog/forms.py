@@ -43,7 +43,7 @@ def validate_overrides(category: Category | None, data: Mapping[str, object]) ->
 class ProductAdminForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ["identity", "upc", "category", "title", "brand", "manual_attributes"]
+        fields = ["manual_attributes"]
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -51,10 +51,10 @@ class ProductAdminForm(forms.ModelForm):
 
     def clean(self):
         cleaned = super().clean()
-        if "manual_attributes" in cleaned and "category" in cleaned:
+        if "manual_attributes" in cleaned:
             try:
                 cleaned["manual_attributes"] = validate_overrides(
-                    cleaned["category"], cleaned["manual_attributes"] or {}
+                    self.instance.category, cleaned["manual_attributes"] or {}
                 )
             except ValidationError as exc:
                 self.add_error("manual_attributes", exc)

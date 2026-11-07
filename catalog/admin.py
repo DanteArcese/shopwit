@@ -41,7 +41,7 @@ class ReviewItemAdmin(admin.ModelAdmin):
     def category(self, obj):
         return obj.product.category
 
-    @admin.action(description="Mark resolved")
+    @admin.action(description="Mark resolved (reopens on the next ingest if the condition persists)")
     def mark_resolved(self, request, queryset):
         n = queryset.filter(status=ReviewItem.Status.OPEN).update(
             status=ReviewItem.Status.RESOLVED, resolved_at=timezone.now()
@@ -55,7 +55,8 @@ class ProductAdmin(admin.ModelAdmin):
     list_display = ("title", "brand", "category")
     list_filter = ("category",)
     search_fields = ("title", "identity", "upc")
-    readonly_fields = ("attributes", "measures")
+    readonly_fields = ("identity", "upc", "category", "title", "brand", "attributes", "measures")
+    fields = readonly_fields + ("manual_attributes",)
 
     def save_model(self, request, obj, form, change):
         super().save_model(request, obj, form, change)
