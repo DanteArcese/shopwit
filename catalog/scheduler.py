@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import logging
 import signal
-import time
+import threading
+from contextlib import contextmanager
 from collections.abc import Callable, Mapping
 from datetime import datetime
 
@@ -45,12 +46,33 @@ def log_run(run: IngestionRun) -> None:
     )
 
 
+def _fail_run(name: str, slug: str, now: datetime, exc: Exception) -> IngestionRun:
+    """Mark the run an unexpected error left behind as failed (type name only, no message)."""
+    run = (
+        IngestionRun.objects.filter(
+            connector=name, category_slug=slug, status=IngestionRun.Status.RUNNING
+        )
+        .order_by("-id")
+        .first()
+    ) or IngestionRun(connector=name, category_slug=slug, started_at=now)
+    run.status = IngestionRun.Status.FAILED
+    run.error = type(exc).__name__
+    run.finished_at = now
+    run.save()
+    return run
+
+
 def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> list[IngestionRun]:
     if connectors is None:
         connectors = registry.available()
     runs = []
     for name, slug in due(now, connectors):
-        run = ingest(connectors[name], Category.objects.get(slug=slug), now)
+        try:
+            run = ingest(connectors[name], Category.objects.get(slug=slug), now)
+        except Exception as exc:  # one bad pair must not stop the others
+            logger.error("ingest connector=%s category=%s failed: %s", name, slug, type(exc).__name__)
+            runs.append(_fail_run(name, slug, now, exc))
+            continue
         log_run(run)
         runs.append(run)
     return runs
@@ -60,26 +82,29 @@ def run_loop(
     poll_seconds: float = 300,
     *,
     once: bool = False,
-    sleep: Callable[[float], None] = time.sleep,
+    wait: Callable[[float], object] | None = None,
     now: Callable[[], datetime] = timezone.now,
-    should_stop: Callable[[], bool] = lambda: False,
+    stop: threading.Event | None = None,
     connectors: Mapping[str, Connector] | None = None,
 ) -> None:
-    """Tick, then sleep; a stop request is honoured after the current tick finishes."""
-    while True:
+    """Tick, then wait; a stop request ends the wait at once and the loop exits."""
+    stop = stop or threading.Event()
+    wait = wait or stop.wait
+    while not stop.is_set():
         tick(now(), connectors)
-        if once or should_stop():
+        if once:
             return
-        sleep(poll_seconds)
-        if should_stop():
-            return
+        wait(poll_seconds)
 
 
-def install_sigterm_flag() -> Callable[[], bool]:
-    stopped = {"flag": False}
-
-    def handler(signum, frame):
-        stopped["flag"] = True
-
-    signal.signal(signal.SIGTERM, handler)
-    return lambda: stopped["flag"]
+@contextmanager
+def sigterm_stops(stop: threading.Event):
+    """Set `stop` on SIGTERM for the duration; restores the previous handler."""
+    if threading.current_thread() is not threading.main_thread():
+        yield
+        return
+    previous = signal.signal(signal.SIGTERM, lambda signum, frame: stop.set())
+    try:
+        yield
+    finally:
+        signal.signal(signal.SIGTERM, previous)

@@ -13,7 +13,7 @@ from connectors.recording import recorded_transport
 from connectors.walmart import WalmartConnector
 
 
-def _recorded_walmart(directory: str) -> WalmartConnector:
+def _recorded_walmart(directory: str) -> tuple[WalmartConnector, httpx.Client]:
     """Offline connector: placeholder credentials, throwaway key, recorded responses."""
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     pem = key.private_bytes(
@@ -22,7 +22,7 @@ def _recorded_walmart(directory: str) -> WalmartConnector:
         serialization.NoEncryption(),
     ).decode()
     client = httpx.Client(transport=recorded_transport(Path(directory)))
-    return WalmartConnector("recorded", pem, "1", client=client)
+    return WalmartConnector("recorded", pem, "1", client=client), client
 
 
 class Command(BaseCommand):
@@ -35,15 +35,22 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         name, slug, recordings = options["connector"], options["category"], options["recordings"]
+        client = None
         if recordings:
+            name = name or "walmart"
             if name != "walmart":
                 raise CommandError("--recordings is supported only with --connector walmart")
-            connectors = {"walmart": _recorded_walmart(recordings)}
+            connector, client = _recorded_walmart(recordings)
+            connectors = {"walmart": connector}
         else:
+            if name and name not in registry.SPECS:
+                raise CommandError(
+                    f"Unknown connector {name!r}; valid connectors: {', '.join(sorted(registry.SPECS))}"
+                )
             connectors = registry.available()
             if name:
                 if name not in connectors:
-                    needs = registry.SPECS[name].required.values() if name in registry.SPECS else []
+                    needs = registry.SPECS[name].required.values()
                     raise CommandError(
                         f"Connector {name!r} is not available; required environment variables: "
                         + ", ".join(needs)
@@ -55,16 +62,20 @@ class Command(BaseCommand):
                     "No connectors available. Set environment variables: " + ", ".join(needs)
                 )
 
-        categories = Category.objects.filter(active=True).order_by("slug")
-        if slug:
-            categories = categories.filter(slug=slug)
-            if not categories.exists():
-                raise CommandError(f"No active category {slug!r}")
-        for connector_name, connector in connectors.items():
-            for category in categories:
-                run = ingest(connector, category, timezone.now())
-                self.stdout.write(
-                    f"{connector_name} {category.slug} status={run.status} fetched={run.fetched} "
-                    f"matched={run.matched} fully_parsed={run.fully_parsed} "
-                    f"unresolved={run.unresolved} skipped={run.skipped}"
-                )
+        try:
+            categories = Category.objects.filter(active=True).order_by("slug")
+            if slug:
+                categories = categories.filter(slug=slug)
+                if not categories.exists():
+                    raise CommandError(f"No active category {slug!r}")
+            for connector_name, connector in connectors.items():
+                for category in categories:
+                    run = ingest(connector, category, timezone.now())
+                    self.stdout.write(
+                        f"{connector_name} {category.slug} status={run.status} fetched={run.fetched} "
+                        f"matched={run.matched} fully_parsed={run.fully_parsed} "
+                        f"unresolved={run.unresolved} skipped={run.skipped}"
+                    )
+        finally:
+            if client is not None:
+                client.close()

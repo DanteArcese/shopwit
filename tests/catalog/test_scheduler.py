@@ -1,4 +1,6 @@
 import logging
+import signal
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -76,8 +78,19 @@ def test_refresh_command_with_recordings(cats, monkeypatch):
     for var in ("WALMART_CONSUMER_ID", "WALMART_PRIVATE_KEY", "WALMART_KEY_VERSION"):
         monkeypatch.delenv(var, raising=False)
     call_command("refresh", connector="walmart", category="dairy/milk", recordings=str(RECORDINGS))
-    assert Offer.objects.filter(retailer="walmart").count() > 0
+    ids = set(Offer.objects.filter(retailer="walmart").values_list("retailer_item_id", flat=True))
+    assert ids == {"20101", "20102", "20103", "20104", "20105", "20106", "20107"}
     assert IngestionRun.objects.filter(connector="walmart", status="succeeded").exists()
+
+
+def test_refresh_recordings_defaults_to_walmart(cats):
+    call_command("refresh", category="dairy/milk", recordings=str(RECORDINGS))
+    assert IngestionRun.objects.filter(connector="walmart", status="succeeded").exists()
+
+
+def test_refresh_unknown_connector_names_valid_ones(cats):
+    with pytest.raises(CommandError, match="walmart"):
+        call_command("refresh", connector="nope")
 
 
 def test_refresh_rejects_recordings_for_other_connector(cats):
@@ -95,7 +108,6 @@ def test_refresh_without_connectors_names_env_vars(cats, monkeypatch):
 def test_run_scheduler_once(cats, monkeypatch, caplog):
     Category.objects.exclude(slug="dairy/milk").update(active=False)
     monkeypatch.setattr(scheduler.registry, "available", lambda *a, **k: {"fake": FakeConnector()})
-    sleeps = []
     with caplog.at_level(logging.INFO, logger="catalog.scheduler"):
         call_command("run_scheduler", once=True)
     assert IngestionRun.objects.filter(connector="fake", status="succeeded").count() == 1
@@ -103,17 +115,67 @@ def test_run_scheduler_once(cats, monkeypatch, caplog):
     assert "dairy/milk" in line and "fetched=" in line
 
 
-def test_run_loop_sleeps_and_stops_on_flag(cats):
+def test_run_loop_exits_promptly_when_stopped_during_wait(cats):
     Category.objects.update(active=False)
-    sleeps = []
-    stop = {"n": 0}
+    stop = threading.Event()
+    waits = []
 
-    def sleep(s):
-        sleeps.append(s)
-        stop["n"] += 1
+    def wait(seconds):
+        waits.append(seconds)
+        stop.set()
 
+    ticks = []
     scheduler.run_loop(
-        poll_seconds=7, sleep=sleep, now=lambda: NOW,
-        should_stop=lambda: stop["n"] >= 2, connectors={},
+        poll_seconds=7, wait=wait, now=lambda: ticks.append(1) or NOW, stop=stop, connectors={}
     )
-    assert sleeps == [7, 7]
+    assert waits == [7] and len(ticks) == 1
+
+
+def test_default_wait_is_interrupted_by_stop():
+    stop = threading.Event()
+    stop.set()
+    # would block 60s if the default wait were time.sleep
+    scheduler.run_loop(poll_seconds=60, once=False, now=lambda: NOW, stop=stop, connectors={})
+
+
+def test_sigterm_handler_restored_after_command(cats):
+    before = signal.getsignal(signal.SIGTERM)
+    call_command("run_scheduler", once=True)
+    assert signal.getsignal(signal.SIGTERM) is before
+
+
+def test_sigterm_sets_stop_event_and_restores():
+    stop = threading.Event()
+    before = signal.getsignal(signal.SIGTERM)
+    with scheduler.sigterm_stops(stop):
+        signal.raise_signal(signal.SIGTERM)
+        assert stop.is_set()
+    assert signal.getsignal(signal.SIGTERM) is before
+
+
+def test_command_does_not_change_logger_level(cats):
+    level = scheduler.logger.level
+    call_command("run_scheduler", once=True)
+    assert scheduler.logger.level == level
+
+
+class Exploding(FakeConnector):
+    def search(self, query, limit=25):
+        raise RuntimeError("secret-token-123")
+
+
+def test_tick_isolates_unexpected_errors_per_pair(cats, caplog):
+    Category.objects.exclude(slug="dairy/milk").update(active=False)
+    good = FakeConnector()
+    good.name = "good"
+    bad = Exploding()
+    bad.name = "bad"
+    with caplog.at_level(logging.INFO, logger="catalog.scheduler"):
+        runs = scheduler.tick(NOW, {"bad": bad, "good": good})
+    by = {r.connector: r for r in runs}
+    assert by["bad"].status == IngestionRun.Status.FAILED
+    assert by["bad"].error == "RuntimeError"
+    assert by["good"].status == IngestionRun.Status.SUCCEEDED
+    assert not IngestionRun.objects.filter(status="running").exists()
+    text = " ".join(r.getMessage() for r in caplog.records)
+    assert "secret-token-123" not in text and "RuntimeError" in text
