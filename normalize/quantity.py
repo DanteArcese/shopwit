@@ -59,11 +59,12 @@ def _multiplier(text: str, start: int) -> int:
 def _measure(
     text: str, rx: re.Pattern[str], units: list[tuple[str, str]], target: str
 ) -> float | None:
-    for m in rx.finditer(text):
-        unit = next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
-        value = float(m.group(1)) * _multiplier(text, m.start())
-        return float((value * _ureg(unit)).to(target).magnitude)
-    return None
+    m = rx.search(text)
+    if not m:
+        return None
+    unit = next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
+    value = float(m.group(1)) * _multiplier(text, m.start())
+    return float((value * _ureg(unit)).to(target).magnitude)
 
 
 def _volume(text: str) -> Measures:
@@ -98,7 +99,12 @@ def _count(text: str) -> Measures:
 
 
 # --- paper -------------------------------------------------------------------
-_ROLLS_RE = re.compile(r"(?<![\w.])(\d+)\s+(?:[A-Za-z]+\s+){0,2}?rolls?\b", re.IGNORECASE)
+_ROLL_ADJECTIVES = (
+    "mega|double|triple|super|giant|jumbo|regular|family|big|huge|ultra|standard|plus"
+)
+_ROLLS_RE = re.compile(
+    rf"(?<![\w.])(\d+)\s+(?:(?:{_ROLL_ADJECTIVES})\s+)*rolls?\b", re.IGNORECASE
+)
 _SHEETS_PER_ROLL_RE = re.compile(r"(\d+)\s*sheets?\s*(?:per|/)\s*roll\b", re.IGNORECASE)
 _SHEET_SIZE_RE = re.compile(
     rf'{_NUM}\s*(?:in\b|")?\s*x\s*{_NUM}\s*(?:in\b|")', re.IGNORECASE

@@ -94,3 +94,14 @@ def test_first_parseable_text_wins():
 
 def test_unparseable_returns_empty():
     assert parse_measures(["Organic Milk"], "volume") == {}
+
+
+def test_paper_sheets_per_roll_not_taken_as_rolls():
+    m = parse_measures(["242 sheets per roll, 12 Rolls"], "paper")
+    assert m["rolls"] == 12
+    assert m["sheets"] == 2904
+
+
+def test_paper_no_n_rolls_phrase_returns_empty():
+    t = "Scott 1000 Toilet Paper Rolls, 12 Count"
+    assert parse_measures([t], "paper") == {}
