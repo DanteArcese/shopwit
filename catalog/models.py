@@ -116,3 +116,14 @@ class IngestionRun(TimestampedModel):
     unresolved = models.IntegerField(default=0)
     skipped = models.IntegerField(default=0)
     error = models.TextField(blank=True)
+
+
+class OffEntry(models.Model):
+    """Slim Open Food Facts / Open Products Facts cache row, keyed by normalized UPC."""
+
+    upc = models.CharField(max_length=14, primary_key=True)
+    source = models.CharField(max_length=3)
+    labels = models.JSONField(default=list)
+    quantity = models.CharField(max_length=200, null=True, blank=True)
+    last_modified = models.DateTimeField(null=True, blank=True)
+    fetched_at = models.DateTimeField(auto_now=True)
