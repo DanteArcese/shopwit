@@ -187,3 +187,36 @@ def test_paper_multipack_is_unresolved():
     assert parse_measures(["Toilet Paper 12 Rolls 2-Ply, 2 Pack"], "paper") == {}
     assert parse_measures(["Toilet Paper, Pack of 2, 12 Rolls"], "paper") == {}
     assert parse_measures(["Toilet Paper 2 x 12 Rolls"], "paper") == {}
+
+
+def test_vulgar_fractions_are_not_multiplied():
+    assert parse_measures(["Milk ½ gal"], "volume")["volume_ml"] == _r(1892.71)
+    assert parse_measures(["Milk 1½ gal"], "volume")["volume_ml"] == _r(5678.12)
+    assert parse_measures(["Eggs ½ Dozen"], "count")["count"] == 6
+    assert parse_measures(["Coffee ¾ lb"], "mass")["mass_g"] == _r(340.19)
+
+
+def test_paper_sheet_dimensions_are_not_multipack():
+    out = parse_measures(
+        ["Bounty Select-A-Size Paper Towels, 6 Double Rolls, 11 x 10.4 in"], "paper"
+    )
+    assert out["rolls"] == 6
+    assert "area_m2" not in out  # no sheet count: area would be a guess
+    out = parse_measures(["Paper Towels, 6 Double Rolls, 11x10.4 in"], "paper")
+    assert out["rolls"] == 6
+    out = parse_measures(['Paper Towels, 6 Rolls, 11 x 10.4"'], "paper")
+    assert out["rolls"] == 6
+    assert parse_measures(["Toilet Paper 12 Rolls 2-Ply, 2 Pack"], "paper") == {}
+
+
+def test_paper_area_present_with_sheets_and_dimensions():
+    out = parse_measures(
+        ["Paper Towels, 6 Double Rolls, 100 sheets per roll, 11 x 10.4 in"], "paper"
+    )
+    assert out["rolls"] == 6 and out["area_m2"] > 0
+
+
+def test_dozen_after_word_punctuation():
+    assert parse_measures(["Grade A Large Eggs, Dozen"], "count")["count"] == 12
+    assert parse_measures(["Eggs. Dozen"], "count")["count"] == 12
+    assert parse_measures(["Eggs 1,5 Dozen"], "count") == {}

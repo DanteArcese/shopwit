@@ -174,3 +174,8 @@ def test_brand_field_feeds_organic(milk):
 def test_synonym_folds_whitespace_and_quotes(milk):
     attrs, _ = extract_attributes(offer("Reduced\u00a0 Fat  Milk"), milk, None)
     assert attrs["fat"].value == "2"
+
+
+def test_title_brand_join_cannot_yield_fat(milk):
+    attrs, _ = extract_attributes(offer("Whole", brand="Milk Co"), milk, None)
+    assert "fat" not in attrs

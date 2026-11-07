@@ -60,3 +60,12 @@
 - title: "Coffee Cake, 16 oz"
   expect:
     category: null
+- title: "Starbucks Coffee Capsule 10 ct"
+  expect:
+    category: null
+- title: "Coffee Pancake Mix"
+  expect:
+    category: null
+- title: "Coffee Cupcake"
+  expect:
+    category: null

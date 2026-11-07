@@ -132,3 +132,14 @@ def test_leading_space_title_prefix():
 def test_variety_pack_milk_excluded():
     cats = {"dairy/milk": cat("dairy/milk", ["milk"], ["variety pack", "variety"])}
     assert match_category(offer("Variety Pack Whole Milk and 2% Milk"), cats) is None
+
+
+def test_trademark_symbols_do_not_break_match():
+    cats = {"dairy/milk": MILK}
+    assert match_category(offer("Horizon Organic Whole Milk™, 1 Gallon"), cats) == "dairy/milk"
+    assert match_category(offer("Milk℠ 1 gal"), cats) == "dairy/milk"
+
+
+def test_title_brand_join_cannot_span_phrase():
+    cats = {"dairy/whole": cat("dairy/whole", ["whole milk"])}
+    assert match_category(offer("Whole", brand="Milk Co"), cats) is None
