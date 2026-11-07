@@ -75,6 +75,12 @@ M0 and M1 run in parallel: M1 needs no API keys.
 
 ---
 
+## Rename: shopwit → UnitPricer (between M2 and M3)
+
+Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on Cloudflare, and `hello@unitpricer.com` forwards to the maintainer. Done right after M2 merges, before M3 adds templates and copy ([#26](https://github.com/DanteArcese/shopwit/issues/26)): GitHub repo, Python metadata, User-Agent strings, docs, CLAUDE.md.
+
+---
+
 ## M3: Browse and search, usable for you
 
 **Goal:** The core experience: "2% milk", ranked by unit price (§4 items 1–4, §5.4, §7, §10).
@@ -91,7 +97,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 
 ⛳ **Checkpoint B: dogfood, name and first deploy.**
 1. **Dogfood.** Use it for real shopping for two weeks. Log every wrong attribute, missing product and confusing screen as an issue, and fix the worst before M4.
-2. **Final name and domain.** Shortlist: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen. Re-check availability, check trademarks, register the domain. Moved here from Checkpoint C because affiliate programs (Sovrn especially) approve a live site only after it has generated clicks.
+2. **Final name and domain.** ✅ Done early: **UnitPricer**, `unitpricer.com` (Cloudflare Registrar). Remaining: DNSSEC and a DMARC record in the Cloudflare dashboard.
 3. **Production hosting.** Compare a VPS (Docker Compose), a PaaS (Fly.io, Railway, Render) and serverless (Vercel). This needs a long-running worker and Postgres, which serverless suits poorly. Decide on cost, operations effort and backups.
 4. **First deploy** on the chosen host (TLS, backups, error monitoring), with the affiliate disclosure page. Then register the domain with Sovrn and the other programs so approval runs in parallel with M4–M5.
 5. **Sovrn merchant audit.** With shopwit's own site key, script the Approved Merchants API to list every grocery and household merchant that is actually monetizable, marked by whether shopwit has a data source for it. Feeds Checkpoint D.
@@ -133,7 +139,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 
 | # | Task |
 |---|---|
-| 6.1 | Rename codename → final name (repo, package, templates), if not already done at Checkpoint B |
+| 6.1 | (Done after M2: rename shopwit → UnitPricer, #26) |
 | 6.2 | Production hardening: uptime checks, alerting, restore drill for backups |
 | 6.3 | Legal pages: privacy policy, terms, affiliate disclosure (FTC and each program's required wording) |
 | 6.4 | SEO: indexable category landing pages ("cheapest 2-ply toilet paper"), sitemap, structured data, canonical URLs for filter combinations |
