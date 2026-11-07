@@ -9,7 +9,8 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 
 def env(name, default=None):
-    return os.environ.get(name, default)
+    # Empty counts as unset, so a copied .env.example with blank values works.
+    return os.environ.get(name) or default
 
 
 DEBUG = env("DJANGO_DEBUG", "0") == "1"
@@ -61,7 +62,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
-DATABASES = {"default": dj_database_url.parse(env("DATABASE_URL", ""))}
+_database_url = env("DATABASE_URL")
+# Unset DATABASE_URL leaves Django on its dummy backend; DB access then fails loudly.
+DATABASES = {"default": dj_database_url.parse(_database_url) if _database_url else {}}
 
 AUTH_PASSWORD_VALIDATORS = [
     {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},

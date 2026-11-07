@@ -17,3 +17,37 @@ def test_refresh_and_freshness_defaults(settings):
 
 def test_system_checks_pass():
     call_command("check")
+
+
+def test_dockerignore_excludes_secrets():
+    from pathlib import Path
+
+    lines = (Path(__file__).resolve().parents[2] / ".dockerignore").read_text().split()
+    assert {".env", ".env.*", ".git", ".venv"} <= set(lines)
+
+
+def test_blank_env_values_mean_unset():
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    env = {
+        **os.environ,
+        "SHOPWIT_REFRESH_HOURS": "",
+        "SHOPWIT_FRESHNESS_HOURS": "",
+        "DJANGO_ALLOWED_HOSTS": "",
+        "DJANGO_SECRET_KEY": "",
+        "DJANGO_DEBUG": "1",
+        "DATABASE_URL": "",
+    }
+    code = (
+        "import config.settings as s;"
+        "print(s.REFRESH_INTERVAL.total_seconds(), s.FRESHNESS_CUTOFF.total_seconds())"
+    )
+    root = Path(__file__).resolve().parents[2]
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, cwd=root, capture_output=True, text=True
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.split() == ["43200.0", "86400.0"]
