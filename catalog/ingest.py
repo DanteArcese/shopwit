@@ -13,21 +13,19 @@ from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.types import NormalizedOffer
 
-from . import overrides
 from .identity import product_identity
 from .merge import merge_product
 from .models import Category, IngestionRun, Offer, PriceHistory, Product
 
 
 def _upsert(connector, raw, normalized: NormalizedOffer, model_cache: dict, now: datetime):
-    """Write one offer and refresh its product; returns the (possibly overridden) result."""
+    """Write one offer and refresh its product; returns the normalized offer."""
     category = model_cache.get(normalized.category) or Category.objects.get(slug=normalized.category)
     model_cache[normalized.category] = category
     product, _ = Product.objects.get_or_create(
         identity=product_identity(raw),
         defaults={"title": raw.title, "upc": normalize_upc(raw.upc), "category": category},
     )
-    normalized = overrides.apply(product, normalized)
 
     offer, _ = Offer.objects.update_or_create(
         retailer=raw.retailer,
