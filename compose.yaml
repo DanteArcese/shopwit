@@ -1,0 +1,33 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: shopwit
+      POSTGRES_PASSWORD: shopwit
+      POSTGRES_DB: shopwit
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+  web:
+    build: .
+    command: uv run python manage.py runserver 0.0.0.0:8000
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://shopwit:shopwit@db:5432/shopwit
+    ports:
+      - "8000:8000"
+    depends_on: [db]
+  worker:
+    build: .
+    command: uv run python manage.py run_scheduler
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://shopwit:shopwit@db:5432/shopwit
+    depends_on: [db]
+volumes:
+  pgdata:

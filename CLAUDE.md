@@ -13,7 +13,11 @@ uv sync              # Install dependencies
 uv add <package>     # Add a dependency
 uv run pytest        # Run tests
 uv run --env-file .env <command>   # Run with local secrets
+uv run --env-file .env python manage.py runserver   # Run the app (needs DJANGO_SECRET_KEY, DATABASE_URL)
+docker compose up    # Or run db + web + worker in containers
 ```
+
+Tests need real Postgres. With `DATABASE_URL` unset, `tests/pgserver_plugin.py` starts a throwaway cluster in `.pytest-pg/` from system binaries (one-time `sudo apt install postgresql`). CI uses a postgres:17 service.
 
 ## Standards
 
