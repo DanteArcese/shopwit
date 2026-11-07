@@ -58,6 +58,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 ## M2: Catalog and ingestion
 
 **Goal:** A local Postgres catalog filled on a schedule from at least one source (§5.1, §5.3, §13).
+**Plan:** [`plans/2026-11-07-m2-catalog-ingestion.md`](superpowers/plans/2026-11-07-m2-catalog-ingestion.md)
 
 | # | Task |
 |---|---|
@@ -93,6 +94,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 2. **Final name and domain.** Shortlist: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen. Re-check availability, check trademarks, register the domain. Moved here from Checkpoint C because affiliate programs (Sovrn especially) approve a live site only after it has generated clicks.
 3. **Production hosting.** Compare a VPS (Docker Compose), a PaaS (Fly.io, Railway, Render) and serverless (Vercel). This needs a long-running worker and Postgres, which serverless suits poorly. Decide on cost, operations effort and backups.
 4. **First deploy** on the chosen host (TLS, backups, error monitoring), with the affiliate disclosure page. Then register the domain with Sovrn and the other programs so approval runs in parallel with M4–M5.
+5. **Sovrn merchant audit.** With shopwit's own site key, script the Approved Merchants API to list every grocery and household merchant that is actually monetizable, marked by whether shopwit has a data source for it. Feeds Checkpoint D.
 
 ---
 
