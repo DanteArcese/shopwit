@@ -1,8 +1,10 @@
 [project]
 name = "shopwit"
 version = "0.1.0"
-description = "Add your description here"
+description = "Open-source grocery and household price-per-unit comparison"
 readme = "README.md"
+license = "AGPL-3.0-or-later"
+license-files = ["LICENSE"]
 requires-python = ">=3.13"
 dependencies = [
     "pint>=0.26.2",

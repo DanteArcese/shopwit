@@ -10,10 +10,10 @@ which this roadmap references by section (§).
 
 ```
 M0 Access & foundations ──┐
-                          ├─► M2 Catalog & ingestion ─► M3 Browse & search ─► ⛳ dogfood ─► M4 Lists & accounts
-M1 Normalizer core ───────┘                                                                        │
-                                                                                                   ▼
-            M7 Nutrition per $ ◄─ M6 Launch ◄─ ⛳ name, hosting, public repo ◄─ M5 Coverage & quality
+                          ├─► M2 Catalog & ingestion ─► M3 Browse & search ─► ⛳ dogfood, name, deploy ─► M4 Lists & accounts
+M1 Normalizer core ───────┘                                                                                      │
+                                                                                                                 ▼
+            M7 Nutrition per $ ◄─ M6 Launch ◄─ ⛳ launch readiness ◄─ M5 Coverage & quality
 ```
 
 M0 and M1 run in parallel: M1 needs no API keys.
@@ -28,11 +28,9 @@ M0 and M1 run in parallel: M1 needs no API keys.
 |---|---|---|
 | 0.1 | Apply to Amazon Associates; read the Creators API eligibility rules | Know whether API access needs qualifying sales, and the threshold |
 | 0.2 | Apply for Walmart affiliate and developer API access | Credentials in `.env`, or a documented rejection or limit |
-| 0.3 | Sovrn Commerce: get approved; spike the Price Comparison and Product Data APIs (throwaway script) | Written answer: does it cover grocery and household merchants, and does it return size? |
+| 0.3 | Sovrn Commerce: spike the Price Comparison and Product Data APIs (throwaway script) using an existing campaign's keys; shopwit's own site is registered at Checkpoint B | Written answer: does it cover grocery and household merchants, and does it return size? |
 | 0.4 | Evaluate Open Food Facts: the API vs. the nightly dump, label taxonomy, US coverage for 20 sample UPCs | Written answer and a choice of API or dump |
-| 0.5 | Repo hygiene: LICENSE, README, CONTRIBUTING (including "how to add a category"), `.env.example` entries | Files merged |
-
-The license choice for 0.5 needs your call. **AGPL-3.0** prevents closed hosted forks; **MIT** is the most permissive. Either works with ODbL data.
+| 0.5 | Repo hygiene: LICENSE (AGPL-3.0-or-later, done), README, CONTRIBUTING (including "how to add a category" and the fixture format), `.env.example` entries (done) | Files merged |
 
 ⛳ **Checkpoint A: connector order.** Choose the first connector for M2 from 0.1–0.3. If neither Amazon nor Walmart is usable yet, M2 uses recorded fixtures and the first live connector moves to M5.
 
@@ -90,7 +88,11 @@ The license choice for 0.5 needs your call. **AGPL-3.0** prevents closed hosted 
 | 3.6 | `/go/<offer_id>` redirect: affiliate tagging, click logging without personal data, disclosure text |
 | 3.7 | Responsive layout pass (phone in the aisle, desktop at home) |
 
-⛳ **Checkpoint B: dogfood.** Use it for real shopping for two weeks. Log every wrong attribute, missing product and confusing screen as an issue, and fix the worst before M4.
+⛳ **Checkpoint B: dogfood, name and first deploy.**
+1. **Dogfood.** Use it for real shopping for two weeks. Log every wrong attribute, missing product and confusing screen as an issue, and fix the worst before M4.
+2. **Final name and domain.** Shortlist: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen. Re-check availability, check trademarks, register the domain. Moved here from Checkpoint C because affiliate programs (Sovrn especially) approve a live site only after it has generated clicks.
+3. **Production hosting.** Compare a VPS (Docker Compose), a PaaS (Fly.io, Railway, Render) and serverless (Vercel). This needs a long-running worker and Postgres, which serverless suits poorly. Decide on cost, operations effort and backups.
+4. **First deploy** on the chosen host (TLS, backups, error monitoring), with the affiliate disclosure page. Then register the domain with Sovrn and the other programs so approval runs in parallel with M4–M5.
 
 ---
 
@@ -121,10 +123,7 @@ The license choice for 0.5 needs your call. **AGPL-3.0** prevents closed hosted 
 | 5.4 | "Report a wrong attribute" link, feeding the review queue |
 | 5.5 | Performance pass: query plans for filtered category pages; indexes on JSONB attributes |
 
-⛳ **Checkpoint C: launch decisions.**
-1. **Final name and domain.** Shortlist: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen. Re-check availability, check trademarks, register the domain.
-2. **Production hosting.** Compare a VPS (Docker Compose), a PaaS (Fly.io, Railway, Render) and serverless (Vercel). This needs a long-running worker and Postgres, which serverless suits poorly. Decide on cost, operations effort and backups.
-3. **Make the GitHub repo public**, if it isn't already.
+⛳ **Checkpoint C: launch readiness.** Affiliate programs approved for the live domain; coverage and parse rates good enough for strangers; legal pages reviewed.
 
 ---
 
@@ -132,8 +131,8 @@ The license choice for 0.5 needs your call. **AGPL-3.0** prevents closed hosted 
 
 | # | Task |
 |---|---|
-| 6.1 | Rename codename → final name (repo, package, templates) |
-| 6.2 | Production deploy on the chosen host: TLS, backups, error monitoring, uptime check |
+| 6.1 | Rename codename → final name (repo, package, templates), if not already done at Checkpoint B |
+| 6.2 | Production hardening: uptime checks, alerting, restore drill for backups |
 | 6.3 | Legal pages: privacy policy, terms, affiliate disclosure (FTC and each program's required wording) |
 | 6.4 | SEO: indexable category landing pages ("cheapest 2-ply toilet paper"), sitemap, structured data, canonical URLs for filter combinations |
 | 6.5 | Polish the open-source repo: README screenshots, contributing guide, "good first category" issues |
