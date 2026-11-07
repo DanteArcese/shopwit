@@ -26,13 +26,13 @@ M0 and M1 run in parallel: M1 needs no API keys.
 
 | # | Task | Done when |
 |---|---|---|
-| 0.1 | Apply to Amazon Associates; read the Creators API eligibility rules | Know whether API access needs qualifying sales, and the threshold |
-| 0.2 | Apply for Walmart affiliate and developer API access | Credentials in `.env`, or a documented rejection or limit |
-| 0.3 | Sovrn Commerce: spike the Price Comparison and Product Data APIs (throwaway script) using an existing campaign's keys; shopwit's own site is registered at Checkpoint B | Written answer: does it cover grocery and household merchants, and does it return size? |
-| 0.4 | Evaluate Open Food Facts: the API vs. the nightly dump, label taxonomy, US coverage for 20 sample UPCs | Written answer and a choice of API or dump |
+| 0.1 | Amazon Associates / Creators API eligibility | ✅ Known: Creators API needs 10 qualifying sales in 30 days; Associates signup moves to Checkpoint B (needs the live URL) |
+| 0.2 | Walmart developer API access (walmart.io) | ⏳ Application created; public-key upload fails with a 503 — retry or contact walmart.io support |
+| 0.3 | Sovrn Commerce spike + program terms review | ✅ [`research/2026-11-07-sovrn-api.md`](research/2026-11-07-sovrn-api.md): link router only, not a data source |
+| 0.4 | Open Food Facts evaluation | ✅ [`research/2026-11-07-open-food-facts.md`](research/2026-11-07-open-food-facts.md): dump + daily deltas, Open Products Facts for household |
 | 0.5 | Repo hygiene: LICENSE (AGPL-3.0-or-later, done), README, CONTRIBUTING (including "how to add a category" and the fixture format), `.env.example` entries (done) | Files merged |
 
-⛳ **Checkpoint A: connector order.** Choose the first connector for M2 from 0.1–0.3. If neither Amazon nor Walmart is usable yet, M2 uses recorded fixtures and the first live connector moves to M5.
+⛳ **Checkpoint A: connector order. Decided 2026-11-07:** M2's first connector is the **Walmart Affiliate API**, built and tested against sample responses from Walmart's documentation, switching to live data once walmart.io access works. Sovrn is used as the affiliate-link router, not a data source. Amazon follows once Creators API access is possible.
 
 ---
 
@@ -64,10 +64,10 @@ M0 and M1 run in parallel: M1 needs no API keys.
 | 2.1 | Django project, Docker Compose (web, worker, Postgres), settings loaded from env |
 | 2.2 | Models: Category, AttributeDef, Product, Offer, PriceHistory, ReviewItem; sync categories from YAML (files are the source of truth) |
 | 2.3 | Connector interface and the recorded-response test harness (no live calls in CI) |
-| 2.4 | First connector, as chosen at Checkpoint A |
+| 2.4 | First connector: Walmart Affiliate API against documented sample responses (live once walmart.io access works) |
 | 2.5 | Open Food Facts enrichment client with caching |
 | 2.6 | Ingestion job: connector → normalizer → upsert products, offers and price history; log run stats per connector and category |
-| 2.7 | Scheduler and worker; freshness cutoff (72 h by default) |
+| 2.7 | Scheduler and worker: refresh about every 12 h; freshness cutoff 24 h (never above a source's terms limit); Walmart offers never written to price history |
 | 2.8 | Admin review queue; manual corrections that survive re-ingestion |
 
 **Exit:** One command fills the local catalog for 5 categories. Re-running it is idempotent, and the review queue shows what didn't resolve.
@@ -85,7 +85,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 | 3.3 | Search resolution: query → category + filters via synonyms; full-text fallback |
 | 3.4 | Store and membership selector (session-based) |
 | 3.5 | Metric/imperial setting with a locale-based default; display conversion |
-| 3.6 | `/go/<offer_id>` redirect: affiliate tagging, click logging without personal data, disclosure text |
+| 3.6 | Direct affiliate links built at render time (no redirect or shortener), click counting via `ping`/`sendBeacon` without personal data, "price as of" timestamps, Amazon disclaimer and disclosure text |
 | 3.7 | Responsive layout pass (phone in the aisle, desktop at home) |
 
 ⛳ **Checkpoint B: dogfood, name and first deploy.**
@@ -152,7 +152,7 @@ M0 and M1 run in parallel: M1 needs no API keys.
 
 ## Later (ordered by expected value; re-plan after launch)
 
-1. Price history, a "good price?" indicator, and email alerts on a spec
+1. Price history, a "good price?" indicator, and email alerts on a spec (excluding Walmart data, per its terms)
 2. Effective unit price: Subscribe & Save, shipping thresholds, membership costs
 3. ⛳ **Checkpoint D: in-store chains** (Costco, Shaw's, Stop & Shop, Target): unofficial APIs or scraping, form-based community shelf prices, or a paid data vendor. Weigh the legal risk of each, given the public repo.
 4. Ads, with a paid ad-free tier

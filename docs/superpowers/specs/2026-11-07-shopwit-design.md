@@ -48,7 +48,7 @@ Search queries like "cheapest toilet paper per sheet" are answered today by stat
 7. **Nutrition per dollar** (e.g. cost per 10 g protein) using Open Food Facts. Aimed at fitness shoppers, for example protein powder.
 
 ### Later
-- Price history, a "good price?" indicator, and email alerts on a spec.
+- Price history, a "good price?" indicator, and email alerts on a spec. **Walmart data is excluded** (Walmart's terms bar price tracking and alerting); other sources only where their terms allow.
 - Effective unit price (Subscribe & Save, shipping thresholds, membership cost).
 - Community corrections, and form-based shelf-price submissions for in-store chains (no AI).
 - **Decision checkpoint:** whether to use unofficial sources (traced network APIs, HTML scraping) for in-store chains.
@@ -64,10 +64,10 @@ Stack: **Django + HTMX + Postgres**, with a background worker for ingestion. Dev
 ```
  Retailer APIs ──► Connectors ──RawOffer──► Normalizer ──► Catalog (Postgres) ──► Web (Django+HTMX)
   (Amazon,           (one per               (pure functions:    (Category, Product,      (search, filters,
-   Walmart,           source, shared         category match,     Offer, PriceHistory,      lists, /go/ links,
+   Walmart,           source, shared         category match,     Offer, PriceHistory,      lists, direct links,
    Sovrn, …)          interface)             attributes, units)  ReviewItem)               admin review)
                          ▲
-                 scheduled worker (≈ daily per category per connector)
+                 scheduled worker (≈ every 12 h per category per connector)
 ```
 
 ### 5.1 Connectors
@@ -93,8 +93,9 @@ Manual corrections from the admin are stored and override extraction on later re
 ### 5.3 Catalog (Postgres)
 - `Category`, `AttributeDef`: loaded from the category YAML files; the files are the source of truth.
 - `Product`: identity is the UPC when present, otherwise retailer + item ID. Holds the category, brand, `attributes` (JSONB with per-attribute provenance), and normalized quantity. Filtered attributes get expression indexes.
-- `Offer`: product × retailer. Holds price, currency, computed unit price in base units, URL, and last-seen time. Offers older than the freshness cutoff (default 72 h, configurable) are hidden.
-- `PriceHistory`: an append-only record of price observations (used by later features).
+- `Offer`: product × retailer. Holds price, currency, computed unit price in base units, URL, and last-seen time. Offers older than the freshness cutoff (default **24 h**, configurable, never above any source's terms limit) are hidden. Sources refresh about every 12 h so normal operation stays well inside the cutoff.
+- `PriceHistory`: an append-only record of price observations (used by later features). Only sources whose terms allow price tracking are recorded; **Walmart offers are never written here**.
+- Amazon product images are never stored; only the ASIN is kept, and images load directly from Amazon.
 - `ReviewItem`: unresolved categories or attributes awaiting manual review.
 - `List`, `ListItem` (spec = category + filters + target quantity, optional pinned product), plus user `Settings`.
 
@@ -102,7 +103,8 @@ Manual corrections from the admin are stored and override extraction on later re
 - Category pages: a filter sidebar, results ranked by unit price, and URL state (e.g. `/milk?fat=2&organic=any&sort=unit`).
 - The search box resolves queries to a category and filters using category synonyms; when nothing resolves, it falls back to full-text product search.
 - HTMX handles partial updates when filters change. Pages are server-rendered and indexable.
-- `/go/<offer_id>`: logs the click without personal data, applies the affiliate tag, and redirects.
+- **Every price shows "price as of <time>"** next to it, plus the Amazon disclaimer on Amazon offers ("Product prices and availability are accurate as of the date/time indicated and are subject to change.").
+- **Outbound links go directly to the retailer** (or to the affiliate network's own tracking link, e.g. `sovrn.co`). There is no shopwit redirect, intermediary page or link shortener: Amazon disqualifies links via an intermediate site, and Walmart bans shortened or obscured links and intermediate pages. Affiliate URLs are built at render time from the offer and `.env` config, so changing a tag is a config change. Clicks are counted with the HTML `ping` attribute / `navigator.sendBeacon` to a small endpoint that stores no personal data.
 - Django admin: the review queue, manual attribute corrections, and a category overview.
 
 ## 6. Category definitions
@@ -159,7 +161,8 @@ The initial catalog covers about 25 high-frequency categories (e.g. milk, eggs, 
 - Routing:
   - Amazon uses its own Associates program, since sub-affiliate networks generally can't monetize it.
   - Other retailers go through **Sovrn** where it covers them, otherwise through the retailer's direct program (e.g. Walmart or Target via Impact).
-- An affiliate disclosure is shown site-wide and next to outbound links.
+- An affiliate disclosure is shown above the fold on every page with affiliate links, and next to outbound links. Amazon pages also carry "As an Amazon Associate I earn from qualifying purchases."
+- Program terms constrain the design (see `docs/research/2026-11-07-sovrn-api.md` §6): data cached at most 24 h, timestamped prices, direct links, no Walmart price tracking, no stored Amazon images. Amazon also restricts analyzing or repurposing its product data without approval, so written approval for unit-price comparison is requested once shopwit is an Associate. Terms for Target, Instacart, Costco and Sovrn are not public and get reviewed on approval.
 - Commission never affects ranking (Principle 2).
 - Keys and IDs (Sovrn key and secret, Associates tag, etc.) live only in `.env`.
 
@@ -169,10 +172,10 @@ The core release uses **official sources only**.
 
 | Source | Status | Risk to verify first |
 |---|---|---|
-| Amazon Creators API (successor to PA-API 5, retired May 2026) | Official | Access may require qualifying Associates sales. That can create a chicken-and-egg problem at launch. |
-| Walmart affiliate API | Official | Whether it's still open to new developers; its rate limits; national (not per-store) pricing |
-| Sovrn Price Comparison API | Official (affiliate) | Whether it covers grocery and household merchants, and whether it returns the size data needed for unit prices |
-| Open Food Facts | Open data (ODbL) | Enrichment only. A redistributed derived database must be shared under ODbL. |
+| Amazon Creators API (successor to PA-API 5, retired May 2026) | Official | Requires an Associates account with 10 qualifying sales in the past 30 days. Unavailable until the live site has traffic. |
+| Walmart affiliate API | Official — **first connector (Checkpoint A)** | Key upload on walmart.io currently fails (503); built against documented sample responses until it works. National, not per-store, pricing. |
+| Sovrn Commerce | Official (affiliate) — **link router only** | Spike (#17): product search returns poor grocery results with no UPC/size/brand fields, so it is not a data source. Its network includes Walmart, Target, Amazon, Costco, Instacart, Stop & Shop, Shaw's; affiliability to retest with shopwit's own site key. |
+| Open Food Facts / Open Products Facts | Open data (ODbL) | Enrichment only (#18): seed from dump, daily deltas filtered to known UPCs; household items live in Open Products Facts. `en:organic` is positive-only. Whether a merged attribute table is a derived database needs a legal check. |
 
 Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out of scope until the decision checkpoint in §4.
 
@@ -191,15 +194,15 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 
 - Normalizer: unit tests plus category fixture tests (real titles → expected attributes and unit prices). This is the highest-coverage area.
 - Connectors: tested against recorded API responses. No live calls and no keys in CI.
-- Web: Django tests for search resolution, filter and URL round-trips, ranking order, unknown handling, list resolution, and `/go/` redirects.
+- Web: Django tests for search resolution, filter and URL round-trips, ranking order, unknown handling, list resolution, direct affiliate-link construction, "price as of" timestamps, and the click-ping endpoint.
 - The repo's pre-commit hooks (gitleaks, pytest) and CI stay green.
 
 ## 15. Open decisions
 
-1. Final product name and domain (pre-launch). Shortlist so far: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen.
-2. Production hosting (before first deploy).
-3. Whether the GitHub repo is created public from the start (it will be open source).
-4. Unofficial data sources for in-store chains (after the core release).
+1. Final product name and domain (Checkpoint B). Shortlist so far: CheapestPer, FairPer, LeastPer, UnitSavvy, BasketSage, ShopWit, ShopKeen.
+2. Production hosting (Checkpoint B, before first deploy).
+3. Unofficial data sources for in-store chains (after the core release).
+4. Whether Amazon and Walmart honor links routed through Sovrn's tracking redirect (ask Sovrn at Checkpoint B).
 
 ## 16. Decision log
 
@@ -210,7 +213,9 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Stack | Django + HTMX + Postgres + worker (chosen on merit: ingestion fit, admin for curation, SEO) |
 | Categorization | Curated YAML categories with typed attributes; rules-based extraction; **never AI** |
 | Data sourcing | Official APIs first; unofficial sources decided later |
-| Prices | Cached and refreshed on a schedule, not live per search |
+| Prices | Cached and refreshed about every 12 h (24 h cutoff), not live per search; "price as of" shown on every price |
 | Revenue | Affiliate primary (Sovrn plus direct programs); ads later |
+| Outbound links | Direct to retailer or network tracking link; no redirect, shortener or intermediate page; clicks counted by ping/beacon |
+| First connector (Checkpoint A) | Walmart Affiliate API, built against documented sample responses until walmart.io access works; Sovrn as link router |
 | Units | Metric/imperial user setting; locale-neutral storage |
 | Name | Codename `shopwit` for now |
