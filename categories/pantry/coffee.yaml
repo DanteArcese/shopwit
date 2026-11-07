@@ -2,7 +2,7 @@ name: Coffee
 dimension: mass
 match:
   include: ["coffee"]
-  exclude: [k-cup, k cup, pods, instant, creamer, cold brew, coffee filter, coffee maker, k-cups, k cups, pod, capsules, cake]
+  exclude: [k-cup, k cup, pods, instant, creamer, cold brew, coffee filter, coffee maker, k-cups, k cups, pod, capsules, capsule, pancake mix, cupcake, cake]
 attributes:
   form:
     type: enum

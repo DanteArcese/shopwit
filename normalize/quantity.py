@@ -36,7 +36,10 @@ def _to_float(num: str) -> float:
 # --- multipacks --------------------------------------------------------------
 _MULT_PREFIX = re.compile(r"(\d+)\s*x\s*$", re.IGNORECASE)
 _PACK_N = re.compile(r"\b(\d+)\s*-?\s*(?:pack|pk)\b", re.IGNORECASE)
-_MULT_PREFIX_ANY = re.compile(r"(?<![\w.])\d+\s*x\s*\d", re.IGNORECASE)
+# "2 x 12" is a multiplier; "11 x 10.4 in" / '11 x 10.4"' is a sheet size, not one.
+_MULT_PREFIX_ANY = re.compile(
+    r'(?<![\w.])\d+\s*x\s*(?!\d+(?:\.\d+)?\s*(?:in\b|"))\d', re.IGNORECASE
+)
 _PACK_OF = re.compile(r"\bpack\s+of\s+(\d+)\b", re.IGNORECASE)
 
 # --- volume / mass -----------------------------------------------------------
@@ -112,7 +115,7 @@ _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 def _count(text: str) -> Measures:
     m = _DOZEN_RE.search(text)
     if m:
-        if m.group(1) is None and re.search(r"[\d/,.]\s*$", text[: m.start()]):
+        if m.group(1) is None and re.search(r"\d[,./]?\s*$", text[: m.start()]):
             return {}  # an unparsable number precedes "dozen": never guess
         value = 12 * (_to_float(m.group(1)) if m.group(1) else 1.0)
         return {"count": value} if value > 0 else {}

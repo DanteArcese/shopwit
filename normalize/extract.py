@@ -69,7 +69,7 @@ def _collect_synonyms(attr: AttributeDef, text: str) -> set[str | int | bool]:
 def extract_attributes(
     raw: RawOffer, category: CategoryDef, off: OffProduct | None
 ) -> tuple[dict[str, AttrValue], list[str]]:
-    text = fold(f"{raw.title} {raw.brand or ''} {raw.size_text or ''}")
+    text = fold(f"{raw.title} | {raw.brand or ''} | {raw.size_text or ''}")
     attrs: dict[str, AttrValue] = {}
     unresolved: list[str] = []
 

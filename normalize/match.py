@@ -19,7 +19,7 @@ def _phrase_re(phrase: str) -> re.Pattern:
 
 def match_category(raw: RawOffer, categories: Mapping[str, CategoryDef]) -> str | None:
     """Slug of the category whose longest include phrase matches; ties give None."""
-    text = fold(f"{raw.title} {raw.brand or ''}")
+    text = fold(f"{raw.title} | {raw.brand or ''}")
     best_len = 0
     best: list[str] = []
     for slug, cat in categories.items():
