@@ -106,6 +106,7 @@ _ROLLS_RE = re.compile(
     rf"(?<![\w.])(\d+)\s+(?:(?:{_ROLL_ADJECTIVES})\s+)*rolls?\b", re.IGNORECASE
 )
 _SHEETS_PER_ROLL_RE = re.compile(r"(\d+)\s*sheets?\s*(?:per|/)\s*roll\b", re.IGNORECASE)
+_SHEETS_BARE_RE = re.compile(r"(?<![\w.])(\d+)\s*(?:-\s*)?sheets?\b", re.IGNORECASE)
 _SHEET_SIZE_RE = re.compile(
     rf'{_NUM}\s*(?:in\b|")?\s*x\s*{_NUM}\s*(?:in\b|")', re.IGNORECASE
 )
@@ -127,6 +128,8 @@ def _paper(text: str) -> Measures:
     out: Measures = {"rolls": rolls}
 
     per_roll = _SHEETS_PER_ROLL_RE.search(text)
+    # "380 Sheets, 30 Rolls": a bare sheet count beside a roll count is per roll.
+    per_roll = per_roll or _SHEETS_BARE_RE.search(text)
     sheets = rolls * float(per_roll.group(1)) if per_roll else None
     if sheets is not None:
         out["sheets"] = sheets

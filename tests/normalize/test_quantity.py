@@ -105,3 +105,13 @@ def test_paper_sheets_per_roll_not_taken_as_rolls():
 def test_paper_no_n_rolls_phrase_returns_empty():
     t = "Scott 1000 Toilet Paper Rolls, 12 Count"
     assert parse_measures([t], "paper") == {}
+
+
+def test_paper_bare_sheets_read_as_per_roll_when_rolls_present():
+    m = parse_measures(["Bath Tissue, 2-Ply, 380 Sheets, 30 Rolls"], "paper")
+    assert m["rolls"] == 30
+    assert m["sheets"] == 11400
+
+
+def test_paper_bare_sheets_without_rolls_not_guessed():
+    assert parse_measures(["Paper Towels, 380 Sheets"], "paper") == {}

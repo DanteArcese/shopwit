@@ -1,0 +1,22 @@
+name: Paper Towels
+parent: household/paper-goods
+match:
+  include: ["paper towel", "paper towels"]
+  exclude: ["holder", "dispenser"]
+dimension: paper
+attributes:
+  ply:
+    type: int
+    values: [1, 2, 3]
+    patterns: ['(?<![\d.])([123])[- ]?ply']
+    synonyms:
+      1: ["single ply"]
+      2: ["double ply"]
+  select_a_size:
+    type: bool
+    synonyms:
+      true: ["select-a-size", "select a size", "pick-a-size", "choose-a-sheet"]
+    absent: false
+comparison:
+  default: area_x_ply
+  alternates: [per_100_sheets, per_roll]
