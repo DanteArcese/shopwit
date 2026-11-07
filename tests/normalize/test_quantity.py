@@ -115,3 +115,29 @@ def test_paper_bare_sheets_read_as_per_roll_when_rolls_present():
 
 def test_paper_bare_sheets_without_rolls_not_guessed():
     assert parse_measures(["Paper Towels, 380 Sheets"], "paper") == {}
+
+
+def test_paper_thousands_separator_with_total():
+    m = parse_measures(["Bath Tissue 1,000 sheets total, 12 Rolls"], "paper")
+    assert m["rolls"] == 12
+    assert m["sheets"] == 1000
+
+
+def test_paper_thousands_separator_bare_is_per_roll():
+    m = parse_measures(["12 Rolls, 2,400 Sheets"], "paper")
+    assert m["sheets"] == 28800
+
+
+def test_paper_total_sheets_not_multiplied():
+    m = parse_measures(["12 Rolls, 2,400 sheets total"], "paper")
+    assert m["sheets"] == 2400
+
+
+def test_paper_zero_sheets_never_emitted():
+    m = parse_measures(["12 Rolls, 0 sheets"], "paper")
+    assert "sheets" not in m
+
+
+def test_paper_hyphenated_sheet_token_not_sheet_count():
+    m = parse_measures(["3-sheet Paper Towels, 6 Rolls"], "paper")
+    assert "sheets" not in m

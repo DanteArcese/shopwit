@@ -71,6 +71,8 @@ def test_fixture(case, index):
         assert result.measures.get(key) == pytest.approx(value, rel=1e-3), key
     for key, value in (expect.get("unit_prices") or {}).items():
         assert result.unit_prices.get(key) == Decimal(str(value)), key
+    if expect.get("unit_prices_exact"):
+        assert set(result.unit_prices) == set(expect.get("unit_prices") or {})
     if "unresolved" in expect:
         assert sorted(result.unresolved) == sorted(expect["unresolved"])
 

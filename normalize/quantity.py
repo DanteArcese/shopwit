@@ -105,8 +105,12 @@ _ROLL_ADJECTIVES = (
 _ROLLS_RE = re.compile(
     rf"(?<![\w.])(\d+)\s+(?:(?:{_ROLL_ADJECTIVES})\s+)*rolls?\b", re.IGNORECASE
 )
-_SHEETS_PER_ROLL_RE = re.compile(r"(\d+)\s*sheets?\s*(?:per|/)\s*roll\b", re.IGNORECASE)
-_SHEETS_BARE_RE = re.compile(r"(?<![\w.])(\d+)\s*(?:-\s*)?sheets?\b", re.IGNORECASE)
+_CNT = r"(?<![\w.])(?<!\d,)(\d{1,3}(?:,\d{3})+|\d+)"
+_SHEETS_PER_ROLL_RE = re.compile(rf"{_CNT}\s*sheets?\s*(?:per|/)\s*roll\b", re.IGNORECASE)
+_SHEETS_TOTAL_RE = re.compile(
+    rf"{_CNT}\s*sheets?\s+(?:total|in\s+all)\b", re.IGNORECASE
+)
+_SHEETS_BARE_RE = re.compile(rf"{_CNT}\s*sheets?\b", re.IGNORECASE)
 _SHEET_SIZE_RE = re.compile(
     rf'{_NUM}\s*(?:in\b|")?\s*x\s*{_NUM}\s*(?:in\b|")', re.IGNORECASE
 )
@@ -119,6 +123,10 @@ _AREA_SQFT_RE = re.compile(
 _EQUIVALENCE_RE = re.compile(r"=[^,;]*")
 
 
+def _to_float(digits: str) -> float:
+    return float(digits.replace(",", ""))
+
+
 def _paper(text: str) -> Measures:
     text = _EQUIVALENCE_RE.sub(" ", text)
     m = _ROLLS_RE.search(text)
@@ -127,10 +135,20 @@ def _paper(text: str) -> Measures:
     rolls = float(m.group(1))
     out: Measures = {"rolls": rolls}
 
+    sheets = None
     per_roll = _SHEETS_PER_ROLL_RE.search(text)
-    # "380 Sheets, 30 Rolls": a bare sheet count beside a roll count is per roll.
-    per_roll = per_roll or _SHEETS_BARE_RE.search(text)
-    sheets = rolls * float(per_roll.group(1)) if per_roll else None
+    total = _SHEETS_TOTAL_RE.search(text)
+    if per_roll:
+        sheets = rolls * _to_float(per_roll.group(1))
+    elif total:
+        sheets = _to_float(total.group(1))
+    else:
+        # "380 Sheets, 30 Rolls": a bare sheet count beside a roll count is per roll.
+        bare = _SHEETS_BARE_RE.search(text)
+        if bare:
+            sheets = rolls * _to_float(bare.group(1))
+    if sheets == 0:
+        sheets = None
     if sheets is not None:
         out["sheets"] = sheets
 
