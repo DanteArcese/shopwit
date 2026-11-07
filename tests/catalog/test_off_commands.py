@@ -116,7 +116,7 @@ def test_backfill_sends_user_agent(monkeypatch, sleeps):
 
     install(monkeypatch, handler)
     run()
-    ua = "shopwit/0.1 (+https://github.com/DanteArcese/shopwit)"
+    ua = "unitpricer/0.1 (+https://github.com/DanteArcese/unitpricer)"
     assert agents == [ua]
     with _real_default_client() as client:
         assert client.headers["user-agent"] == ua

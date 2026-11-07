@@ -19,7 +19,7 @@ import httpx
 
 from normalize.types import OffProduct
 
-USER_AGENT = "shopwit/0.1 (+https://github.com/DanteArcese/shopwit)"
+USER_AGENT = "unitpricer/0.1 (+https://github.com/DanteArcese/unitpricer)"
 DELTA_BASE_URL = "https://static.openfoodfacts.org/data/delta/"
 API_HOSTS = {
     "off": "https://world.openfoodfacts.org",
