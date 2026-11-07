@@ -44,6 +44,15 @@ def sign(consumer_id: str, timestamp_ms: str, key_version: str, private_key) -> 
     return base64.b64encode(signature).decode()
 
 
+def _valid_item_id(value: object) -> int | None:
+    """Positive int, or a string of ASCII digits normalized to int; else None."""
+    if isinstance(value, str) and value.isascii() and value.isdigit():
+        value = int(value)
+    if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
+        return None
+    return value
+
+
 class WalmartConnector:
     """Plain class (not a dataclass) so repr never exposes credentials."""
 
@@ -95,11 +104,13 @@ class WalmartConnector:
         if resp.status_code != 200:
             raise ConnectorError(f"Walmart search failed with HTTP {resp.status_code}")
         try:
-            items = resp.json().get("items", [])
+            items = resp.json().get("items")
         except (ValueError, AttributeError):
             raise ConnectorError(
                 "Walmart search returned an unreadable response"
             ) from None
+        if items is None:
+            items = []
         if not isinstance(items, list):
             raise ConnectorError("Walmart search returned an unexpected response shape")
         fetched_at = datetime.now(UTC)
@@ -122,6 +133,7 @@ class WalmartConnector:
             item.get("itemId"),
             item.get("salePrice"),
         )
+        item_id = _valid_item_id(item_id)
         if not name or item_id is None or sale is None:
             return None
         try:

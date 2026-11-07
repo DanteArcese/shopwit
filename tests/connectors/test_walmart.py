@@ -195,3 +195,34 @@ def test_non_dict_item_counted_as_skipped(key):
     )
     result = c.search("x")
     assert result.skipped == 2 and [o.retailer_item_id for o in result.offers] == ["5"]
+
+
+def _search_items(key, items):
+    c, _ = _connector(key)
+    c._client = httpx.Client(
+        transport=httpx.MockTransport(
+            lambda r: httpx.Response(200, json={"items": items})
+        )
+    )
+    return c.search("x")
+
+
+@pytest.mark.parametrize("bad", ["1/../x", True, 0, -5, 1.5, "", "12a", None])
+def test_invalid_item_ids_skipped(key, bad):
+    result = _search_items(key, [{"itemId": bad, "name": "A", "salePrice": 1}])
+    assert result.offers == [] and result.skipped == 1
+
+
+def test_digit_string_item_id_normalized(key):
+    (o,) = _search_items(key, [{"itemId": "123", "name": "A", "salePrice": 1}]).offers
+    assert o.retailer_item_id == "123" and o.url == "https://www.walmart.com/ip/123"
+
+
+@pytest.mark.parametrize("body", [{}, {"items": None}])
+def test_absent_or_null_items_is_empty(key, body):
+    c, _ = _connector(key)
+    c._client = httpx.Client(
+        transport=httpx.MockTransport(lambda r: httpx.Response(200, json=body))
+    )
+    result = c.search("x")
+    assert result.offers == [] and result.skipped == 0
