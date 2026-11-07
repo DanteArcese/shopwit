@@ -125,3 +125,14 @@ def test_unknown_reported(milk):
     attrs, unresolved = extract_attributes(offer("Milk 64 fl oz"), milk, None)
     assert "fat" not in attrs
     assert "attribute:fat" in unresolved
+
+
+@pytest.mark.parametrize("bad", [None, "  ", ""])
+def test_empty_api_field_falls_through(milk, bad):
+    attrs, _ = extract_attributes(offer("Milk 2%", fields={"fat": bad}), milk, None)
+    assert attrs["fat"] == AttrValue("2", "rule")
+
+
+def test_api_enum_value_is_stripped(milk):
+    attrs, _ = extract_attributes(offer("Milk", fields={"fat": " whole "}), milk, None)
+    assert attrs["fat"] == AttrValue("whole", "api")

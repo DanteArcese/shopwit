@@ -13,10 +13,16 @@ _FALSE = {"false", "no", "0"}
 
 def _cast(attr: AttributeDef, value: object) -> str | int | bool | None:
     """Cast ``value`` to the attribute's type; None if invalid or not a declared value."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        value = value.strip()
+        if not value:
+            return None
     if attr.type == "bool":
         if isinstance(value, bool):
             return value
-        text = str(value).strip().lower()
+        text = str(value).lower()
         if text in _TRUE:
             return True
         if text in _FALSE:
@@ -24,7 +30,7 @@ def _cast(attr: AttributeDef, value: object) -> str | int | bool | None:
         return None
     if attr.type == "int":
         try:
-            result: str | int = int(str(value).strip())
+            result: str | int = int(str(value))
         except ValueError:
             return None
     else:
@@ -75,21 +81,13 @@ def extract_attributes(
             attrs[name] = AttrValue(True, "off")
             continue
 
-        ambiguous = False
-        resolved = False
-        for found in (_collect(attr, text), None):
-            if found is None:
-                found = _collect_synonyms(attr, text)
-            if len(found) == 1:
-                attrs[name] = AttrValue(next(iter(found)), "rule")
-                resolved = True
-                break
-            if len(found) > 1:
-                ambiguous = True
-                break
-        if resolved:
+        found = _collect(attr, text)
+        if not found:
+            found = _collect_synonyms(attr, text)
+        if len(found) == 1:
+            attrs[name] = AttrValue(next(iter(found)), "rule")
             continue
-        if ambiguous:
+        if len(found) > 1:
             unresolved.append(f"attribute:{name}:ambiguous")
             continue
 
