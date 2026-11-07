@@ -7,6 +7,8 @@ from django.core.management import call_command
 from catalog.models import Category, OffEntry, Product
 from enrichment import off
 
+_real_default_client = off.default_client
+
 
 @pytest.fixture
 def sleeps(monkeypatch):
@@ -16,8 +18,8 @@ def sleeps(monkeypatch):
 
 
 def install(monkeypatch, handler):
-    client = httpx.Client(transport=httpx.MockTransport(handler), headers={"User-Agent": off.USER_AGENT})
-    monkeypatch.setattr(off, "default_client", lambda: client)
+    transport = httpx.MockTransport(handler)
+    monkeypatch.setattr(off, "default_client", lambda: _real_default_client(transport=transport))
 
 
 def ok(code="0093966010015", **product):
@@ -114,7 +116,9 @@ def test_backfill_sends_user_agent(monkeypatch, sleeps):
 
     install(monkeypatch, handler)
     run()
-    assert agents == ["shopwit/0.1 (+https://github.com/DanteArcese/shopwit)"]
+    ua = "shopwit/0.1 (+https://github.com/DanteArcese/shopwit)"
+    assert agents == [ua]
+    assert _real_default_client().headers["user-agent"] == ua
 
 
 @pytest.mark.django_db
@@ -131,3 +135,37 @@ def test_backfill_respects_limit_and_skips_cached(monkeypatch, sleeps):
     install(monkeypatch, handler)
     run(limit=1)
     assert len(count) == 1 and "0093966010015" not in count[0]
+
+
+@pytest.mark.django_db
+def test_backfill_does_not_retry_403(monkeypatch, sleeps):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    count = []
+
+    def handler(request):
+        count.append(1)
+        return httpx.Response(403)
+
+    install(monkeypatch, handler)
+    run()
+    assert len(count) == 1 and sleeps == []
+    assert OffEntry.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_backfill_429_honors_retry_after(monkeypatch, sleeps):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    responses = [httpx.Response(429, headers={"Retry-After": "7"}), ok()]
+    install(monkeypatch, lambda request: responses.pop(0))
+    run()
+    assert sleeps == [7.0]
+    assert OffEntry.objects.count() == 1
+
+
+@pytest.mark.django_db
+def test_backfill_429_retry_after_is_bounded_and_defaults_to_backoff(monkeypatch, sleeps):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    responses = [httpx.Response(429, headers={"Retry-After": "3600"}), httpx.Response(429), ok()]
+    install(monkeypatch, lambda request: responses.pop(0))
+    run()
+    assert sleeps == [60.0, 2.0]

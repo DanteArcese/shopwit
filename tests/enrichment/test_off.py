@@ -96,6 +96,7 @@ def test_latest_delta_downloads_newest_file(monkeypatch):
 
     def handler(request: httpx.Request) -> httpx.Response:
         requested.append(str(request.url))
+        assert request.headers["user-agent"] == off.USER_AGENT
         if request.url.path.endswith("index.txt"):
             return httpx.Response(
                 200,
@@ -103,11 +104,57 @@ def test_latest_delta_downloads_newest_file(monkeypatch):
             )
         return httpx.Response(200, content=payload)
 
-    client = httpx.Client(transport=httpx.MockTransport(handler))
-    monkeypatch.setattr(off, "default_client", lambda: client)
+    real = off.default_client
+    monkeypatch.setattr(off, "default_client", lambda: real(transport=httpx.MockTransport(handler)))
     call_command("off_sync", latest_delta=True, stdout=io.StringIO())
     assert requested == [
         "https://static.openfoodfacts.org/data/delta/index.txt",
         "https://static.openfoodfacts.org/data/delta/openfoodfacts_products_200_300.json.gz",
     ]
     assert OffEntry.objects.get().upc == "0093966010015"
+
+
+def _line(code, modified, quantity="1 L"):
+    return json.dumps({"code": code, "labels_tags": [], "quantity": quantity, "last_modified_t": modified})
+
+
+def _sync_lines(tmp_path, *lines):
+    path = tmp_path / "f.jsonl"
+    path.write_text("\n".join(lines) + "\n")
+    off.sync_file(path)
+
+
+@pytest.mark.django_db
+def test_older_record_does_not_overwrite_newer(tmp_path):
+    Product.objects.create(identity="a", title="A", upc="0093966010015")
+    _sync_lines(tmp_path, _line("0093966010015", 2000, "new"))
+    _sync_lines(tmp_path, _line("0093966010015", 1000, "old"))
+    assert OffEntry.objects.get().quantity == "new"
+
+
+@pytest.mark.django_db
+def test_null_timestamp_does_not_wipe_dated(tmp_path):
+    Product.objects.create(identity="a", title="A", upc="0093966010015")
+    _sync_lines(tmp_path, _line("0093966010015", 2000, "dated"))
+    _sync_lines(tmp_path, _line("0093966010015", None, "undated"))
+    entry = OffEntry.objects.get()
+    assert entry.quantity == "dated" and entry.last_modified is not None
+
+
+@pytest.mark.django_db
+def test_real_record_replaces_stored_404_entry(tmp_path):
+    Product.objects.create(identity="a", title="A", upc="0093966010015")
+    OffEntry.objects.create(upc="0093966010015", source="off", labels=[], quantity=None, last_modified=None)
+    _sync_lines(tmp_path, _line("0093966010015", 1000, "real"))
+    assert OffEntry.objects.get().quantity == "real"
+
+
+@pytest.mark.django_db
+def test_within_file_duplicates_keep_newest(tmp_path):
+    Product.objects.create(identity="a", title="A", upc="0093966010015")
+    _sync_lines(
+        tmp_path,
+        _line("0093966010015", 2000, "newest"),
+        _line("0093966010015", 1000, "stale"),
+    )
+    assert OffEntry.objects.get().quantity == "newest"

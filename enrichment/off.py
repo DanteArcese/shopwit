@@ -28,6 +28,7 @@ FIELDS = "code,labels_tags,quantity,last_modified_t"
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.0
 MIN_INTERVAL_SECONDS = 1.0
+MAX_RETRY_AFTER_SECONDS = 60.0
 
 Source = Literal["off", "opf"]
 
@@ -88,12 +89,14 @@ def _iter_lines(path: Path) -> Iterator[str]:
     with open(path, "rb") as probe:
         gzipped = probe.read(2) == b"\x1f\x8b"
     opener = gzip.open if gzipped else open
-    with opener(path, "rt", encoding="utf-8") as handle:
+    with opener(path, "rt", encoding="utf-8", errors="replace") as handle:
         yield from handle
 
 
-def default_client() -> httpx.Client:
-    return httpx.Client(headers={"User-Agent": USER_AGENT}, timeout=30.0, follow_redirects=True)
+def default_client(transport: httpx.BaseTransport | None = None) -> httpx.Client:
+    return httpx.Client(
+        headers={"User-Agent": USER_AGENT}, timeout=30.0, follow_redirects=True, transport=transport
+    )
 
 
 def default_sleep(seconds: float) -> None:
@@ -112,9 +115,13 @@ def lookup(upc: str | None) -> OffProduct | None:
     return OffProduct(labels=frozenset(entry.labels), quantity=entry.quantity)
 
 
-def _save(record: OffRecord) -> None:
+def _save(record: OffRecord) -> bool:
+    """Upsert unless the cached row is newer. A null timestamp never beats a dated row."""
     from catalog.models import OffEntry
 
+    stored = OffEntry.objects.filter(pk=record.upc).values_list("last_modified", flat=True).first()
+    if stored is not None and (record.last_modified is None or stored > record.last_modified):
+        return False
     OffEntry.objects.update_or_create(
         upc=record.upc,
         defaults={
@@ -124,6 +131,7 @@ def _save(record: OffRecord) -> None:
             "last_modified": record.last_modified,
         },
     )
+    return True
 
 
 def known_upcs() -> set[str]:
@@ -144,8 +152,7 @@ def sync_file(path: Path, source: Source = "off") -> int:
     for line in _iter_lines(Path(path)):
         record = parse_off_line(line, source)
         if record is not None and record.upc in known:
-            _save(record)
-            written += 1
+            written += _save(record)
     return written
 
 
@@ -156,7 +163,9 @@ def _delta_sort_key(name: str) -> tuple[int, str]:
 
 def sync_latest_delta(client: httpx.Client | None = None) -> tuple[str, int]:
     """Download the newest delta listed in the index, sync it, and delete the download."""
-    client = client or default_client()
+    if client is None:
+        with default_client() as owned:
+            return sync_latest_delta(owned)
     index = client.get(DELTA_BASE_URL + "index.txt")
     index.raise_for_status()
     names = [line.strip() for line in index.text.splitlines() if line.strip()]
@@ -173,6 +182,15 @@ def sync_latest_delta(client: httpx.Client | None = None) -> tuple[str, int]:
         return name, sync_file(target, "off")
 
 
+def _retry_delay(response: httpx.Response | None, attempt: int) -> float:
+    if response is not None and response.status_code == 429:
+        try:
+            return min(max(float(response.headers["Retry-After"]), 0.0), MAX_RETRY_AFTER_SECONDS)
+        except (KeyError, ValueError):
+            pass
+    return BACKOFF_SECONDS * 2**attempt
+
+
 def _fetch(
     client: httpx.Client, source: Source, upc: str, sleep: Callable[[float], None]
 ) -> OffRecord | None | Literal["missing"]:
@@ -183,7 +201,7 @@ def _fetch(
             response = client.get(url, params={"fields": FIELDS})
         except httpx.TransportError:
             response = None
-        if response is not None and response.status_code < 500:
+        if response is not None and response.status_code < 500 and response.status_code != 429:
             if response.status_code == 404:
                 return "missing"
             if response.status_code != 200:
@@ -198,7 +216,7 @@ def _fetch(
             product["code"] = upc
             return _record_from_dict(product, source) or None
         if attempt < MAX_RETRIES:
-            sleep(BACKOFF_SECONDS * 2**attempt)
+            sleep(_retry_delay(response, attempt))
     return None
 
 
@@ -209,7 +227,9 @@ def backfill(
 ) -> dict[str, int]:
     from catalog.models import OffEntry, Product
 
-    client = client or default_client()
+    if client is None:
+        with default_client() as owned:
+            return backfill(limit, owned, sleep)
     sleep = sleep or default_sleep
     existing = set(OffEntry.objects.values_list("pk", flat=True))
     stats = {"stored": 0, "not_found": 0, "failed": 0}
