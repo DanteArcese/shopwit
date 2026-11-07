@@ -84,6 +84,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 ## M3: Browse and search, usable for you
 
 **Goal:** The core experience: "2% milk", ranked by unit price (§4 items 1–4, §5.4, §7, §10).
+**Plan:** [`plans/2026-11-07-m3-browse-search.md`](superpowers/plans/2026-11-07-m3-browse-search.md)
 
 | # | Task |
 |---|---|
