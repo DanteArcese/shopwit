@@ -54,3 +54,23 @@
 - title: "Cadbury Chocolate Easter Eggs, 12 ct"
   expect:
     category: null
+- title: "Nature's Yoke Extra-Large Eggs, 12 ct"
+  brand: Nature's Yoke
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}
+- title: "Farmhouse XL Brown Eggs, 18 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}
+- title: "Farmhouse Extra  Large Eggs, 12 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}
+- title: "Farmhouse X-Large Eggs, 12 ct"
+  brand: Farmhouse
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}

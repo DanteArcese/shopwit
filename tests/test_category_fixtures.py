@@ -48,6 +48,15 @@ def _build(case, index):
     return raw, off
 
 
+def test_fixture_files_map_to_categories_and_slugs():
+    for path in sorted(FIXTURES.rglob("*.yaml")):
+        slug = path.relative_to(FIXTURES).with_suffix("").as_posix()
+        assert slug in CATEGORIES, f"fixture file {path} has no category {slug}"
+        for index, case in enumerate(yaml.safe_load(path.read_text(encoding="utf-8")) or []):
+            category = case["expect"]["category"]
+            assert category is None or category == slug, f"{slug}:{index} expects {category}"
+
+
 @pytest.mark.parametrize("case,index", _cases())
 def test_fixture(case, index):
     raw, off = _build(case, index)
