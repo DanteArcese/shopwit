@@ -5,6 +5,7 @@ Django models are imported lazily so normalize_upc/parse_off_line work without D
 
 import gzip
 import json
+import math
 import re
 import tempfile
 import time
@@ -185,10 +186,12 @@ def sync_latest_delta(client: httpx.Client | None = None) -> tuple[str, int]:
 def _retry_delay(response: httpx.Response | None, attempt: int) -> float:
     if response is not None and response.status_code == 429:
         try:
-            return min(max(float(response.headers["Retry-After"]), 0.0), MAX_RETRY_AFTER_SECONDS)
+            seconds = float(response.headers["Retry-After"])
         except (KeyError, ValueError):
-            pass
-    return BACKOFF_SECONDS * 2**attempt
+            seconds = None
+        if seconds is not None and math.isfinite(seconds):
+            return min(max(seconds, MIN_INTERVAL_SECONDS), MAX_RETRY_AFTER_SECONDS)
+    return max(BACKOFF_SECONDS * 2**attempt, MIN_INTERVAL_SECONDS)
 
 
 def _fetch(

@@ -118,7 +118,8 @@ def test_backfill_sends_user_agent(monkeypatch, sleeps):
     run()
     ua = "shopwit/0.1 (+https://github.com/DanteArcese/shopwit)"
     assert agents == [ua]
-    assert _real_default_client().headers["user-agent"] == ua
+    with _real_default_client() as client:
+        assert client.headers["user-agent"] == ua
 
 
 @pytest.mark.django_db
@@ -169,3 +170,17 @@ def test_backfill_429_retry_after_is_bounded_and_defaults_to_backoff(monkeypatch
     install(monkeypatch, lambda request: responses.pop(0))
     run()
     assert sleeps == [60.0, 2.0]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize(
+    "header, expected",
+    [("0", 1.0), ("nan", 1.0), ("inf", 1.0), ("Wed, 21 Oct 2026 07:28:00 GMT", 1.0)],
+)
+def test_backfill_429_retry_after_floor_and_invalid_values(monkeypatch, sleeps, header, expected):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    responses = [httpx.Response(429, headers={"Retry-After": header}), ok()]
+    install(monkeypatch, lambda request: responses.pop(0))
+    run()
+    assert sleeps == [expected]
+    assert OffEntry.objects.count() == 1
