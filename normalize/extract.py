@@ -35,6 +35,8 @@ def _cast(attr: AttributeDef, value: object) -> str | int | bool | None:
             return None
     else:
         result = str(value)
+        if result not in attr.values:
+            result = result.lower()  # pattern captures keep the title's casing
     if attr.values and result not in attr.values:
         return None
     return result

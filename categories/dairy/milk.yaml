@@ -1,0 +1,30 @@
+name: Milk
+dimension: volume
+match:
+  include: ["milk"]
+  exclude: [almond, oat, soy, coconut, chocolate, condensed, evaporated, powdered, milk chocolate]
+attributes:
+  fat:
+    type: enum
+    values: [skim, "1", "2", whole]
+    patterns: ['(?<![\d.])([12])\s?%']
+    synonyms:
+      skim: [skim, fat free, nonfat]
+      "1": [low fat, lowfat]
+      "2": [reduced fat]
+      whole: [whole milk, vitamin d milk]
+  organic:
+    type: bool
+    synonyms: {true: [organic, o organics]}
+    off_label: en:organic
+    absent: false
+  lactose_free:
+    type: bool
+    synonyms: {true: [lactose free, lactose-free, lactaid]}
+    absent: false
+  ultra_filtered:
+    type: bool
+    synonyms: {true: [ultra-filtered, ultra filtered, fairlife]}
+    absent: false
+comparison:
+  default: per_volume

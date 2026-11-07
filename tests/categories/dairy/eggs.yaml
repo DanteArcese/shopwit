@@ -1,0 +1,56 @@
+- title: "Vital Farms Pasture-Raised Large Brown Eggs, 12 ct"
+  brand: Vital Farms
+  price: "7.99"
+  expect:
+    category: dairy/eggs
+    attributes: {size: large, housing: pasture_raised, organic: false, brand_tier: name_brand}
+    measures: {count: 12}
+    unit_prices: {per_count: "0.665833"}
+    unresolved: []
+- title: "Kirkland Signature Organic Large Eggs, 24 count"
+  brand: Kirkland Signature
+  price: "9.99"
+  expect:
+    category: dairy/eggs
+    attributes: {size: large, organic: true, brand_tier: store_brand}
+    measures: {count: 24}
+- title: "Great Value Cage-Free Large White Eggs, 18 Count"
+  brand: Great Value
+  price: "4.98"
+  expect:
+    category: dairy/eggs
+    attributes: {size: large, housing: cage_free}
+    measures: {count: 18}
+- title: "Eggland's Best Extra Large Eggs, 12 ct"
+  brand: Eggland's Best
+  expect:
+    category: dairy/eggs
+    attributes: {size: extra_large}
+    measures: {count: 12}
+- title: "Happy Egg Co. Free Range Jumbo Eggs, 12 ct"
+  brand: Happy Egg Co.
+  expect:
+    category: dairy/eggs
+    attributes: {size: jumbo, housing: free_range}
+- title: "Pete and Gerry's Organic Free-Range Medium Eggs, 12 ct"
+  brand: Pete and Gerry's
+  expect:
+    category: dairy/eggs
+    attributes: {size: medium, housing: free_range, organic: true}
+- title: "Grade A Large Eggs, 1 Dozen"
+  brand: Market Pantry
+  expect:
+    category: dairy/eggs
+    attributes: {size: large}
+    measures: {count: 12}
+- title: "Eggs, 12 ct"
+  brand: Acme Farms
+  expect:
+    category: dairy/eggs
+    measures: {count: 12}
+- title: "Vital Farms Liquid Egg Whites, 32 oz"
+  expect:
+    category: null
+- title: "Cadbury Chocolate Easter Eggs, 12 ct"
+  expect:
+    category: null

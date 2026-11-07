@@ -1,0 +1,55 @@
+- title: "Organic Valley® Grassmilk® Reduced Fat Organic 2% Milk"
+  price: "5.99"
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", organic: true}
+    unresolved: [quantity, "unit_price:per_volume", "attribute:brand_tier"]
+- title: "Lactaid Reduced Fat 2% Milk, 2.8 L"
+  brand: Lactaid
+  price: "6.58"
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", lactose_free: true, organic: false, brand_tier: name_brand}
+    measures: {volume_ml: 2800}
+    unit_prices: {per_volume: "0.002350"}
+    unresolved: []
+- title: "a2 Milk Whole Milk"
+  expect:
+    category: dairy/milk
+    attributes: {fat: whole}
+- title: "O Organics Milk, Reduced Fat, 2% Milkfat"
+  brand: O Organics
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", organic: true, brand_tier: store_brand}
+- title: "365 by Whole Foods Market, Organic Reduced Fat 2% Milk, 32 FZ"
+  brand: 365 by Whole Foods Market
+  price: "3.49"
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", organic: true, brand_tier: store_brand}
+    measures: {volume_ml: 946.35}
+- title: "Market Basket 100% Lactose Free Lowfat 2% Milk"
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", lactose_free: true}
+- title: "fairlife 2% Reduced-Fat Ultra-Filtered 52oz Milk Bottle"
+  brand: fairlife
+  price: "5.99"
+  expect:
+    category: dairy/milk
+    attributes: {fat: "2", ultra_filtered: true}
+    measures: {volume_ml: 1537.82}
+- title: "Horizon Organic Chocolate Milk, 8 fl oz"
+  expect:
+    category: null
+- title: "Great Value Vitamin D Milk, 1 Gallon"
+  brand: Great Value
+  price: "3.58"
+  expect:
+    category: dairy/milk
+    attributes: {fat: whole, brand_tier: store_brand, organic: false}
+    measures: {volume_ml: 3785.41}
+- title: "Silk Unsweetened Almond Milk, 64 fl oz"
+  expect:
+    category: null

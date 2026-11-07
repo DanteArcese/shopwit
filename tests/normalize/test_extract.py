@@ -136,3 +136,19 @@ def test_empty_api_field_falls_through(milk, bad):
 def test_api_enum_value_is_stripped(milk):
     attrs, _ = extract_attributes(offer("Milk", fields={"fat": " whole "}), milk, None)
     assert attrs["fat"] == AttrValue("whole", "api")
+
+
+def test_pattern_capture_is_case_insensitive_for_enums():
+    size = AttributeDef(
+        name="size",
+        type="enum",
+        values=("medium", "large"),
+        patterns=(re.compile(r"\b(large)\b", re.IGNORECASE),),
+    )
+    category = CategoryDef(
+        slug="dairy/eggs", name="Eggs", parent=None, include=(), exclude=(),
+        dimension="count", attributes={"size": size},
+        comparison_default="per_count", comparison_alternates=(),
+    )
+    attrs, _ = extract_attributes(offer("Grade A LARGE Eggs"), category, None)
+    assert attrs["size"] == AttrValue("large", "rule")
