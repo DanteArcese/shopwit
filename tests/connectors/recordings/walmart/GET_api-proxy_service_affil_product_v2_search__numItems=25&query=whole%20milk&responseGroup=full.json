@@ -1,0 +1,32 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "whole milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 2,
+    "start": 1,
+    "numItems": 2,
+    "items": [
+      {
+        "itemId": 20103,
+        "name": "Great Value Whole Vitamin D Milk, Half Gallon",
+        "salePrice": 1.98,
+        "upc": "007874201002",
+        "brandName": "Great Value",
+        "size": "64 fl oz",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20103&subId1=|PUBID|"
+      },
+      {
+        "itemId": 20104,
+        "name": "Horizon Organic Whole Milk, 64 fl oz",
+        "salePrice": 4.98,
+        "upc": "074236005201",
+        "brandName": "Horizon",
+        "size": "64 fl oz",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20104&subId1=|PUBID|"
+      }
+    ]
+  }
+}

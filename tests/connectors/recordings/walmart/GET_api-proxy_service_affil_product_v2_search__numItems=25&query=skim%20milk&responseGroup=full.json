@@ -1,0 +1,23 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "skim milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 1,
+    "start": 1,
+    "numItems": 1,
+    "items": [
+      {
+        "itemId": 20105,
+        "name": "Great Value Fat Free Skim Milk, 1 Gallon",
+        "salePrice": 2.88,
+        "upc": "007874201003",
+        "brandName": "Great Value",
+        "size": "1 gal",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20105&subId1=|PUBID|"
+      }
+    ]
+  }
+}

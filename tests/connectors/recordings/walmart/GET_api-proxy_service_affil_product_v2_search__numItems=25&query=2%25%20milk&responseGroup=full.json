@@ -1,0 +1,32 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "2% milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 2,
+    "start": 1,
+    "numItems": 2,
+    "items": [
+      {
+        "itemId": 20101,
+        "name": "Great Value 2% Reduced Fat Milk, 1 Gallon",
+        "salePrice": 2.98,
+        "upc": "007874201001",
+        "brandName": "Great Value",
+        "size": "1 gal",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20101&subId1=|PUBID|"
+      },
+      {
+        "itemId": 20102,
+        "name": "Lactaid Reduced Fat 2% Milk, 2.8 L",
+        "salePrice": 6.58,
+        "upc": "004190800202",
+        "brandName": "Lactaid",
+        "size": "2.8 L",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20102&subId1=|PUBID|"
+      }
+    ]
+  }
+}
