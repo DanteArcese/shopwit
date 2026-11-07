@@ -15,7 +15,7 @@ attributes:
   select_a_size:
     type: bool
     synonyms:
-      true: ["select-a-size", "select a size", "pick-a-size", "choose-a-sheet"]
+      true: ["select-a-size", "select a size", "pick-a-size", "choose-a-sheet", "create-a-size", "quick-size"]
     absent: false
 comparison:
   default: area_x_ply

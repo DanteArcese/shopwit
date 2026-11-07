@@ -99,3 +99,36 @@ def test_load_store_brands(tmp_path: Path):
 def test_shipped_store_brands():
     brands = load_store_brands(Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml")
     assert {"kirkland signature", "365", "presto!"} <= brands
+
+
+def test_match_double_space_and_nbsp():
+    assert match_category(offer("Charmin  Toilet  Paper, 12 rolls"), CATS) == "household/toilet-paper"
+    assert match_category(offer("Charmin Toilet\u00a0Paper, 12 rolls"), CATS) == "household/toilet-paper"
+
+
+def test_match_includes_brand():
+    assert match_category(offer("Reduced Fat 2%", brand="Horizon Milk"), CATS) == "dairy/milk"
+
+
+def test_brand_curly_apostrophe_is_store_brand():
+    b = frozenset({"member's mark"})
+    assert brand_tier(offer("x", brand="Member\u2019s Mark"), b) == AttrValue("store_brand", "rule")
+
+
+def test_members_mark_alias_shipped():
+    brands = load_store_brands(Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml")
+    assert {"member's mark", "members mark"} <= brands
+
+
+def test_whitespace_only_brand_is_no_brand():
+    assert brand_tier(offer("Organic Milk", brand="   "), STORE_BRANDS) is None
+    assert brand_tier(offer("365 Organic Milk", brand="  "), STORE_BRANDS) == AttrValue("store_brand", "rule")
+
+
+def test_leading_space_title_prefix():
+    assert brand_tier(offer("  365 Organic 2% Milk"), STORE_BRANDS) == AttrValue("store_brand", "rule")
+
+
+def test_variety_pack_milk_excluded():
+    cats = {"dairy/milk": cat("dairy/milk", ["milk"], ["variety pack", "variety"])}
+    assert match_category(offer("Variety Pack Whole Milk and 2% Milk"), cats) is None

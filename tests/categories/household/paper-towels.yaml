@@ -9,7 +9,7 @@
   price: "22.99"
   expect:
     category: household/paper-towels
-    attributes: {brand_tier: store_brand, select_a_size: false}
+    attributes: {brand_tier: store_brand, select_a_size: true}
     measures: {rolls: 12, sheets: 1920}
     unresolved: ["attribute:ply", "unit_price:area_x_ply"]
 - title: "Viva Signature Cloth Choose-A-Sheet Paper Towels, 2-Ply, 6 Triple Rolls"
@@ -53,5 +53,5 @@
   price: "19.99"
   expect:
     category: household/paper-towels
-    attributes: {select_a_size: false}
+    attributes: {select_a_size: true}
     measures: {rolls: 8}

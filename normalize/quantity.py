@@ -8,16 +8,35 @@ from collections.abc import Sequence
 import pint
 
 from normalize.categories import Dimension
+from normalize.text import fold
 
 Measures = dict[str, float]
 
 _ureg = pint.UnitRegistry()
 
-_NUM = r"(\d+(?:\.\d+)?|\.\d+)"
+# One number: mixed "1 1/2", fraction "1/2", comma-grouped "1,500", decimal or integer.
+# Never starts mid-number (after a word char, ".", "/", or a "<digit>,").
+_START = r"(?<![\w./])(?<!\d,)"
+_NUM = (
+    rf"{_START}(\d+\s+\d+/[1-9]\d*|\d+/[1-9]\d*|\d{{1,3}}(?:,\d{{3}})+(?:\.\d+)?"
+    r"|\d+(?:\.\d+)?|\.\d+)"
+)
+
+
+def _to_float(num: str) -> float:
+    num = num.replace(",", "")
+    if "/" in num:
+        whole, _, frac = num.rpartition(" ")
+        if not whole:
+            whole = "0"
+        a, b = frac.split("/")
+        return float(whole) + float(a) / float(b)
+    return float(num)
 
 # --- multipacks --------------------------------------------------------------
 _MULT_PREFIX = re.compile(r"(\d+)\s*x\s*$", re.IGNORECASE)
 _PACK_N = re.compile(r"\b(\d+)\s*-?\s*(?:pack|pk)\b", re.IGNORECASE)
+_MULT_PREFIX_ANY = re.compile(r"(?<![\w.])\d+\s*x\s*\d", re.IGNORECASE)
 _PACK_OF = re.compile(r"\bpack\s+of\s+(\d+)\b", re.IGNORECASE)
 
 # --- volume / mass -----------------------------------------------------------
@@ -41,7 +60,7 @@ _MASS_UNITS = [
 
 def _unit_regex(units: list[tuple[str, str]]) -> re.Pattern[str]:
     alts = "|".join(f"(?P<u{i}>{pat})" for i, (pat, _) in enumerate(units))
-    return re.compile(rf"(?<![\w.]){_NUM}\s*(?:{alts})(?![A-Za-z])", re.IGNORECASE)
+    return re.compile(rf"{_NUM}\s*(?:{alts})(?![A-Za-z])", re.IGNORECASE)
 
 
 _VOLUME_RE = _unit_regex(_VOLUME_UNITS)
@@ -63,7 +82,9 @@ def _measure(
     if not m:
         return None
     unit = next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
-    value = float(m.group(1)) * _multiplier(text, m.start())
+    value = _to_float(m.group(1)) * _multiplier(text, m.start())
+    if value <= 0:
+        return None
     return float((value * _ureg(unit)).to(target).magnitude)
 
 
@@ -83,18 +104,22 @@ def _strip_fl_oz(text: str) -> str:
 
 # --- count -------------------------------------------------------------------
 _COUNT_RE = re.compile(
-    r"(?<![\w.])(\d+)\s*(?:ct|count|eggs?|pieces?|pcs)\b", re.IGNORECASE
+    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs)\b", re.IGNORECASE
 )
-_DOZEN_RE = re.compile(r"(?<![\w.])(?:(\d+(?:\.\d+)?)\s*)?dozen\b", re.IGNORECASE)
+_DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 
 
 def _count(text: str) -> Measures:
     m = _DOZEN_RE.search(text)
     if m:
-        return {"count": float(m.group(1) or 1) * 12}
+        if m.group(1) is None and re.search(r"[\d/,.]\s*$", text[: m.start()]):
+            return {}  # an unparsable number precedes "dozen": never guess
+        value = 12 * (_to_float(m.group(1)) if m.group(1) else 1.0)
+        return {"count": value} if value > 0 else {}
     m = _COUNT_RE.search(text)
     if m:
-        return {"count": float(m.group(1)) * _multiplier(text, m.start())}
+        value = _to_float(m.group(1)) * _multiplier(text, m.start())
+        return {"count": value} if value > 0 else {}
     return {}
 
 
@@ -103,9 +128,9 @@ _ROLL_ADJECTIVES = (
     "mega|double|triple|super|giant|jumbo|regular|family|big|huge|ultra|standard|plus"
 )
 _ROLLS_RE = re.compile(
-    rf"(?<![\w.])(\d+)\s+(?:(?:{_ROLL_ADJECTIVES})\s+)*rolls?\b", re.IGNORECASE
+    rf"{_START}(\d+)\s+(?:(?:{_ROLL_ADJECTIVES})\s+)*rolls?\b", re.IGNORECASE
 )
-_CNT = r"(?<![\w.])(?<!\d,)(\d{1,3}(?:,\d{3})+|\d+)"
+_CNT = rf"{_START}(\d{{1,3}}(?:,\d{{3}})+|\d+)"
 _SHEETS_PER_ROLL_RE = re.compile(rf"{_CNT}\s*sheets?\s*(?:per|/)\s*roll\b", re.IGNORECASE)
 _SHEETS_TOTAL_RE = re.compile(
     rf"{_CNT}\s*sheets?\s+(?:total|in\s+all)\b", re.IGNORECASE
@@ -123,12 +148,10 @@ _AREA_SQFT_RE = re.compile(
 _EQUIVALENCE_RE = re.compile(r"=[^,;]*")
 
 
-def _to_float(digits: str) -> float:
-    return float(digits.replace(",", ""))
-
-
 def _paper(text: str) -> Measures:
     text = _EQUIVALENCE_RE.sub(" ", text)
+    if _PACK_N.search(text) or _PACK_OF.search(text) or _MULT_PREFIX_ANY.search(text):
+        return {}  # multipack: roll counts are ambiguous (per pack or total), never guess
     m = _ROLLS_RE.search(text)
     if not m:
         return {}
@@ -177,7 +200,7 @@ def parse_measures(texts: Sequence[str], dimension: Dimension) -> Measures:
     """Return canonical measures from the first text that yields the dimension's key."""
     parse = _PARSERS[dimension]
     for text in texts:
-        result = parse(text or "")
+        result = parse(fold(text or ""))
         if _REQUIRED[dimension] in result:
             return result
     return {}

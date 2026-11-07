@@ -64,3 +64,18 @@
     category: household/toilet-paper
     attributes: {ply: 2}
     measures: {rolls: 12}
+- title: "Charmin  Ultra Soft  Toilet  Paper, 12 Rolls"
+  expect:
+    category: household/toilet-paper
+- title: "Charmin Toilet Paper, 12 Rolls"
+  expect:
+    category: household/toilet-paper
+- title: "Member’s Mark Toilet Paper, 12 Rolls"
+  brand: "Member’s Mark"
+  expect:
+    category: household/toilet-paper
+    attributes: {brand_tier: store_brand}
+- title: "Toilet Paper 12 Rolls 2-Ply, 2 Pack"
+  expect:
+    category: household/toilet-paper
+    unresolved: [quantity, "attribute:brand_tier", "unit_price:area_x_ply"]

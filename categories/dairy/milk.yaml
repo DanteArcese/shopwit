@@ -2,7 +2,7 @@ name: Milk
 dimension: volume
 match:
   include: ["milk"]
-  exclude: [almond, oat, soy, coconut, chocolate, condensed, evaporated, powdered, milk chocolate]
+  exclude: [almond, oat, soy, coconut, chocolate, condensed, evaporated, powdered, milk chocolate, cashew, rice, hemp, pea, macadamia, flax, magnesia, milk-bone, dry milk, variety pack, variety]
 attributes:
   fat:
     type: enum

@@ -24,10 +24,10 @@
 
 ## Review Focus
 
-1. **"oz" in a volume category means fl oz.** "fairlife 2% … 52oz" → `volume_ml ≈ 1537.85`, not a mass. Owned by Task 2.
+1. **"oz" in a volume category means fl oz.** "fairlife 2% … 52oz" → `volume_ml ≈ 1537.82`, not a mass. Owned by Task 2.
 2. **Percent-like text that isn't fat content.** "100% Lactose Free … 2% Milk" → fat `2`; "a2 Milk Whole Milk" → fat `whole`, never `2`. Owned by Tasks 3 and 6.
 3. **Multipacks multiply.** "6 x 12 fl oz", "Pack of 2, 64 oz" and "2 pk 64 fl oz" → total volume. Owned by Task 2.
-4. **Conflicting matches are ambiguous, not first-wins.** A title with both "whole" and "2%" in a variety pack → fat unresolved as `ambiguous`. Owned by Task 3.
+4. **Conflicting matches within a tier are ambiguous, not first-wins.** "1% and 2%" (patterns) or "Whole Milk & Skim Milk" (synonyms) → fat unresolved as ambiguous. Owned by Task 3.
 5. **Roll equivalences are ignored.** "18 Mega Rolls = 72 Regular Rolls" → `rolls == 18`. Owned by Task 2.
 
 ---

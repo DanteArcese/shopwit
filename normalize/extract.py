@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 
 from normalize.categories import AttributeDef, CategoryDef
+from normalize.text import fold
 from normalize.types import AttrValue, OffProduct, RawOffer
 
 _TRUE = {"true", "yes", "1"}
@@ -59,7 +60,7 @@ def _collect_synonyms(attr: AttributeDef, text: str) -> set[str | int | bool]:
         if cast is None:
             continue
         for phrase in phrases:
-            if re.search(rf"\b{re.escape(phrase)}\b", text, re.IGNORECASE):
+            if re.search(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)", text):
                 found.add(cast)
                 break
     return found
@@ -68,7 +69,7 @@ def _collect_synonyms(attr: AttributeDef, text: str) -> set[str | int | bool]:
 def extract_attributes(
     raw: RawOffer, category: CategoryDef, off: OffProduct | None
 ) -> tuple[dict[str, AttrValue], list[str]]:
-    text = f"{raw.title} {raw.size_text or ''}"
+    text = fold(f"{raw.title} {raw.brand or ''} {raw.size_text or ''}")
     attrs: dict[str, AttrValue] = {}
     unresolved: list[str] = []
 

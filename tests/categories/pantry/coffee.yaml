@@ -54,3 +54,9 @@
 - title: "Coffee mate Original Coffee Creamer, 32 fl oz"
   expect:
     category: null
+- title: "Green Mountain Coffee K-Cups, 12 oz"
+  expect:
+    category: null
+- title: "Coffee Cake, 16 oz"
+  expect:
+    category: null

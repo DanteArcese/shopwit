@@ -53,3 +53,15 @@
 - title: "Silk Unsweetened Almond Milk, 64 fl oz"
   expect:
     category: null
+- title: "Variety Pack Whole Milk and 2% Milk, 2 x 64 fl oz"
+  expect:
+    category: null
+- title: "Silk Cashew Milk, 64 fl oz"
+  expect:
+    category: null
+- title: "Phillips' Milk of Magnesia, 12 fl oz"
+  expect:
+    category: null
+- title: "Milk-Bone Dog Biscuits, 24 oz"
+  expect:
+    category: null

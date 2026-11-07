@@ -141,3 +141,49 @@ def test_paper_zero_sheets_never_emitted():
 def test_paper_hyphenated_sheet_token_not_sheet_count():
     m = parse_measures(["3-sheet Paper Towels, 6 Rolls"], "paper")
     assert "sheets" not in m
+
+
+def test_fraction_gallon():
+    assert parse_measures(["Horizon Organic Whole Milk, 1/2 gal"], "volume")["volume_ml"] == _r(1892.71)
+
+
+def test_half_dozen():
+    assert parse_measures(["Large Eggs, 1/2 Dozen"], "count")["count"] == A(6)
+
+
+def test_fraction_pound():
+    assert parse_measures(["Coffee 3/4 lb"], "mass")["mass_g"] == _r(340.19)
+
+
+def test_mixed_number_gallon():
+    assert parse_measures(["Milk 1 1/2 gal"], "volume")["volume_ml"] == _r(5678.12)
+
+
+def test_comma_grouped_ml():
+    assert parse_measures(["Milk 1,500 mL"], "volume")["volume_ml"] == A(1500)
+
+
+def test_comma_grouped_grams():
+    assert parse_measures(["Coffee 1,000 g"], "mass")["mass_g"] == A(1000)
+
+
+def test_zero_quantity_is_unresolved():
+    assert parse_measures(["Coffee 0 g"], "mass") == {}
+
+
+def test_unparsable_number_before_dozen_is_unresolved():
+    assert parse_measures(["Eggs 1,5 Dozen"], "count") == {}
+
+
+def test_quart_pint_ml_kg_g():
+    assert parse_measures(["Cream 1 qt"], "volume")["volume_ml"] == _r(946.35)
+    assert parse_measures(["Cream 1 pt"], "volume")["volume_ml"] == _r(473.18)
+    assert parse_measures(["Milk 750 mL"], "volume")["volume_ml"] == A(750)
+    assert parse_measures(["Flour 2 kg"], "mass")["mass_g"] == A(2000)
+    assert parse_measures(["Sugar 500 g"], "mass")["mass_g"] == A(500)
+
+
+def test_paper_multipack_is_unresolved():
+    assert parse_measures(["Toilet Paper 12 Rolls 2-Ply, 2 Pack"], "paper") == {}
+    assert parse_measures(["Toilet Paper, Pack of 2, 12 Rolls"], "paper") == {}
+    assert parse_measures(["Toilet Paper 2 x 12 Rolls"], "paper") == {}

@@ -43,7 +43,7 @@ def milk():
     )
 
 
-def offer(title, fields=None, size_text=None):
+def offer(title, fields=None, size_text=None, brand=None):
     return RawOffer(
         retailer="r",
         retailer_item_id="1",
@@ -53,6 +53,7 @@ def offer(title, fields=None, size_text=None):
         url="http://x",
         fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         size_text=size_text,
+        brand=brand,
         fields=fields or {},
     )
 
@@ -152,3 +153,24 @@ def test_pattern_capture_is_case_insensitive_for_enums():
     )
     attrs, _ = extract_attributes(offer("Grade A LARGE Eggs"), category, None)
     assert attrs["size"] == AttrValue("large", "rule")
+
+
+def test_brand_field_feeds_lactose_free(milk):
+    lf = AttributeDef(
+        name="lactose_free", type="bool", synonyms={True: ("lactaid",)}, absent=False
+    )
+    cat = CategoryDef(**{**milk.__dict__, "attributes": {"lactose_free": lf}})
+    attrs, _ = extract_attributes(
+        offer("Reduced Fat 2% Milk, 1 gal", brand="Lactaid"), cat, None
+    )
+    assert attrs["lactose_free"] == AttrValue(True, "rule")
+
+
+def test_brand_field_feeds_organic(milk):
+    attrs, _ = extract_attributes(offer("Milk, Reduced Fat", brand="O Organics"), milk, None)
+    assert attrs["organic"] == AttrValue(True, "rule")
+
+
+def test_synonym_folds_whitespace_and_quotes(milk):
+    attrs, _ = extract_attributes(offer("Reduced\u00a0 Fat  Milk"), milk, None)
+    assert attrs["fat"].value == "2"
