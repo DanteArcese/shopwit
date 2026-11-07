@@ -115,18 +115,17 @@ parent: household/paper-goods
 match:
   include: ["toilet paper", "bath tissue", "bathroom tissue"]
   exclude: ["wipes", "flushable wipe", "holder"]
+dimension: paper          # quantity parser yields rolls, sheets, area
 attributes:
-  ply:             {type: int, values: [1, 2, 3], patterns: ['(\d)[- ]?ply']}
-  sheets_per_roll: {type: int, patterns: ['(\d+)\s*sheets?\s*(per|/)\s*roll']}
-  sheet_area:      {type: area, derive: sheet_dimensions}
-  rolls:           {type: int, patterns: ['(\d+)\s*(mega|double|family)?\s*rolls?']}
-  brand_tier:      {type: enum, values: [name_brand, store_brand], source: brand}
+  ply: {type: int, values: [1, 2, 3], patterns: ['(?<![\d.])([123])[- ]?ply']}
 comparison:
   default: area_x_ply
   alternates: [per_100_sheets, per_roll]
 ```
 
 **Rules**
+- Each category declares a `dimension` (`volume`, `mass`, `count` or `paper`) that tells the quantity parser what to extract. Paper goods yield rolls, total sheets and total area.
+- `brand_tier` (store brand vs. name brand) is a built-in attribute for every category. It is derived from a shared `data/store_brands.yaml` list.
 - Each category declares a default comparison unit plus alternates the user can switch to:
   - milk: per volume
   - eggs: per egg
@@ -139,7 +138,7 @@ The initial catalog covers about 25 high-frequency categories (e.g. milk, eggs, 
 
 ## 7. Units, currency, locale
 
-- Quantities and unit prices are stored in base SI units. Display converts them to the user's **metric or imperial** setting; the default comes from the browser locale and can be changed anytime.
+- Quantities and unit prices are stored in canonical metric units (mL, g, count, m²). Display converts them to the user's **metric or imperial** setting; the default comes from the browser locale and can be changed anytime.
 - Currency is stored per offer and never assumed. The core release is US-only in data coverage but not in code.
 
 ## 8. Lists
