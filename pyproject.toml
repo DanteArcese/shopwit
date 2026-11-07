@@ -1,5 +1,5 @@
 [project]
-name = "shopwit"
+name = "unitpricer"
 version = "0.1.0"
 description = "Open-source grocery and household price-per-unit comparison"
 readme = "README.md"
@@ -26,4 +26,4 @@ dev = [
 [tool.pytest.ini_options]
 pythonpath = ["."]
 DJANGO_SETTINGS_MODULE = "config.settings"
-addopts = "-p tests.pgserver_plugin"
+addopts = "-p tests.postgres_plugin"

@@ -1,12 +1,12 @@
-# shopwit — Design Spec
+# UnitPricer — Design Spec
 
 - **Date:** 2026-11-07
 - **Status:** Draft, awaiting review
-- **Codename:** `shopwit`. **Final name: UnitPricer** (`unitpricer.com`); the rename happens after M2 (#26)
+- **Name:** **UnitPricer** (`unitpricer.com`), renamed from the codename `shopwit` after M2 (#26)
 
 ## 1. Summary
 
-shopwit is a free, open-source web app for finding the lowest **price per unit** on groceries and household goods. Its core difference from existing tools is that it compares **every product matching a set of attributes** ("any 2% milk", "any 2-ply toilet paper") rather than the same UPC across stores, and ranks them by a fair, normalized unit price.
+UnitPricer is a free, open-source web app for finding the lowest **price per unit** on groceries and household goods. Its core difference from existing tools is that it compares **every product matching a set of attributes** ("any 2% milk", "any 2-ply toilet paper") rather than the same UPC across stores, and ranks them by a fair, normalized unit price.
 
 Revenue comes mainly from affiliate links. Ads, with a paid ad-free tier, are deferred. Users are never charged for core functionality.
 
@@ -14,7 +14,7 @@ Revenue comes mainly from affiliate links. Ads, with a paid ad-free tier, are de
 
 Existing tools compare the *same product* across stores:
 
-| Product | Approach | Gaps relevant to shopwit |
+| Product | Approach | Gaps relevant to UnitPricer |
 |---|---|---|
 | GroceryChop | UPC match, then fuzzy match; 100+ chains; live per-search scraping | A "2% milk" search returned 275 per-product groups, including whole milk. There is no sort by unit price and no attribute filters (only SNAP, deals, multi-store, store). Free searches take 2–4 min; instant results are Pro at $6.99/mo or $39.99/yr. Prices are shown as "<1h–4mo old". |
 | Grocery Dealz | Third-party price data; cart handoff to the grocer | Built around lists and carts; regional (DFW) |
@@ -104,7 +104,7 @@ Manual corrections from the admin are stored and override extraction on later re
 - The search box resolves queries to a category and filters using category synonyms; when nothing resolves, it falls back to full-text product search.
 - HTMX handles partial updates when filters change. Pages are server-rendered and indexable.
 - **Every price shows "price as of <time>"** next to it, plus the Amazon disclaimer on Amazon offers ("Product prices and availability are accurate as of the date/time indicated and are subject to change.").
-- **Outbound links go directly to the retailer** (or to the affiliate network's own tracking link, e.g. `sovrn.co`). There is no shopwit redirect, intermediary page or link shortener: Amazon disqualifies links via an intermediate site, and Walmart bans shortened or obscured links and intermediate pages. Affiliate URLs are built at render time from the offer and `.env` config, so changing a tag is a config change. Clicks are counted with the HTML `ping` attribute / `navigator.sendBeacon` to a small endpoint that stores no personal data.
+- **Outbound links go directly to the retailer** (or to the affiliate network's own tracking link, e.g. `sovrn.co`). There is no UnitPricer redirect, intermediary page or link shortener: Amazon disqualifies links via an intermediate site, and Walmart bans shortened or obscured links and intermediate pages. Affiliate URLs are built at render time from the offer and `.env` config, so changing a tag is a config change. Clicks are counted with the HTML `ping` attribute / `navigator.sendBeacon` to a small endpoint that stores no personal data.
 - Django admin: the review queue, manual attribute corrections, and a category overview.
 
 ## 6. Category definitions
@@ -163,7 +163,7 @@ The initial catalog covers about 25 high-frequency categories (e.g. milk, eggs, 
   - Amazon uses its own Associates program, since sub-affiliate networks generally can't monetize it.
   - Other retailers go through **Sovrn** where it covers them, otherwise through the retailer's direct program (e.g. Walmart or Target via Impact).
 - An affiliate disclosure is shown above the fold on every page with affiliate links, and next to outbound links. Amazon pages also carry "As an Amazon Associate I earn from qualifying purchases."
-- Program terms constrain the design (see `docs/research/2026-11-07-sovrn-api.md` §6): data cached at most 24 h, timestamped prices, direct links, no Walmart price tracking, no stored Amazon images. Amazon also restricts analyzing or repurposing its product data without approval, so written approval for unit-price comparison is requested once shopwit is an Associate. Terms for Target, Instacart, Costco and Sovrn are not public and get reviewed on approval.
+- Program terms constrain the design (see `docs/research/2026-11-07-sovrn-api.md` §6): data cached at most 24 h, timestamped prices, direct links, no Walmart price tracking, no stored Amazon images. Amazon also restricts analyzing or repurposing its product data without approval, so written approval for unit-price comparison is requested once UnitPricer is an Associate. Terms for Target, Instacart, Costco and Sovrn are not public and get reviewed on approval.
 - Commission never affects ranking (Principle 2).
 - Keys and IDs (Sovrn key and secret, Associates tag, etc.) live only in `.env`.
 
@@ -175,7 +175,7 @@ The core release uses **official sources only**.
 |---|---|---|
 | Amazon Creators API (successor to PA-API 5, retired May 2026) | Official | Requires an Associates account with 10 qualifying sales in the past 30 days. Unavailable until the live site has traffic. |
 | Walmart affiliate API | Official — **first connector (Checkpoint A)** | Key upload on walmart.io currently fails (503); built against documented sample responses until it works. National, not per-store, pricing. |
-| Sovrn Commerce | Official (affiliate) — **link router only** | Spike (#17): product search returns poor grocery results with no UPC/size/brand fields, so it is not a data source. Its network includes Walmart, Target, Amazon, Costco, Instacart, Stop & Shop, Shaw's; affiliability to retest with shopwit's own site key. |
+| Sovrn Commerce | Official (affiliate) — **link router only** | Spike (#17): product search returns poor grocery results with no UPC/size/brand fields, so it is not a data source. Its network includes Walmart, Target, Amazon, Costco, Instacart, Stop & Shop, Shaw's; affiliability to retest with UnitPricer's own site key. |
 | Open Food Facts / Open Products Facts | Open data (ODbL) | Enrichment only (#18): seed from dump, daily deltas filtered to known UPCs; household items live in Open Products Facts. `en:organic` is positive-only. Whether a merged attribute table is a derived database needs a legal check. |
 
 Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out of scope until the decision checkpoint in §4.
@@ -219,4 +219,4 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Outbound links | Direct to retailer or network tracking link; no redirect, shortener or intermediate page; clicks counted by ping/beacon |
 | First connector (Checkpoint A) | Walmart Affiliate API, built against documented sample responses until walmart.io access works; Sovrn as link router |
 | Units | Metric/imperial user setting; locale-neutral storage |
-| Name | **UnitPricer** (unitpricer.com); codename `shopwit` until the rename (#26) |
+| Name | **UnitPricer** (unitpricer.com); renamed from codename `shopwit` (#26) |

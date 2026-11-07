@@ -1,6 +1,6 @@
 # Open Food Facts evaluation (#18)
 
-Date: 2026-11-07. Probes run with `User-Agent: shopwit-research/0.1 (+https://github.com/DanteArcese/shopwit)`, about 90 requests at <= 1 per second.
+Date: 2026-11-07. Probes run with `User-Agent: shopwit-research/0.1 (+https://github.com/DanteArcese/unitpricer)`, about 90 requests at <= 1 per second.
 
 ## Recommendation
 

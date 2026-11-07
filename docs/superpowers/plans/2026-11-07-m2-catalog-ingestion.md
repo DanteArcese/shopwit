@@ -1,5 +1,7 @@
 # M2: Catalog and Ingestion Implementation Plan
 
+> Written under the codename shopwit; the product is now UnitPricer.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A Postgres catalog that one command fills, idempotently, from the Walmart Affiliate API (driven by recorded responses until live access works), enriched from Open Food Facts, refreshed on a schedule, with an admin review queue whose manual corrections survive re-ingestion.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Python 3.13, `uv`, Django 5.2 LTS, Postgres 17, `psycopg[binary]`, `dj-database-url`, `httpx`, `cryptography`, `pytest-django`, `pgserver` (embedded Postgres for local tests).
 
-**Spec:** `docs/superpowers/specs/2026-11-07-shopwit-design.md`: §5.1 Connectors, §5.3 Catalog, §10 Revenue/terms, §11 Data sources, §13 Error handling, §14 Testing. Research: `docs/research/2026-11-07-sovrn-api.md` §6 (program terms), `docs/research/2026-11-07-open-food-facts.md`. Roadmap tasks 2.1–2.8.
+**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md`: §5.1 Connectors, §5.3 Catalog, §10 Revenue/terms, §11 Data sources, §13 Error handling, §14 Testing. Research: `docs/research/2026-11-07-sovrn-api.md` §6 (program terms), `docs/research/2026-11-07-open-food-facts.md`. Roadmap tasks 2.1–2.8.
 
 ## Global Constraints
 
@@ -21,7 +23,7 @@
 - Secrets come only from environment variables. Never read, print or log `.env` contents or credential values. Tests never need real credentials.
 - **Tests never touch the network.** Connectors are tested with recorded responses through `httpx.MockTransport`; OFF with fixture files.
 - Tests run against real Postgres: CI uses a `postgres:17` service; locally, when `DATABASE_URL` is unset, the test plugin starts an embedded `pgserver` instance. Docker is not required to run tests.
-- OFF requests send `User-Agent: shopwit/0.1 (+https://github.com/DanteArcese/shopwit)`, at most 1 request/second, with retry/backoff on 5xx.
+- OFF requests send `User-Agent: shopwit/0.1 (+https://github.com/DanteArcese/unitpricer)`, at most 1 request/second, with retry/backoff on 5xx.
 - Each task ends with `uv run pytest` green and the pre-commit hooks passing.
 
 ## Review Focus

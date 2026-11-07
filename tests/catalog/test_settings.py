@@ -34,8 +34,8 @@ def test_blank_env_values_mean_unset():
 
     env = {
         **os.environ,
-        "SHOPWIT_REFRESH_HOURS": "",
-        "SHOPWIT_FRESHNESS_HOURS": "",
+        "UNITPRICER_REFRESH_HOURS": "",
+        "UNITPRICER_FRESHNESS_HOURS": "",
         "DJANGO_ALLOWED_HOSTS": "",
         "DJANGO_SECRET_KEY": "",
         "DJANGO_DEBUG": "1",

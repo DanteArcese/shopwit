@@ -1,5 +1,7 @@
 # M1: Normalizer Core Implementation Plan
 
+> Written under the codename shopwit; the product is now UnitPricer.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** A pure-Python `normalize` package that turns a raw retailer offer into a category, typed attributes, canonical measures and unit prices, proven by real-title fixtures for 5 categories.
@@ -8,7 +10,7 @@
 
 **Tech Stack:** Python 3.13, `uv`, `pytest`, `pyyaml`, `pint`.
 
-**Spec:** `docs/superpowers/specs/2026-11-07-shopwit-design.md` (§3 Principles, §5.2 Normalizer, §6 Category definitions, §7 Units). Roadmap tasks 1.1–1.7 in `docs/roadmap.md`.
+**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md` (§3 Principles, §5.2 Normalizer, §6 Category definitions, §7 Units). Roadmap tasks 1.1–1.7 in `docs/roadmap.md`.
 
 ## Global Constraints
 
