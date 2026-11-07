@@ -1,0 +1,59 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 3,
+    "start": 1,
+    "numItems": 3,
+    "items": [
+      {
+        "itemId": 10315,
+        "parentItemId": 10315,
+        "name": "Great Value 2% Reduced Fat Milk, 1 Gallon",
+        "msrp": 3.48,
+        "salePrice": 2.98,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Great Value 2% Reduced Fat Milk, 1 Gallon",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F10315&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE",
+        "upc": "007874201001",
+        "brandName": "Great Value",
+        "size": "1 gal"
+      },
+      {
+        "itemId": 10316,
+        "parentItemId": 10316,
+        "name": "Great Value Whole Vitamin D Milk, Half Gallon",
+        "msrp": 2.48,
+        "salePrice": 1.98,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Great Value Whole Vitamin D Milk, Half Gallon",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F10316&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE"
+      },
+      {
+        "itemId": 10317,
+        "parentItemId": 10317,
+        "name": "Oatly Original Oat Milk, 64 fl oz",
+        "msrp": 4.0,
+        "salePrice": 3.5,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Oatly Original Oat Milk, 64 fl oz",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F10317&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE",
+        "upc": "794522111032",
+        "brandName": "Oatly",
+        "size": "64 fl oz"
+      }
+    ]
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "organic milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 2,
+    "start": 1,
+    "numItems": 2,
+    "items": [
+      {
+        "itemId": 20106,
+        "name": "Horizon Organic 2% Reduced Fat Milk, 1 Gallon",
+        "salePrice": 6.48,
+        "upc": "074236005202",
+        "brandName": "Horizon",
+        "size": "1 gal",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20106&subId1=|PUBID|"
+      },
+      {
+        "itemId": 20107,
+        "name": "Organic Valley Whole Milk, Half Gallon",
+        "salePrice": 4.78,
+        "upc": "093966000103",
+        "brandName": "Organic Valley",
+        "size": "64 fl oz",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F20107&subId1=|PUBID|"
+      }
+    ]
+  }
+}

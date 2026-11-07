@@ -12,8 +12,14 @@ STORE_BRANDS = frozenset({"kirkland signature", "365", "365 by whole foods marke
 
 def cat(slug, include, exclude=()):
     return CategoryDef(
-        slug=slug, name=slug, parent=None, include=tuple(include), exclude=tuple(exclude),
-        dimension="volume", attributes={}, comparison_default="per_volume",
+        slug=slug,
+        name=slug,
+        parent=None,
+        include=tuple(include),
+        exclude=tuple(exclude),
+        dimension="volume",
+        attributes={},
+        comparison_default="per_volume",
         comparison_alternates=(),
     )
 
@@ -21,8 +27,17 @@ def cat(slug, include, exclude=()):
 MILK = cat(
     "dairy/milk",
     ["milk"],
-    ["almond", "oat", "soy", "coconut", "chocolate", "condensed", "evaporated",
-     "powdered", "milk chocolate"],
+    [
+        "almond",
+        "oat",
+        "soy",
+        "coconut",
+        "chocolate",
+        "condensed",
+        "evaporated",
+        "powdered",
+        "milk chocolate",
+    ],
 )
 PLANT = cat("dairy/plant-milk", ["almond milk", "oat milk"])
 TP = cat("household/toilet-paper", ["toilet paper", "bath tissue"], ["wipes"])
@@ -31,14 +46,21 @@ CATS = {c.slug: c for c in (MILK, PLANT, TP)}
 
 def offer(title, brand=None):
     return RawOffer(
-        retailer="r", retailer_item_id="1", title=title, price=Decimal("1.00"),
-        currency="USD", url="http://x", fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        retailer="r",
+        retailer_item_id="1",
+        title=title,
+        price=Decimal("1.00"),
+        currency="USD",
+        url="http://x",
+        fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
         brand=brand,
     )
 
 
 def test_matches_milk():
-    assert match_category(offer("Garelick Farms Milk, Reduced Fat"), CATS) == "dairy/milk"
+    assert (
+        match_category(offer("Garelick Farms Milk, Reduced Fat"), CATS) == "dairy/milk"
+    )
 
 
 def test_excluded_flavored():
@@ -56,7 +78,12 @@ def test_tie_returns_none():
 
 
 def test_excludes_wipes():
-    assert match_category(offer("Cottonelle Flushable Wipes, toilet paper companion"), CATS) is None
+    assert (
+        match_category(
+            offer("Cottonelle Flushable Wipes, toilet paper companion"), CATS
+        )
+        is None
+    )
 
 
 def test_whole_phrase_only():
@@ -72,14 +99,24 @@ def test_no_match():
 
 
 def test_brand_tier_from_brand_field():
-    assert brand_tier(offer("x", brand="Kirkland Signature"), STORE_BRANDS) == AttrValue("store_brand", "rule")
-    assert brand_tier(offer("x", brand="kirkland signature"), STORE_BRANDS) == AttrValue("store_brand", "rule")
-    assert brand_tier(offer("x", brand="Charmin"), STORE_BRANDS) == AttrValue("name_brand", "rule")
+    assert brand_tier(
+        offer("x", brand="Kirkland Signature"), STORE_BRANDS
+    ) == AttrValue("store_brand", "rule")
+    assert brand_tier(
+        offer("x", brand="kirkland signature"), STORE_BRANDS
+    ) == AttrValue("store_brand", "rule")
+    assert brand_tier(offer("x", brand="Charmin"), STORE_BRANDS) == AttrValue(
+        "name_brand", "rule"
+    )
 
 
 def test_brand_tier_from_title_prefix():
-    assert brand_tier(offer("365 Organic 2% Milk, 32 fl oz"), STORE_BRANDS) == AttrValue("store_brand", "rule")
-    assert brand_tier(offer("365 by Whole Foods Market Milk"), STORE_BRANDS) == AttrValue("store_brand", "rule")
+    assert brand_tier(
+        offer("365 Organic 2% Milk, 32 fl oz"), STORE_BRANDS
+    ) == AttrValue("store_brand", "rule")
+    assert brand_tier(
+        offer("365 by Whole Foods Market Milk"), STORE_BRANDS
+    ) == AttrValue("store_brand", "rule")
 
 
 def test_brand_tier_prefix_needs_boundary():
@@ -97,36 +134,55 @@ def test_load_store_brands(tmp_path: Path):
 
 
 def test_shipped_store_brands():
-    brands = load_store_brands(Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml")
+    brands = load_store_brands(
+        Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml"
+    )
     assert {"kirkland signature", "365", "presto!"} <= brands
 
 
 def test_match_double_space_and_nbsp():
-    assert match_category(offer("Charmin  Toilet  Paper, 12 rolls"), CATS) == "household/toilet-paper"
-    assert match_category(offer("Charmin Toilet\u00a0Paper, 12 rolls"), CATS) == "household/toilet-paper"
+    assert (
+        match_category(offer("Charmin  Toilet  Paper, 12 rolls"), CATS)
+        == "household/toilet-paper"
+    )
+    assert (
+        match_category(offer("Charmin Toilet\u00a0Paper, 12 rolls"), CATS)
+        == "household/toilet-paper"
+    )
 
 
 def test_match_includes_brand():
-    assert match_category(offer("Reduced Fat 2%", brand="Horizon Milk"), CATS) == "dairy/milk"
+    assert (
+        match_category(offer("Reduced Fat 2%", brand="Horizon Milk"), CATS)
+        == "dairy/milk"
+    )
 
 
 def test_brand_curly_apostrophe_is_store_brand():
     b = frozenset({"member's mark"})
-    assert brand_tier(offer("x", brand="Member\u2019s Mark"), b) == AttrValue("store_brand", "rule")
+    assert brand_tier(offer("x", brand="Member\u2019s Mark"), b) == AttrValue(
+        "store_brand", "rule"
+    )
 
 
 def test_members_mark_alias_shipped():
-    brands = load_store_brands(Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml")
+    brands = load_store_brands(
+        Path(__file__).resolve().parents[2] / "data" / "store_brands.yaml"
+    )
     assert {"member's mark", "members mark"} <= brands
 
 
 def test_whitespace_only_brand_is_no_brand():
     assert brand_tier(offer("Organic Milk", brand="   "), STORE_BRANDS) is None
-    assert brand_tier(offer("365 Organic Milk", brand="  "), STORE_BRANDS) == AttrValue("store_brand", "rule")
+    assert brand_tier(offer("365 Organic Milk", brand="  "), STORE_BRANDS) == AttrValue(
+        "store_brand", "rule"
+    )
 
 
 def test_leading_space_title_prefix():
-    assert brand_tier(offer("  365 Organic 2% Milk"), STORE_BRANDS) == AttrValue("store_brand", "rule")
+    assert brand_tier(offer("  365 Organic 2% Milk"), STORE_BRANDS) == AttrValue(
+        "store_brand", "rule"
+    )
 
 
 def test_variety_pack_milk_excluded():
@@ -136,7 +192,10 @@ def test_variety_pack_milk_excluded():
 
 def test_trademark_symbols_do_not_break_match():
     cats = {"dairy/milk": MILK}
-    assert match_category(offer("Horizon Organic Whole Milk™, 1 Gallon"), cats) == "dairy/milk"
+    assert (
+        match_category(offer("Horizon Organic Whole Milk™, 1 Gallon"), cats)
+        == "dairy/milk"
+    )
     assert match_category(offer("Milk℠ 1 gal"), cats) == "dairy/milk"
 
 

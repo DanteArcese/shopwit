@@ -13,7 +13,13 @@ uv sync              # Install dependencies
 uv add <package>     # Add a dependency
 uv run pytest        # Run tests
 uv run --env-file .env <command>   # Run with local secrets
+uv run --env-file .env python manage.py runserver   # Run the app (needs DJANGO_SECRET_KEY, DATABASE_URL)
+docker compose up    # Or run db + web + worker in containers
 ```
+
+First run (empty database): `uv run python manage.py migrate`, then `uv run python manage.py sync_categories`, before starting the worker (`run_scheduler`). With no categories loaded the scheduler has nothing to refresh. `refresh --connector walmart --recordings tests/connectors/recordings/walmart` runs offline; categories without recordings are reported `failed`.
+
+Tests need real Postgres. With `DATABASE_URL` unset, `tests/pgserver_plugin.py` starts a throwaway cluster in `.pytest-pg/` from system binaries (one-time `sudo apt install postgresql`). CI uses a postgres:17 service.
 
 ## Standards
 

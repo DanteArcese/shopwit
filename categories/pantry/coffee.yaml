@@ -21,3 +21,4 @@ attributes:
     absent: false
 comparison:
   default: per_mass
+search: ["ground coffee", "whole bean coffee"]

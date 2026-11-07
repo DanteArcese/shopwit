@@ -65,7 +65,7 @@ def test_rejects_unknown_comparison(tmp_path):
 
 def test_enum_requires_values(tmp_path):
     bad = MINIMAL.replace("    values: [whole, skim]\n", "").replace(
-        "    synonyms:\n      whole: [\"full fat\"]\n", ""
+        '    synonyms:\n      whole: ["full fat"]\n', ""
     )
     write(tmp_path, "dairy/milk.yaml", bad)
     with pytest.raises(CategoryError):
@@ -104,3 +104,13 @@ comparison:
     assert cat.attributes["ply"].synonyms == {2: ("double",)}
     assert cat.parent is None
     assert cat.comparison_alternates == ()
+
+
+def test_search_defaults_to_name(tmp_path):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    assert load_categories(tmp_path)["dairy/milk"].search == ("Milk",)
+
+
+def test_search_loaded(tmp_path):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL + 'search: ["2% milk", "whole milk"]\n')
+    assert load_categories(tmp_path)["dairy/milk"].search == ("2% milk", "whole milk")

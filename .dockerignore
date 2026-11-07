@@ -1,0 +1,9 @@
+.env
+.env.*
+!.env.example
+.git
+.venv
+.pytest-pg
+.superpowers
+__pycache__
+.pytest_cache

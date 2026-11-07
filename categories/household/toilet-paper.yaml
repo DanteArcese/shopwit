@@ -15,3 +15,4 @@ attributes:
 comparison:
   default: area_x_ply
   alternates: [per_100_sheets, per_roll]
+search: ["toilet paper"]

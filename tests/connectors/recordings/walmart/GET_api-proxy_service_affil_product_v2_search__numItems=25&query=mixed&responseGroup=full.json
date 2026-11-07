@@ -1,0 +1,70 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "mixed",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 4,
+    "start": 1,
+    "numItems": 4,
+    "items": [
+      {
+        "itemId": 1,
+        "parentItemId": 1,
+        "name": "Great Value Large White Eggs, 12 Count",
+        "msrp": 3.0,
+        "salePrice": 2.5,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Great Value Large White Eggs, 12 Count",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F1&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE",
+        "upc": "078742000011",
+        "brandName": "Great Value",
+        "size": "12 ct"
+      },
+      {
+        "itemId": 2,
+        "parentItemId": 2,
+        "msrp": 2.0,
+        "salePrice": 1.5,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "x",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F2&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE"
+      },
+      {
+        "itemId": 3,
+        "parentItemId": 3,
+        "name": "Bananas, per lb",
+        "msrp": 2.0,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Bananas, per lb",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F3&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE"
+      },
+      {
+        "itemId": 4,
+        "parentItemId": 4,
+        "name": "Great Value Butter, 16 oz",
+        "msrp": 4.49,
+        "salePrice": 3.99,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk",
+        "shortDescription": "Great Value Butter, 16 oz",
+        "productTrackingUrl": "https://goto.walmart.com/c/0000000/000000/0000?u=https%3A%2F%2Fwww.walmart.com%2Fip%2F4&subId1=|PUBID|",
+        "stock": "Available",
+        "availableOnline": true,
+        "offerType": "ONLINE_AND_STORE",
+        "upc": "078742000028",
+        "brandName": "Great Value",
+        "size": "16 oz"
+      }
+    ]
+  }
+}

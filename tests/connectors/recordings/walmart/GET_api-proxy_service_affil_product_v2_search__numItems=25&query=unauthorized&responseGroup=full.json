@@ -1,0 +1,12 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 401,
+  "json": {
+    "errors": [
+      {
+        "code": 4401,
+        "message": "Unauthorized"
+      }
+    ]
+  }
+}

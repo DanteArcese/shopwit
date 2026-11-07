@@ -6,7 +6,7 @@ def test_fold_collapses_whitespace_and_nbsp():
 
 
 def test_fold_curly_quotes():
-    assert fold("Member\u2019s \u201cMark\u201d") == "member's \"mark\""
+    assert fold("Member\u2019s \u201cMark\u201d") == 'member\'s "mark"'
 
 
 def test_fold_casefold_and_nfkc():

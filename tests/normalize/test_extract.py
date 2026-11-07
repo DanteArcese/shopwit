@@ -77,13 +77,17 @@ def test_synonym_reduced_fat(milk):
 
 
 def test_ambiguous_pattern(milk):
-    attrs, unresolved = extract_attributes(offer("Variety pack 1% and 2% milk"), milk, None)
+    attrs, unresolved = extract_attributes(
+        offer("Variety pack 1% and 2% milk"), milk, None
+    )
     assert "fat" not in attrs
     assert "attribute:fat:ambiguous" in unresolved
 
 
 def test_ambiguous_synonym(milk):
-    attrs, unresolved = extract_attributes(offer("Whole Milk & Skim Milk Duo"), milk, None)
+    attrs, unresolved = extract_attributes(
+        offer("Whole Milk & Skim Milk Duo"), milk, None
+    )
     assert "fat" not in attrs
     assert "attribute:fat:ambiguous" in unresolved
 
@@ -147,9 +151,15 @@ def test_pattern_capture_is_case_insensitive_for_enums():
         patterns=(re.compile(r"\b(large)\b", re.IGNORECASE),),
     )
     category = CategoryDef(
-        slug="dairy/eggs", name="Eggs", parent=None, include=(), exclude=(),
-        dimension="count", attributes={"size": size},
-        comparison_default="per_count", comparison_alternates=(),
+        slug="dairy/eggs",
+        name="Eggs",
+        parent=None,
+        include=(),
+        exclude=(),
+        dimension="count",
+        attributes={"size": size},
+        comparison_default="per_count",
+        comparison_alternates=(),
     )
     attrs, _ = extract_attributes(offer("Grade A LARGE Eggs"), category, None)
     assert attrs["size"] == AttrValue("large", "rule")
@@ -167,7 +177,9 @@ def test_brand_field_feeds_lactose_free(milk):
 
 
 def test_brand_field_feeds_organic(milk):
-    attrs, _ = extract_attributes(offer("Milk, Reduced Fat", brand="O Organics"), milk, None)
+    attrs, _ = extract_attributes(
+        offer("Milk, Reduced Fat", brand="O Organics"), milk, None
+    )
     assert attrs["organic"] == AttrValue(True, "rule")
 
 

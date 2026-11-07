@@ -28,3 +28,4 @@ attributes:
     absent: false
 comparison:
   default: per_volume
+search: ["2% milk", "whole milk", "skim milk", "organic milk"]

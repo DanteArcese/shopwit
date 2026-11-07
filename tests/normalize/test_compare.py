@@ -24,7 +24,9 @@ def test_compare_keys_match_known():
 
 
 def test_per_volume_price():
-    result = unit_prices(Decimal("5.99"), cat("per_volume"), {"volume_ml": 1892.705}, {})
+    result = unit_prices(
+        Decimal("5.99"), cat("per_volume"), {"volume_ml": 1892.705}, {}
+    )
     assert result["per_volume"] == Decimal("0.003165")
 
 

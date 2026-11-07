@@ -15,7 +15,12 @@ def categories():
         type="enum",
         values=("skim", "1", "2", "whole"),
         patterns=(re.compile(r"(?<![\d.])([12])\s?%", re.IGNORECASE),),
-        synonyms={"skim": ("skim",), "1": ("low fat",), "2": ("reduced fat",), "whole": ("whole milk",)},
+        synonyms={
+            "skim": ("skim",),
+            "1": ("low fat",),
+            "2": ("reduced fat",),
+            "whole": ("whole milk",),
+        },
     )
     milk = CategoryDef(
         slug="dairy/milk",

@@ -1,0 +1,44 @@
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: shopwit
+      POSTGRES_PASSWORD: shopwit
+      POSTGRES_DB: shopwit
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "127.0.0.1:5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopwit -d shopwit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+  web:
+    build: .
+    command: uv run python manage.py runserver 0.0.0.0:8000
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://shopwit:shopwit@db:5432/shopwit
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+  worker:
+    # First run: apply `migrate` and `sync_categories` (e.g. via `docker compose run --rm web
+    # uv run python manage.py ...`) before starting the worker; it refreshes only synced categories.
+    build: .
+    command: uv run python manage.py run_scheduler
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      DATABASE_URL: postgres://shopwit:shopwit@db:5432/shopwit
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  pgdata:
