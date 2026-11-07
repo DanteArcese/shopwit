@@ -15,38 +15,17 @@ from normalize.types import NormalizedOffer
 
 from . import overrides
 from .identity import product_identity
-from .models import Category, IngestionRun, Offer, PriceHistory, Product, ReviewItem
+from .merge import merge_product
+from .models import Category, IngestionRun, Offer, PriceHistory, Product
 
 
-def _sync_review_items(product: Product, unresolved: tuple[str, ...], now: datetime) -> None:
-    current = set(unresolved)
-    open_items = {i.detail: i for i in product.review_items.filter(status=ReviewItem.Status.OPEN)}
-    for detail in current - open_items.keys():
-        ReviewItem.objects.create(product=product, detail=detail)
-    for detail, item in open_items.items():
-        if detail not in current:
-            item.status = ReviewItem.Status.RESOLVED
-            item.resolved_at = now
-            item.save(update_fields=["status", "resolved_at", "updated_at"])
-
-
-def _upsert(connector, raw, normalized: NormalizedOffer, categories: dict, now: datetime):
-    """Write one offer; returns the (possibly overridden) NormalizedOffer."""
-    category = categories.get(normalized.category) or Category.objects.get(slug=normalized.category)
-    categories[normalized.category] = category
-    product, _ = Product.objects.update_or_create(
+def _upsert(connector, raw, normalized: NormalizedOffer, model_cache: dict, now: datetime):
+    """Write one offer and refresh its product; returns the (possibly overridden) result."""
+    category = model_cache.get(normalized.category) or Category.objects.get(slug=normalized.category)
+    model_cache[normalized.category] = category
+    product, _ = Product.objects.get_or_create(
         identity=product_identity(raw),
-        defaults={
-            "title": raw.title,
-            "brand": raw.brand,
-            "upc": normalize_upc(raw.upc),
-            "category": category,
-            "attributes": {
-                name: {"value": a.value, "source": a.source}
-                for name, a in normalized.attributes.items()
-            },
-            "measures": normalized.measures,
-        },
+        defaults={"title": raw.title, "upc": normalize_upc(raw.upc), "category": category},
     )
     normalized = overrides.apply(product, normalized)
 
@@ -60,6 +39,15 @@ def _upsert(connector, raw, normalized: NormalizedOffer, categories: dict, now: 
             "unit_prices": {k: str(v) for k, v in normalized.unit_prices.items()},
             "url": raw.url,
             "last_seen_at": now,
+            "category": category,
+            "title": raw.title,
+            "brand": raw.brand,
+            "attributes": {
+                name: {"value": a.value, "source": a.source}
+                for name, a in normalized.attributes.items()
+            },
+            "measures": normalized.measures,
+            "unresolved": list(normalized.unresolved),
         },
     )
     if connector.records_price_history:
@@ -68,7 +56,7 @@ def _upsert(connector, raw, normalized: NormalizedOffer, categories: dict, now: 
             PriceHistory.objects.create(
                 offer=offer, price=raw.price, currency=raw.currency, observed_at=now
             )
-    _sync_review_items(product, normalized.unresolved, now)
+    merge_product(product, now)
     return normalized
 
 
@@ -85,9 +73,9 @@ def ingest(
     categories = load_categories(settings.CATEGORIES_DIR)
     store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
 
+    unique = {}
+    skipped = 0
     try:
-        unique = {}
-        skipped = 0
         for query in category.search:
             result = connector.search(query)
             skipped += result.skipped
@@ -96,6 +84,8 @@ def ingest(
     except ConnectorError as exc:
         run.status = IngestionRun.Status.FAILED
         run.error = str(exc)
+        run.fetched = len(unique)
+        run.skipped = skipped
         run.finished_at = now
         run.save()
         return run

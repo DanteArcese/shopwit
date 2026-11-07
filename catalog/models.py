@@ -62,6 +62,12 @@ class Offer(TimestampedModel):
     currency = models.CharField(max_length=3)
     unit_prices = models.JSONField(default=dict)
     url = models.URLField(max_length=2000)
+    category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)
+    title = models.CharField(max_length=500, default="")
+    brand = models.CharField(max_length=200, null=True, blank=True)
+    attributes = models.JSONField(default=dict)
+    measures = models.JSONField(default=dict)
+    unresolved = models.JSONField(default=list)
     image_url = models.URLField(max_length=2000, null=True, blank=True)
     last_seen_at = models.DateTimeField(db_index=True)
 
