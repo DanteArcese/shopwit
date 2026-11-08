@@ -14,6 +14,7 @@ def _get_jwks_client():
             f"https://{settings.CF_ACCESS_TEAM_DOMAIN}/cdn-cgi/access/certs",
             cache_keys=True,
             lifespan=3600,
+            timeout=5,
         )
     return _jwks_client
 
@@ -30,7 +31,11 @@ class CloudflareAccessMiddleware:
         host = normalize_host(request)
         public = settings.PUBLIC_HOST
         # Fail closed: every host except the public ones needs a token.
-        if (public and host in (public, f"www.{public}")) or request.path == "/healthz":
+        if (public and host in (public, f"www.{public}")) or (
+            request.path == "/healthz"
+            # In-container probe is plain HTTP; via the tunnel it carries this header.
+            and "HTTP_X_FORWARDED_PROTO" not in request.META
+        ):
             return self.get_response(request)
         token = request.META.get("HTTP_CF_ACCESS_JWT_ASSERTION")
         if not token:

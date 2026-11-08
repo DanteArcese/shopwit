@@ -21,6 +21,8 @@ if not SECRET_KEY:
         raise ImproperlyConfigured("DJANGO_SECRET_KEY is required unless DJANGO_DEBUG=1")
     SECRET_KEY = "insecure-dev-key-not-for-production"
 
+SECRET_KEY_FALLBACKS = [k.strip() for k in env("DJANGO_SECRET_KEY_FALLBACKS", "").split(",") if k.strip()]
+
 ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
 
 INSTALLED_APPS = [

@@ -53,6 +53,12 @@ def test_prod_cookie_and_proxy_settings(prod_env, run_prod):
     assert "https://beta.unitpricer.com" in got["CSRF_TRUSTED_ORIGINS"]
 
 
+def test_secret_key_fallbacks_from_env(prod_env, run_prod):
+    prod_env["DJANGO_SECRET_KEY_FALLBACKS"] = "old-one, old-two"
+    got = _print_settings(run_prod, prod_env, "SECRET_KEY_FALLBACKS")
+    assert got["SECRET_KEY_FALLBACKS"] == repr(["old-one", "old-two"])
+
+
 def test_smtp_settings_from_env(prod_env, run_prod):
     prod_env.update(
         DJANGO_EMAIL_HOST="smtp.resend.com",

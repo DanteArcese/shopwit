@@ -241,4 +241,17 @@ def test_send_failure_shows_busy_page_and_removes_row(client, monkeypatch, caplo
         "We can't send confirmation emails right now." in r.content.decode()
     )
     assert Subscriber.objects.count() == 0
-    assert "waitlist confirmation send failed" in caplog.text
+    assert "waitlist confirmation send failed: SMTPException" in caplog.text
+    assert "person@example.com" not in caplog.text.lower()
+    assert all(r.exc_info is None for r in caplog.records)
+
+
+def test_budget_exhausted_is_busy_for_every_address(client, settings):
+    settings.DAILY_EMAIL_CAP = 1
+    record_send("confirm", timezone.now())
+    Subscriber.objects.create(email="pending@example.com")
+    done = Subscriber.objects.create(email="done@example.com", confirmed_at=timezone.now())
+    assert done.pk
+    for addr in ("new@example.com", "pending@example.com", "done@example.com"):
+        assert signup(client, addr).status_code == 503
+    assert not Subscriber.objects.filter(email="new@example.com").exists()

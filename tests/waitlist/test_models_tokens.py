@@ -82,6 +82,17 @@ def test_confirm_token_email_mismatch():
     assert read_confirm_token(token) is None
 
 
+def test_token_payload_does_not_contain_email():
+    from django.core import signing
+
+    sub = make("secret.person@example.com")
+    for token, salt in ((confirm_token(sub), "waitlist.confirm"), (unsubscribe_token(sub), "waitlist.unsubscribe")):
+        data = signing.loads(token, salt=salt)
+        blob = repr(data) + token
+        assert "secret.person" not in blob and "example.com" not in blob
+        assert "e" not in data
+
+
 def test_unsubscribe_token_round_trip():
     sub = make()
     assert read_unsubscribe_token(unsubscribe_token(sub)) == (True, sub)

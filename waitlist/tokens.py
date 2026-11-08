@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.core import signing
+from django.utils.crypto import constant_time_compare, salted_hmac
 
 from .models import Subscriber
 
@@ -7,13 +8,21 @@ CONFIRM_SALT = "waitlist.confirm"
 UNSUBSCRIBE_SALT = "waitlist.unsubscribe"
 
 
+def _digest(email: str) -> str:
+    return salted_hmac("waitlist.email", email).hexdigest()[:16]
+
+
 def _payload(sub: Subscriber) -> dict:
-    return {"id": sub.pk, "e": sub.email}
+    # Opaque: the address itself never appears in a token (URLs get logged).
+    return {"id": sub.pk, "h": _digest(sub.email)}
 
 
 def _lookup(data) -> Subscriber | None:
     try:
-        return Subscriber.objects.filter(pk=data["id"], email=data["e"]).first()
+        sub = Subscriber.objects.filter(pk=data["id"]).first()
+        if sub is None or not isinstance(data["h"], str):
+            return None
+        return sub if constant_time_compare(data["h"], _digest(sub.email)) else None
     except (KeyError, TypeError, ValueError):
         return None
 

@@ -4,9 +4,9 @@ First deploy and day-to-day operations. Files: `compose.prod.yaml`, `deploy/clou
 
 ## Topology
 
-One DigitalOcean droplet (Ubuntu 24.04, `s-1vcpu-2gb`, `nyc3`) running Docker Compose: `db` (Postgres 17), `web` (gunicorn), `worker` (`run_scheduler`), `cloudflared` and `backup`. No container publishes a port. Traffic arrives through the Cloudflare tunnel **`unitpricer-prod`** (remotely managed; ingress `unitpricer.com`, `www.unitpricer.com` and `beta.unitpricer.com` all go to `http://web:8000`). The app host `beta.unitpricer.com` sits behind the Cloudflare Access application **"UnitPricer beta"**; its allow-list is managed in Cloudflare Zero Trust (Access > Applications), not in this repo.
+One DigitalOcean droplet (Ubuntu 24.04, `s-1vcpu-2gb`, `nyc3`) running Docker Compose: `db` (Postgres 17), `web` (gunicorn), `worker` (`run_scheduler`), `cloudflared` and `backup`. No container publishes a port. Traffic arrives through the Cloudflare tunnel **`unitpricer-prod`** (remotely managed; ingress is the apex `unitpricer.com` and `beta.unitpricer.com` only, both to `http://web:8000`; `www.unitpricer.com` is a Cloudflare 301 redirect rule to the apex, and the app's own www redirect is only a fallback). The DigitalOcean firewall is named **`unitpricer`**. The app host `beta.unitpricer.com` sits behind the Cloudflare Access application **"UnitPricer beta"**; its allow-list is managed in Cloudflare Zero Trust (Access > Applications), not in this repo.
 
-Create the droplet with `deploy/cloud-init.yaml` as user data, your SSH key attached, weekly backups and monitoring on.
+Create the droplet with `deploy/cloud-init.yaml` as user data, your SSH key attached, daily backups and monitoring on.
 
 ## Server files
 
@@ -61,9 +61,9 @@ docker compose run --rm -T web python manage.py <command> </dev/null   # drop -T
 
 ## Backups and restore
 
-The `backup` service runs `pg_dump -Fc` at 03:30 UTC (`BACKUP_AT`), checks the dump with `pg_restore --list`, and only then stores it. A failed dump or failed check stores nothing and sends no heartbeat. If `BACKUP_HEARTBEAT_URL` is set it is pinged after each good run, so point an uptime monitor at it. DigitalOcean weekly droplet backups are the second layer.
+The `backup` service runs `pg_dump -Fc` at 03:30 UTC (`BACKUP_AT`), checks the dump with `pg_restore --list`, and only then stores it. A failed dump or failed check stores nothing and sends no heartbeat. If `BACKUP_HEARTBEAT_URL` is set it is pinged after each good run, so point an uptime monitor at it. DigitalOcean daily droplet backups (kept 7 days) are the second layer.
 
-**Without R2 (current default).** When any of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` is empty, the dump stays in the `backups` volume (`/backups`), the newest 7 `unitpricer-*.dump` files are kept, and the log says `R2 not configured; kept dump locally`. This copy lives on the same droplet, so it does not survive losing the droplet; the weekly provider backup covers that.
+**Without R2 (current default).** When any of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` is empty, the dump stays in the `backups` volume (`/backups`), the newest 7 `unitpricer-*.dump` files are kept, and the log says `R2 not configured; kept dump locally`. This copy lives on the same droplet, so it does not survive losing the droplet; the daily provider backup covers that.
 
 **With R2.** The dump is also uploaded to bucket `unitpricer-backups`, prefix `pg/`; the bucket's lifecycle rule deletes objects after 30 days (the script does no remote retention). The local newest-7 copy is still kept.
 
@@ -109,6 +109,6 @@ Keep a second session open while changing rules; the DigitalOcean web console is
 
 ## Rotating secrets
 
-- **Django `SECRET_KEY`:** (settings do not yet read `DJANGO_SECRET_KEY_FALLBACKS`; wire it to Django's `SECRET_KEY_FALLBACKS` before the first rotation) put the old key in `DJANGO_SECRET_KEY_FALLBACKS` in `app.env`, set the new `DJANGO_SECRET_KEY`, run `docker compose up -d web worker`, and remove the fallback after sessions and tokens have aged out (waitlist tokens: 7 days).
+- **Django `SECRET_KEY`:** put the old key (comma-separated if several) in `DJANGO_SECRET_KEY_FALLBACKS` in `app.env` (read into Django's `SECRET_KEY_FALLBACKS`), set the new `DJANGO_SECRET_KEY`, run `docker compose up -d web worker`, and remove the fallback after sessions and tokens have aged out (waitlist tokens: 7 days).
 - **Resend key:** create a new key in Resend, update `DJANGO_EMAIL_HOST_PASSWORD` in `app.env`, `docker compose up -d web worker`, delete the old key.
 - **Tunnel token:** rotate in Cloudflare Zero Trust (Networks > Tunnels > `unitpricer-prod`), update `TUNNEL_TOKEN` in `.env`, `docker compose up -d cloudflared`.

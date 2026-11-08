@@ -102,6 +102,12 @@ def test_apex_and_healthz_not_checked(client):
 
 
 @pytest.mark.django_db
+def test_healthz_via_tunnel_is_checked(client):
+    r = client.get("/healthz", HTTP_HOST=APP, HTTP_X_FORWARDED_PROTO="https")
+    assert r.status_code == 403
+
+
+@pytest.mark.django_db
 def test_inactive_without_aud(client, settings):
     settings.CF_ACCESS_AUD = ""
     assert get(client).status_code == 200

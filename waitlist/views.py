@@ -1,6 +1,7 @@
 import logging
 from datetime import timedelta
 
+from django.conf import settings
 from django.core.exceptions import ValidationError
 from django.core.validators import EmailValidator
 from django.db import IntegrityError
@@ -12,7 +13,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from web.net import client_ip
 from web.ratelimit import allow
 
-from .mail import send_confirmation
+from .mail import send_confirmation, sends_in_last_day
 from .models import Subscriber
 from .tokens import read_confirm_token, read_unsubscribe_token
 
@@ -59,6 +60,9 @@ def signup(request):
         )
 
     now = timezone.now()
+    if sends_in_last_day(now) >= settings.DAILY_EMAIL_CAP:
+        # Same answer for every valid address, so budget state reveals nothing.
+        return render(request, "waitlist/busy.html", {}, status=503)
     Subscriber.purge_unconfirmed(now)
     existing = Subscriber.objects.filter(email=email).first()
     if existing is not None and existing.confirmed_at is not None:
@@ -77,8 +81,8 @@ def signup(request):
         return render(request, "waitlist/check_inbox.html")
     try:
         sent = send_confirmation(sub, now)
-    except Exception:
-        logger.exception("waitlist confirmation send failed")
+    except Exception as exc:
+        logger.error("waitlist confirmation send failed: %s", type(exc).__name__)
         sent = False
     if not sent and created:
         sub.delete()
