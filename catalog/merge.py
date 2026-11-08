@@ -111,6 +111,8 @@ def merge_product(product: Product, now: datetime | None = None) -> None:
         locked.save(
             update_fields=["title", "brand", "category", "attributes", "measures", "updated_at"]
         )
+        if locked.category is None:
+            unresolved = []  # a generic product has nothing to curate
         _sync_review_items(locked, unresolved, now)
     for field in ("title", "brand", "category", "attributes", "measures", "manual_attributes", "updated_at"):
         setattr(product, field, getattr(locked, field))

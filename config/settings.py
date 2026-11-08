@@ -117,12 +117,23 @@ LABELS_FILE = BASE_DIR / "data/labels.yaml"
 
 def _budget(key, capacity, refill, daily):
     prefix = "UNITPRICER_BUDGET_" + key.upper().replace("-", "_")
-    # Unlike other settings, a set-but-empty _DAILY_LIMIT means "no cap".
-    raw_daily = os.environ.get(prefix + "_DAILY_LIMIT", daily)
+    # Unset or blank: the default cap. "unlimited" (any case): no cap. Anything else must be an integer.
+    raw_daily = (os.environ.get(prefix + "_DAILY_LIMIT") or "").strip()
+    if not raw_daily:
+        daily_limit = daily
+    elif raw_daily.lower() == "unlimited":
+        daily_limit = None
+    else:
+        try:
+            daily_limit = int(raw_daily)
+        except ValueError:
+            raise ImproperlyConfigured(
+                f"{prefix}_DAILY_LIMIT must be an integer or 'unlimited', got {raw_daily!r}"
+            ) from None
     return {
         "capacity": float(env(prefix + "_CAPACITY", capacity) or capacity),
         "refill_per_second": float(env(prefix + "_REFILL_PER_SECOND", refill) or refill),
-        "daily_limit": int(raw_daily) if raw_daily not in (None, "") else None,
+        "daily_limit": daily_limit,
     }
 
 

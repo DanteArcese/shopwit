@@ -143,7 +143,22 @@ def sync_open_prices(
     return run
 
 
-def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
+def upsert_observations(
+    kept: list[Observation],
+    now: datetime,
+    *,
+    off_lookup,
+    run: IngestionRun | None,
+    prune=None,
+) -> tuple[set[int], set[int], int]:
+    """Write stores, observations and the latest observed offer per (store, UPC).
+
+    Offers that match no category are kept as generic observed offers. Returns
+    (touched product ids, pks of the observed offers written or already present,
+    skipped count). Nothing is deleted and no product is merged here; ``prune``,
+    if given, runs inside the transaction that wrote the observations.
+    """
+    skipped = 0
     stores: dict[str, Store] = {}
     with transaction.atomic():
         for obs in kept:
@@ -161,6 +176,7 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                     "brands": obs.brands[:200] if obs.brands else None,
                     "quantity": obs.quantity[:200] if obs.quantity else None,
                     "labels": sorted(obs.labels),
+                    "categories": list(obs.categories),
                     "price": obs.price,
                     "currency": obs.currency,
                     "is_sale": obs.is_sale,
@@ -170,10 +186,8 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                     "fetched_at": now,
                 },
             )
-        if safe_to_delete:
-            keep_ids = [o.price_id for o in kept] + list(protected)
-            OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
-            Store.objects.filter(observations__isnull=True).delete()
+        if prune is not None:
+            prune()
 
     # Latest observation per (store, upc) becomes the offer.
     latest: dict[tuple[str, str], Observation] = {}
@@ -189,33 +203,16 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
     touched: set[int] = set()
     keep_offers: set[int] = set()  # pks of observed offers that must survive
 
-    def offer_pk(retailer, item_id):
-        return (
-            Offer.objects.filter(retailer=retailer, retailer_item_id=item_id)
-            .values_list("pk", flat=True)
-            .first()
-        )
-
-    # Offers behind observations that were seen upstream but unreadable stay.
-    for kept_obs in OpenPriceObservation.objects.filter(price_id__in=protected).select_related("store"):
-        pk = offer_pk(kept_obs.store.chain_code, f"{kept_obs.upc}@{kept_obs.store.code}")
-        if pk is not None:
-            keep_offers.add(pk)
-
     for (store_code, upc), obs in latest.items():
         raw = to_raw_offer(obs, now)
-        existing = offer_pk(raw.retailer, raw.retailer_item_id)
+        existing = _offer_pk(raw.retailer, raw.retailer_item_id)
         if existing is not None:
             keep_offers.add(existing)  # an error below must not delete the existing offer
         try:
-            normalized = normalize(
-                raw,
-                categories,
-                store_brands,
-                off=off_lookup(upc) or OffProduct(labels=obs.labels, quantity=obs.quantity),
+            off = off_lookup(upc) or OffProduct(
+                labels=obs.labels, quantity=obs.quantity, categories=obs.categories
             )
-            if normalized.category is None:
-                continue
+            normalized = normalize(raw, categories, store_brands, off=off)
             with transaction.atomic():
                 normalized = _upsert(
                     raw,
@@ -230,18 +227,48 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                         "is_sale": obs.is_sale,
                         "store": stores[store_code],
                     },
+                    off=off,
+                    store_brands=store_brands,
                 )
         except Exception as exc:  # one bad offer must not poison the run
             skipped += 1
-            if not run.error:
+            if run is not None and not run.error:
                 run.error = f"{type(exc).__name__} on {raw.retailer}:{raw.retailer_item_id}"[:500]
             continue
-        keep_offers.add(offer_pk(raw.retailer, raw.retailer_item_id))
-        run.matched += 1
-        if normalized.unresolved:
-            run.unresolved += 1
-        else:
-            run.fully_parsed += 1
+        keep_offers.add(_offer_pk(raw.retailer, raw.retailer_item_id))
+        if run is not None and normalized.category is not None:
+            run.matched += 1
+            if normalized.unresolved:
+                run.unresolved += 1
+            else:
+                run.fully_parsed += 1
+    return touched, keep_offers, skipped
+
+
+def _offer_pk(retailer, item_id):
+    return (
+        Offer.objects.filter(retailer=retailer, retailer_item_id=item_id)
+        .values_list("pk", flat=True)
+        .first()
+    )
+
+
+def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
+    def prune():
+        keep_ids = [o.price_id for o in kept] + list(protected)
+        OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
+        Store.objects.filter(observations__isnull=True).delete()
+
+    touched, keep_offers, more_skipped = upsert_observations(
+        kept, now, off_lookup=off_lookup, run=run, prune=prune if safe_to_delete else None
+    )
+    skipped += more_skipped
+
+    # Offers behind observations that were seen upstream but unreadable stay.
+    for kept_obs in OpenPriceObservation.objects.filter(price_id__in=protected).select_related("store"):
+        pk = _offer_pk(kept_obs.store.chain_code, f"{kept_obs.upc}@{kept_obs.store.code}")
+        if pk is not None:
+            keep_offers.add(pk)
 
     if safe_to_delete:
         with transaction.atomic():

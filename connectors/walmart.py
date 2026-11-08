@@ -156,4 +156,9 @@ class WalmartConnector:
             upc=item.get("upc"),
             brand=item.get("brandName"),
             size_text=item.get("size"),
+            fields=(
+                {"category_path": item["categoryPath"]}
+                if isinstance(item.get("categoryPath"), str) and item["categoryPath"].strip()
+                else {}
+            ),
         )

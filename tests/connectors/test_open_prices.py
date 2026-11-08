@@ -296,3 +296,11 @@ def test_recorded_locations_carry_coordinates():
     for item in items:
         loc = parse_item(item).location
         assert loc.lat is not None and loc.lon is not None
+
+
+def test_parse_item_reads_categories_and_raw_offer_path():
+    product = {"product_name": "Oat Drink", "categories_tags": ["en:plant-based-milks", 5, "fr:x"]}
+    obs = _parse(product=product)
+    assert obs.categories == ("en:plant-based-milks", "fr:x")
+    assert _parse(product={"product_name": "x"}).categories == ()
+    assert _parse(product={"categories_tags": "en:milks"}).categories == ()

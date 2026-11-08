@@ -51,3 +51,34 @@ def test_blank_env_values_mean_unset():
     )
     assert out.returncode == 0, out.stderr
     assert out.stdout.split() == ["43200.0", "86400.0"]
+
+
+@pytest.mark.parametrize(
+    ("value", "default", "expected"),
+    [
+        (None, 5000, 5000),
+        ("", 5000, 5000),
+        ("  ", 5000, 5000),
+        (None, None, None),
+        ("250", 5000, 250),
+        ("unlimited", 5000, None),
+        ("UnLimited", 5000, None),
+    ],
+)
+def test_budget_daily_limit(monkeypatch, value, default, expected):
+    from config.settings import _budget
+
+    monkeypatch.delenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", raising=False)
+    if value is not None:
+        monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", value)
+    assert _budget("walmart", 5, 1.0, default)["daily_limit"] == expected
+
+
+def test_budget_daily_limit_rejects_garbage(monkeypatch):
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings import _budget
+
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", "lots")
+    with pytest.raises(ImproperlyConfigured):
+        _budget("walmart", 5, 1.0, 5000)

@@ -13,7 +13,9 @@ import enrichment.off
 from connectors.base import Connector, ConnectorError
 from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
-from normalize.types import NormalizedOffer
+from normalize.generic import generic_measure, generic_unit_price, off_category_path
+from normalize.match import brand_tier_from_field
+from normalize.types import NormalizedOffer, OffProduct
 
 from .identity import product_identity
 from .merge import merge_product
@@ -29,13 +31,19 @@ def _upsert(
     *,
     records_price_history: bool,
     extra_defaults: Mapping[str, object] | None = None,
+    off: OffProduct | None = None,
+    store_brands: frozenset[str] = frozenset(),
 ) -> NormalizedOffer:
     """Write one offer; adds the affected product ids (new and previous) to ``touched``.
 
     Products are merged once per run by the caller, after all offers are written.
     """
-    category = model_cache.get(normalized.category) or Category.objects.get(slug=normalized.category)
-    model_cache[normalized.category] = category
+    category = None
+    if normalized.category is not None:
+        category = model_cache.get(normalized.category) or Category.objects.get(
+            slug=normalized.category
+        )
+        model_cache[normalized.category] = category
     product, _ = Product.objects.get_or_create(
         identity=product_identity(raw),
         defaults={"title": raw.title, "upc": normalize_upc(raw.upc), "category": category},
@@ -46,6 +54,22 @@ def _upsert(
         .first()
     )
 
+    measure = generic_measure(
+        [raw.size_text or "", raw.title, (off.quantity if off else None) or ""],
+        off.quantity_unit if off else None,
+    )
+    if category is None:
+        tier = brand_tier_from_field(raw.brand, store_brands)
+        attributes = {"brand_tier": {"value": tier.value, "source": tier.source}} if tier else {}
+        unit_prices: dict[str, str] = {}
+        unresolved = ["category"]
+    else:
+        attributes = {
+            name: {"value": a.value, "source": a.source} for name, a in normalized.attributes.items()
+        }
+        unit_prices = {k: str(v) for k, v in normalized.unit_prices.items()}
+        unresolved = list(normalized.unresolved)
+
     offer, _ = Offer.objects.update_or_create(
         retailer=raw.retailer,
         retailer_item_id=raw.retailer_item_id,
@@ -53,18 +77,22 @@ def _upsert(
             "product": product,
             "price": raw.price,
             "currency": raw.currency,
-            "unit_prices": {k: str(v) for k, v in normalized.unit_prices.items()},
+            "unit_prices": unit_prices,
             "url": raw.url,
             "last_seen_at": now,
             "category": category,
             "title": raw.title,
             "brand": raw.brand,
-            "attributes": {
-                name: {"value": a.value, "source": a.source}
-                for name, a in normalized.attributes.items()
-            },
+            "attributes": attributes,
             "measures": normalized.measures,
-            "unresolved": list(normalized.unresolved),
+            "unresolved": unresolved,
+            "labels": sorted(off.labels) if off else [],
+            "category_path": raw.fields.get("category_path")
+            or off_category_path(off.categories if off else ()),
+            "measure_dim": measure.dimension,
+            "measure_amount": measure.amount,
+            "measure_reason": measure.reason,
+            "generic_unit_price": generic_unit_price(raw.price, measure),
             **(extra_defaults or {}),
         },
     )
@@ -121,9 +149,8 @@ def ingest(
     touched: set[int] = set()
     for raw in unique.values():
         try:
-            normalized = normalize(raw, categories, store_brands, off=off_lookup(raw.upc))
-            if normalized.category is None:
-                continue
+            off = off_lookup(raw.upc)
+            normalized = normalize(raw, categories, store_brands, off=off)
             with transaction.atomic():
                 normalized = _upsert(
                     raw,
@@ -133,12 +160,16 @@ def ingest(
                     touched,
                     records_price_history=connector.records_price_history,
                     extra_defaults={"kind": Offer.Kind.LIVE},
+                    off=off,
+                    store_brands=store_brands,
                 )
         except Exception as exc:  # one bad offer must not poison the run
             skipped += 1
             if not run.error:
                 run.error = f"{type(exc).__name__} on {raw.retailer}:{raw.retailer_item_id}"[:500]
             continue
+        if normalized.category is None:
+            continue  # kept as a generic offer; counted in neither matched nor skipped
         run.matched += 1
         if normalized.unresolved:
             run.unresolved += 1

@@ -23,7 +23,7 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         normalized = {}
-        offers = Offer.objects.filter(kind=Offer.Kind.OBSERVED).select_related("category")
+        offers = Offer.objects.filter(kind=Offer.Kind.OBSERVED, category__isnull=False).select_related("category")
         for o in offers:
             if o.url.startswith(PRICE_URL):
                 normalized[o.url[len(PRICE_URL):]] = {

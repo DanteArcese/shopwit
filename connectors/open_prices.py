@@ -19,6 +19,7 @@ import httpx
 
 from connectors.base import ConnectorError
 from enrichment.off import normalize_upc
+from normalize.generic import off_category_path
 from normalize.types import RawOffer
 
 PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
@@ -66,6 +67,7 @@ class Observation:
     proof_type: str | None
     source: str | None
     duplicate_of: int | None
+    categories: tuple[str, ...] = ()
 
 
 def _text(value: object) -> str | None:
@@ -148,6 +150,10 @@ def parse_item(item: object) -> Observation | None:
     product = product if isinstance(product, dict) else {}
     tags = product.get("labels_tags")
     labels = frozenset(t for t in tags if isinstance(t, str)) if isinstance(tags, list) else frozenset()
+    cat_tags = product.get("categories_tags")
+    categories = (
+        tuple(t for t in cat_tags if isinstance(t, str)) if isinstance(cat_tags, list) else ()
+    )
     proof = item.get("proof")
     code = item.get("product_code")
     return Observation(
@@ -166,6 +172,7 @@ def parse_item(item: object) -> Observation | None:
         proof_type=_text(proof.get("type")) if isinstance(proof, dict) else None,
         source=_text(item.get("source")),
         duplicate_of=_int(item.get("duplicate_of")),
+        categories=categories,
     )
 
 
@@ -230,6 +237,7 @@ def to_raw_offer(obs: Observation, fetched_at: datetime) -> RawOffer:
         upc=upc,
         brand=obs.brands,
         size_text=obs.quantity,
+        fields={"category_path": path} if (path := off_category_path(obs.categories)) else {},
     )
 
 
