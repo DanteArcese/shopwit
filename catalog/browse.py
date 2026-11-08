@@ -101,6 +101,14 @@ def _unit_price(offer: Offer, comparison: str) -> Decimal | None:
         return None
 
 
+def _tie(offer: Offer) -> tuple:
+    """Final tie-break: for observed offers newest observation first, then store code."""
+    if offer.kind != Offer.Kind.OBSERVED:
+        return ()
+    day = offer.observed_on.toordinal() if offer.observed_on else 0
+    return (-day, offer.store.code if offer.store else "")
+
+
 def _reason(offer: Offer, comparison: str) -> str:
     unit = COMPARISONS[comparison].unit_label if comparison in COMPARISONS else "unit"
     related = COMPARISON_ATTRS.get(comparison, set())
@@ -167,14 +175,14 @@ def browse(
         )
         priced = [(up, o) for o in group if (up := _unit_price(o, comparison)) is not None]
         if priced:
-            up, offer = min(priced, key=lambda t: (t[0], t[1].price, t[1].retailer))
+            up, offer = min(priced, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
             ranked.append(Row(product, offer, up, unknown, None))
         else:
-            offer = min(group, key=lambda o: (o.price, o.retailer))
+            offer = min(group, key=lambda o: (o.price, o.retailer, _tie(o)))
             unranked.append(Row(product, offer, None, unknown, _reason(offer, comparison)))
 
-    ranked.sort(key=lambda r: (r.unit_price, r.offer.price, r.product.title, r.offer.retailer))
-    unranked.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer))
+    ranked.sort(key=lambda r: (r.unit_price, r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
+    unranked.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
     return BrowseResult(
         ranked=ranked[:limit],
         unranked=unranked[:limit],

@@ -10,7 +10,7 @@ def healthz(request):
     try:
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1")
-        newest = IngestionRun.objects.order_by("-created_at").values_list("created_at", flat=True).first()
+        newest = IngestionRun.objects.exclude(connector="openprices").order_by("-created_at").values_list("created_at", flat=True).first()
     except DatabaseError:
         response = JsonResponse({"status": "db_error"}, status=503)
     else:

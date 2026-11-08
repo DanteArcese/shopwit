@@ -92,8 +92,14 @@ def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> li
             continue
         log_run(run)
         runs.append(run)
-    if settings.OPEN_PRICES_ENABLED and observed.due(now):
-        runs.extend(_open_prices(now))
+    if settings.OPEN_PRICES_ENABLED:
+        try:
+            open_prices_due = observed.due(now)
+        except Exception as exc:  # a DB error here must not stop the loop
+            logger.error("open prices due check failed: %s", type(exc).__name__)
+            open_prices_due = False
+        if open_prices_due:
+            runs.extend(_open_prices(now))
     return runs
 
 

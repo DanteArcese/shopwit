@@ -15,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters
-from catalog.freshness import fresh_offers
+from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Category, ClickEvent, Offer, Product
 from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
@@ -144,6 +144,15 @@ def _present_observed(row, comparison: str, unit_system: str, dimension: str) ->
     return out
 
 
+def _status_text(live: int, observed: int) -> str:
+    if not observed:
+        return f"{live} result{'' if live == 1 else 's'}"
+    return (
+        f"{live} online price{'' if live == 1 else 's'}, "
+        f"{observed} in-store price{'' if observed == 1 else 's'}"
+    )
+
+
 def category(request, slug):
     cat = get_object_or_404(Category, slug=slug, active=True)
     prefs = get_prefs(request)
@@ -180,11 +189,21 @@ def category(request, slug):
             for c in [cat.comparison_default, *cat.comparison_alternates]
         ],
         "comparison": result.comparison,
-        "stores": _store_options(prefs, available_retailers(when)),
+        "stores": _store_options(prefs, available_retailers(when, cat)),
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,
         "status_total": result.total_products,
+        "status_text": _status_text(result.total_products, obs.total_products),
+        "filters_active": bool(
+            spec.attributes or spec.brand_tier or live_stores
+            or spec.size_min is not None or spec.size_max is not None
+        ),
+        "observed_filtered_empty": (
+            chain_stores is not None
+            and obs.total_products == 0
+            and fresh_observed(when).filter(product__category=cat).exists()
+        ),
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
@@ -278,7 +297,7 @@ def search(request):
 
 
 def disclosure(request):
-    return render(request, "web/disclosure.html")
+    return render(request, "web/disclosure.html", {"observed_days": settings.OBSERVED_MAX_AGE.days})
 
 
 @csrf_exempt

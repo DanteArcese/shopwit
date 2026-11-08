@@ -201,3 +201,87 @@ def test_settings_page_query_count_independent_of_chains(client, db, stores, obs
         observe(price_id=i, store=st, title=f"Milk {i}")
     assert count() == base
     assert "Chain3 (in-store prices)" in client.get("/settings").content.decode()
+
+
+def test_chain_options_limited_to_current_category(client, milk_rows, observe, stores, db):
+    from catalog.models import Category
+
+    observe()
+    other_store = stores("osm-n9", "Lucky", "Oakland", chain_code="op-lucky", chain="Lucky")
+    eggs = Category.objects.get(slug="dairy/eggs")
+    p = Product.objects.create(identity="egg-1", title="Eggs 12", category=eggs)
+    Offer.objects.create(
+        product=p, retailer="op-lucky", retailer_item_id="e@osm-n9", price=Decimal("3"), currency="USD",
+        url="https://prices.openfoodfacts.org/prices/9", category=eggs, title="Eggs 12",
+        last_seen_at=NOW, kind="observed", observed_on=date(2026, 11, 3), store=other_store,
+    )
+    html = get(client).content.decode()
+    assert "Safeway (in-store prices)" in html
+    assert "Lucky (in-store prices)" not in html
+
+
+def test_chain_filter_emptying_section_shows_empty_state(client, milk_rows, observe, stores):
+    observe()
+    lucky = stores("osm-n3", "Lucky", "Oakland", chain_code="op-lucky", chain="Lucky")
+    html = get(client, "?store=op-lucky").content.decode()
+    assert "No in-store prices from the selected stores." in html
+    assert OBS_TITLE not in html
+
+
+def test_no_empty_state_without_observed_in_category(client, milk_rows):
+    session = client.session
+    session["prefs"] = {"unit_system": "metric", "stores": ["op-safeway"]}
+    session.save()
+    assert "No in-store prices from the selected stores." not in get(client).content.decode()
+
+
+def test_observed_cap_note(client, milk_rows, observe, stores):
+    for i in range(1, 53):
+        observe(price_id=i, title=f"Milk {i}", price=f"0.{i:02d}")
+    Offer.objects.filter(kind="observed").update(unit_prices={"per_volume": "0.001"})
+    html = get(client).content.decode()
+    section = html[html.index('<section class="observed">'):]
+    assert "Showing the top 50 of 52" in section
+
+
+def test_status_counts_observed_rows(client, milk_rows, observe):
+    observe()
+    html = get(client).content.decode()
+    assert 'role="status"' in html and "4 online prices, 1 in-store price<" in html
+
+
+def test_status_unchanged_without_observed(client, milk_rows):
+    assert "4 results<" in get(client).content.decode()
+
+
+def test_observed_only_page_without_filters_is_neutral(client, milk, frozen_now, observe):
+    observe()
+    html = get(client).content.decode()
+    assert "No live online prices yet." in html
+    assert "No fresh prices match these filters." not in html
+    filtered = get(client, "?store=walmart").content.decode()
+    assert "No fresh prices match these filters." in filtered
+
+
+def test_observed_ties_break_by_newest_then_store_code(milk, stores, frozen_now):
+    from catalog.browse import FilterSpec, browse
+
+    a = stores("osm-n2", "Safeway", "A")
+    b = stores("osm-n1", "Safeway", "B")
+    product = Product.objects.create(identity="tie", title="Tie Milk", category=milk)
+
+    def make(store, on, item):
+        return Offer.objects.create(
+            product=product, retailer="op-safeway", retailer_item_id=item, price=Decimal("1.00"),
+            currency="USD", url="https://prices.openfoodfacts.org/prices/1", category=milk, title="t",
+            measures={"volume_ml": 1000.0}, unit_prices={"per_volume": "0.001"}, last_seen_at=NOW,
+            kind="observed", observed_on=on, store=store,
+        )
+
+    make(a, date(2026, 11, 1), "x1")
+    make(b, date(2026, 11, 1), "x2")
+    new = make(a, date(2026, 11, 3), "x3")
+    spec = FilterSpec(attributes={})
+    assert browse(milk, spec, None, None, NOW, observed=True).ranked[0].offer == new
+    new.delete()
+    assert browse(milk, spec, None, None, NOW, observed=True).ranked[0].offer.store == b  # osm-n1 < osm-n2

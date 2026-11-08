@@ -105,6 +105,7 @@ def test_disclosure_page(client):
     assert "commission" in html
 
 
+@pytest.mark.django_db
 def test_disclosure_has_open_prices_notice(client):
     html = client.get("/disclosure").content.decode()
     assert 'href="https://prices.openfoodfacts.org"' in html
@@ -113,3 +114,12 @@ def test_disclosure_has_open_prices_notice(client):
     assert "available free on request" in html and "hello@unitpricer.com" in html
     assert 'href="https://github.com/DanteArcese/unitpricer"' in html
     assert "not live" in html and "90 days" in html
+
+
+@pytest.mark.django_db
+def test_disclosure_window_days_come_from_settings(client, settings):
+    from datetime import timedelta
+
+    settings.OBSERVED_MAX_AGE = timedelta(days=45)
+    html = client.get("/disclosure").content.decode()
+    assert "up to 45 days" in html and "90 days" not in html

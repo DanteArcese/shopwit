@@ -57,14 +57,20 @@ def _fail(run: IngestionRun, error: str) -> IngestionRun:
     return run
 
 
+def _clip(field: str, value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value[: Store._meta.get_field(field).max_length]
+
+
 def _store_fields(obs: Observation) -> dict:
     loc = obs.location
     chain_code, chain_name = chain_key(loc)
     return {
-        "name": loc.name,
+        "name": _clip("name", loc.name),
         "chain_code": chain_code,
-        "chain_name": chain_name,
-        "city": loc.city,
+        "chain_name": _clip("chain_name", chain_name),
+        "city": _clip("city", loc.city),
         "postcode": (loc.postcode or None) and loc.postcode[:20],
         "country_code": (loc.country_code or "").upper()[:2],
         "osm_type": loc.osm_type,
@@ -77,6 +83,7 @@ def sync_open_prices(
     now: datetime,
     *,
     off_lookup=enrichment.off.lookup,
+    allow_deletions: bool = False,
 ) -> IngestionRun:
     run = IngestionRun.objects.create(connector=CONNECTOR, category_slug="all", started_at=now)
     since = (now - settings.OBSERVED_MAX_AGE).date()
@@ -104,9 +111,15 @@ def sync_open_prices(
             skipped += 1
     run.fetched = len(kept)
 
-    stored = OpenPriceObservation.objects.count()
+    # Compare against stored rows this pull could still return: inside the window,
+    # and (with assisted entries off) not assisted. Rows that aged out or were
+    # switched off are expected to go, so they must not trip the guard.
+    keepable = OpenPriceObservation.objects.filter(observed_on__gte=since)
+    if not settings.OPEN_PRICES_INCLUDE_ASSISTED:
+        keepable = keepable.exclude(source__contains="/experiments/")
+    stored = keepable.count()
     protected = set(getattr(client, "unparsed_ids", ()))  # seen upstream, just unreadable
-    safe_to_delete = not (stored and len(kept) < stored * MIN_KEPT_RATIO)
+    safe_to_delete = allow_deletions or not (stored and len(kept) < stored * MIN_KEPT_RATIO)
     if not safe_to_delete:
         logger.warning(
             "open prices: suspiciously small window (kept %s of %s stored); deletions skipped",

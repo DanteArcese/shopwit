@@ -333,3 +333,77 @@ def test_command_with_recordings(monkeypatch, capsys):
     run = IngestionRun.objects.get()
     assert run.status == "succeeded" and run.fetched > 0
     assert OpenPriceObservation.objects.count() == run.fetched
+
+
+ASSISTED = "https://prices.openfoodfacts.org/experiments/price-tag"
+
+
+def test_assisted_off_deletes_assisted_rows_without_tripping_guard(settings):
+    assisted = [obs(i, location=loc(i), source=ASSISTED) for i in range(1, 4)]
+    plain = obs(4, location=loc(4))
+    sync(*assisted, plain)
+    assert OpenPriceObservation.objects.count() == 4
+    settings.OPEN_PRICES_INCLUDE_ASSISTED = False
+    run = sync(plain)  # 1 of 4 stored, but only 1 could still be kept
+    assert not run.error
+    assert list(OpenPriceObservation.objects.values_list("price_id", flat=True)) == [4]
+    assert Offer.objects.count() == 1
+
+
+def test_observations_older_than_window_are_deleted_on_success():
+    old = [obs(i, location=loc(i), days=85) for i in range(1, 4)]
+    fresh = obs(4, location=loc(4), days=1)
+    sync(*old, fresh)
+    later = NOW + timedelta(days=10)  # the old three are now outside the window
+    run = sync_open_prices(FakeClient([fresh]), later, off_lookup=no_off)
+    assert not run.error
+    assert list(OpenPriceObservation.objects.values_list("price_id", flat=True)) == [4]
+
+
+def test_allow_deletions_overrides_small_pull_guard():
+    four = [obs(i, location=loc(i)) for i in range(1, 5)]
+    sync(*four)
+    run = sync_open_prices(FakeClient([four[0]]), NOW, off_lookup=no_off, allow_deletions=True)
+    assert not run.error
+    assert OpenPriceObservation.objects.count() == 1
+
+
+def test_store_text_truncated_to_column_length():
+    long = "X" * 300
+    sync(obs(location=loc(name=long, brand=None, city="C" * 300)))
+    store = Store.objects.get()
+    for field in ("name", "chain_name", "city"):
+        assert len(getattr(store, field)) == Store._meta.get_field(field).max_length
+
+
+def test_command_refuses_while_recent_run_is_running():
+    from django.core.management.base import CommandError
+    from django.utils import timezone as djtz
+
+    IngestionRun.objects.create(
+        connector="openprices", category_slug="all", started_at=djtz.now() - timedelta(minutes=10)
+    )
+    with pytest.raises(CommandError, match="--force"):
+        call_command("open_prices_sync")
+
+
+def test_command_ignores_stale_running_row(monkeypatch):
+    from django.utils import timezone as djtz
+
+    from catalog.management.commands import open_prices_sync
+
+    IngestionRun.objects.create(
+        connector="openprices", category_slug="all", started_at=djtz.now() - timedelta(hours=3)
+    )
+    seen = {}
+
+    def fake(client, now, **kw):
+        seen.update(kw)
+        return IngestionRun.objects.create(
+            connector="openprices", category_slug="all", started_at=now, status="succeeded"
+        )
+
+    monkeypatch.setattr(open_prices_sync, "sync_open_prices", fake)
+    monkeypatch.setattr(open_prices_sync, "OpenPricesClient", lambda *a, **k: type("C", (), {"close": lambda s: None})())
+    call_command("open_prices_sync", allow_deletions=True)
+    assert seen == {"allow_deletions": True}

@@ -43,9 +43,13 @@ def display_name(code: str, chains: dict[str, str] | None = None) -> str:
     return RETAILERS.get(code, code.title())
 
 
-def available_retailers(now: datetime) -> list[str]:
+def available_retailers(now: datetime, category=None) -> list[str]:
+    """Retailers with fresh offers; with a category, in-store chains are limited to it."""
     live = set(fresh_offers(now).values_list("retailer", flat=True).distinct())
-    observed = set(fresh_observed(now).values_list("retailer", flat=True).distinct())
+    observed_qs = fresh_observed(now)
+    if category is not None:
+        observed_qs = observed_qs.filter(product__category=category)
+    observed = set(observed_qs.values_list("retailer", flat=True).distinct())
     chains = chain_names(observed)
 
     def ordered(codes) -> list[str]:

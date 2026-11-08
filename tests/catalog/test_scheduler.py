@@ -218,3 +218,13 @@ def test_tick_open_prices_error_is_isolated(cats, settings, monkeypatch):
     assert [(r.connector, r.status, r.error) for r in runs] == [
         ("openprices", "failed", "RuntimeError")
     ]
+
+
+def test_tick_survives_open_prices_due_error(cats, settings, monkeypatch, caplog):
+    def boom(now):
+        raise RuntimeError("db gone")
+
+    monkeypatch.setattr(scheduler.observed, "due", boom)
+    settings.OPEN_PRICES_ENABLED = True
+    assert scheduler.tick(NOW, {}) == []
+    assert "open prices due check failed: RuntimeError" in caplog.text

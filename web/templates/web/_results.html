@@ -5,7 +5,11 @@
   {% for row in ranked %}{% include "web/_row.html" %}{% endfor %}
 </ol>
 {% elif not unranked %}
+{% if not filters_active and observed_total > 0 %}
+<p class="empty">No live online prices yet.</p>
+{% else %}
 <p class="empty">No fresh prices match these filters. <a href="{{ category_url }}">Clear the filters</a></p>
+{% endif %}
 {% endif %}
 {% if unranked %}
 <section class="unranked">
@@ -21,6 +25,7 @@
 <section class="observed">
   <h2>Seen in stores</h2>
   <p class="note">Shelf prices people recorded in stores. Not live: prices may have changed since.</p>
+  {% if observed_ranked_total > observed_ranked|length %}<p class="note">Showing the top {{ observed_ranked|length }} of {{ observed_ranked_total }}</p>{% endif %}
   {% if observed_ranked %}
   <ol class="results">
     {% for row in observed_ranked %}{% include "web/_observed_row.html" %}{% endfor %}
@@ -33,6 +38,12 @@
   </ul>
   {% endif %}
   <p class="note attribution">Contains information from <a href="https://prices.openfoodfacts.org">Open Prices</a>, which is made available here under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License (ODbL)</a>.</p>
+</section>
+{% endif %}
+{% if observed_filtered_empty %}
+<section class="observed">
+  <h2>Seen in stores</h2>
+  <p class="empty">No in-store prices from the selected stores.</p>
 </section>
 {% endif %}
 {% if oob %}

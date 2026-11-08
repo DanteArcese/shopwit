@@ -61,7 +61,7 @@ docker compose run --rm -T web python manage.py <command> </dev/null   # drop -T
 
 ### Open Prices (in-store shelf prices)
 
-Off by default. To enable, add `UNITPRICER_OPEN_PRICES=1` to `/srv/unitpricer/app.env` (optional: `UNITPRICER_OPEN_PRICES_ASSISTED=0` to drop AI-assisted entries, `UNITPRICER_OPEN_PRICES_HOURS`, `UNITPRICER_OPEN_PRICES_COUNTRY`), then `docker compose up -d web worker`. The worker syncs once a day. To run the first sync now (about 110 requests, a few minutes):
+Off by default. To enable, add `UNITPRICER_OPEN_PRICES=1` to `/srv/unitpricer/app.env` (optional: `UNITPRICER_OPEN_PRICES_ASSISTED=0` to drop AI-assisted entries, `UNITPRICER_OPEN_PRICES_HOURS`, `UNITPRICER_OPEN_PRICES_COUNTRY`), then `docker compose up -d web worker`. The worker starts the first sync within one tick (about five minutes) after the restart, then syncs once a day; there is no manual step. The first sync makes about 110 requests and takes a few minutes. Do not also run `open_prices_sync` by hand while the flag is on: the command refuses when an Open Prices run started within the last hour is still RUNNING (override with `--force`), and a pull far smaller than the stored data deletes nothing unless you pass `--allow-deletions`. To pull manually (for example with the flag off):
 
 ```bash
 docker compose run --rm -T web python manage.py open_prices_sync </dev/null

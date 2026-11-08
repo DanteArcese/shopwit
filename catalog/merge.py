@@ -96,6 +96,13 @@ def merge_product(product: Product, now: datetime | None = None) -> None:
         basis = live or offers
         view = merged_view(basis)
         unresolved = _apply_overrides(locked, basis, view)
+        if live:
+            # Observed offers stay out of the merge but price from the final attributes.
+            _refresh_unit_prices(
+                [o for o in offers if o.kind != Offer.Kind.LIVE], view["attributes"]
+            )
+        else:
+            unresolved = []  # in-store prices alone never open review items
         locked.title = view["title"]
         locked.brand = view["brand"]
         locked.category = view["category"] or locked.category
@@ -123,8 +130,15 @@ def _apply_overrides(product: Product, offers: list, view: dict) -> list[str]:
         unresolved = {
             e for e in unresolved if e != f"attribute:{name}" and not e.startswith(f"attribute:{name}:")
         }
+    unit_entries = _refresh_unit_prices(offers, view["attributes"])
+    unresolved |= set.intersection(*unit_entries)
+    return sorted(unresolved)
+
+
+def _refresh_unit_prices(offers: list, attributes: dict) -> list[set[str]]:
+    """Rebuild each offer's unit prices from its measures plus the final attributes."""
     categories = load_categories(settings.CATEGORIES_DIR)
-    final = {n: AttrValue(a["value"], a["source"]) for n, a in view["attributes"].items()}
+    final = {n: AttrValue(a["value"], a["source"]) for n, a in attributes.items()}
     unit_entries = []
     for offer in offers:
         category = categories.get(offer.category.slug) if offer.category else None
@@ -138,8 +152,7 @@ def _apply_overrides(product: Product, offers: list, view: dict) -> list[str]:
                 offer.unit_prices, offer.unresolved = prices, rebuilt
                 offer.save(update_fields=["unit_prices", "unresolved", "updated_at"])
         unit_entries.append({e for e in offer.unresolved if e.startswith("unit_price:")})
-    unresolved |= set.intersection(*unit_entries)
-    return sorted(unresolved)
+    return unit_entries
 
 
 def _sync_review_items(product: Product, unresolved: list[str], now: datetime) -> None:

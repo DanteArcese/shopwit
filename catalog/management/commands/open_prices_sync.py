@@ -1,3 +1,4 @@
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
@@ -15,8 +16,26 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--recordings", help="Serve recorded responses from DIR")
+        parser.add_argument(
+            "--force", action="store_true", help="Run even if a sync started in the last hour is still RUNNING"
+        )
+        parser.add_argument(
+            "--allow-deletions",
+            action="store_true",
+            help="Delete rows missing from the pull even if it is suspiciously small",
+        )
 
     def handle(self, *args, **options):
+        now = timezone.now()
+        if not options["force"] and IngestionRun.objects.filter(
+            connector="openprices",
+            status=IngestionRun.Status.RUNNING,
+            started_at__gte=now - timedelta(hours=1),
+        ).exists():
+            raise CommandError(
+                "An Open Prices sync started within the last hour is still running "
+                "(the worker may be running it). Use --force to run anyway."
+            )
         if options["recordings"]:
             http = httpx.Client(
                 transport=recorded_transport(Path(options["recordings"])),
@@ -26,7 +45,7 @@ class Command(BaseCommand):
         else:
             client = OpenPricesClient()
         try:
-            run = sync_open_prices(client, timezone.now())
+            run = sync_open_prices(client, now, allow_deletions=options["allow_deletions"])
         finally:
             client.close()
         self.stdout.write(

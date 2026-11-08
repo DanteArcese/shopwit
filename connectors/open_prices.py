@@ -277,6 +277,10 @@ class OpenPricesClient:
             "order_by": "-id",
             "size": str(PAGE_SIZE),
         }
+        # Offset paging stays: the documented filters (docs/research/2026-11-08-open-prices.md)
+        # have no id__lt/id__gt, so keyset paging is not available. order_by=-id keeps
+        # pages stable except when new rows arrive mid-pull; rows then shift by one
+        # page, which the `seen` de-dupe below absorbs (a missed row is re-fetched next sync).
         seen: set[int] = set()
         out: list[Observation] = []
         page = 1
