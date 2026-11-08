@@ -1,0 +1,18 @@
+{% extends "web/base.html" %}
+{% block main %}
+<section class="hero">
+  <h1>Compare grocery prices per unit</h1>
+  <form class="search search-large" action="{% url 'search' %}" method="get" role="search" aria-label="Search all products">
+    <input type="search" name="q" aria-label="Search products" placeholder="Search products, e.g. 2% milk">
+    <button type="submit">Search</button>
+  </form>
+</section>
+<section>
+  <h2>Browse categories</h2>
+  <ul class="category-list">
+    {% for category in active_categories %}
+    <li><a href="{% url 'category' category.slug %}">{{ category.name }}</a></li>
+    {% endfor %}
+  </ul>
+</section>
+{% endblock %}

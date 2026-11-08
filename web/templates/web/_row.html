@@ -1,0 +1,18 @@
+<li class="result">
+  <div class="result-main">
+    <strong class="result-title">{{ row.title }}</strong>
+    {% if row.brand %}<span class="result-brand">{{ row.brand }}</span>{% endif %}
+  </div>
+  <div class="result-meta">
+    {% if row.size %}<span>{{ row.size }}</span>{% endif %}
+    <span class="result-price"><span class="visually-hidden">{{ row.price_label }}</span><span aria-hidden="true">{{ row.price }}</span>{% if row.unit_price %} <span class="unit-price" aria-hidden="true">{{ row.unit_price }}</span>{% endif %}</span>
+    <span>{{ row.retailer }}</span>
+    {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
+  </div>
+  <div class="result-fine">
+    price as of <time data-localize datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }} UTC</time>
+    {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
+  </div>
+  {% if row.offer.retailer == "amazon" %}<p class="result-fine amazon-note">Product prices and availability are accurate as of the date/time indicated and are subject to change.</p>{% endif %}
+  {% include "web/_outbound.html" with offer=row.offer label="View at "|add:row.retailer %}
+</li>

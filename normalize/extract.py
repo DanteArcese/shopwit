@@ -12,7 +12,7 @@ _TRUE = {"true", "yes", "1"}
 _FALSE = {"false", "no", "0"}
 
 
-def _cast(attr: AttributeDef, value: object) -> str | int | bool | None:
+def cast_value(attr: AttributeDef, value: object) -> str | int | bool | None:
     """Cast ``value`` to the attribute's type; None if invalid or not a declared value."""
     if value is None:
         return None
@@ -47,7 +47,7 @@ def _collect(attr: AttributeDef, text: str) -> set[str | int | bool]:
     found: set[str | int | bool] = set()
     for pattern in attr.patterns:
         for match in pattern.finditer(text):
-            cast = _cast(attr, match.group(1))
+            cast = cast_value(attr, match.group(1))
             if cast is not None:
                 found.add(cast)
     return found
@@ -56,7 +56,7 @@ def _collect(attr: AttributeDef, text: str) -> set[str | int | bool]:
 def _collect_synonyms(attr: AttributeDef, text: str) -> set[str | int | bool]:
     found: set[str | int | bool] = set()
     for key, phrases in attr.synonyms.items():
-        cast = _cast(attr, key)
+        cast = cast_value(attr, key)
         if cast is None:
             continue
         for phrase in phrases:
@@ -75,7 +75,7 @@ def extract_attributes(
 
     for name, attr in category.attributes.items():
         if name in raw.fields:
-            cast = _cast(attr, raw.fields[name])
+            cast = cast_value(attr, raw.fields[name])
             if cast is not None:
                 attrs[name] = AttrValue(cast, "api")
                 continue
