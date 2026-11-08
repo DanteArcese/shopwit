@@ -14,6 +14,7 @@ Both live in `/srv/unitpricer`, mode `600`, owner `deploy`. Never commit them.
 
 - `.env` (compose interpolation): `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all optional until R2 is enabled), `BACKUP_HEARTBEAT_URL` (optional), `UNITPRICER_IMAGE_TAG` (written by `deploy.sh`).
 - `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL`, `UNITPRICER_SITE_URL`, `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`.
+- Open search (optional, in `app.env`): `UNITPRICER_LIVE_OFF=1` turns on the Open Food Facts → Open Prices live source (default off). `UNITPRICER_FETCH_THREADS` (1 or 2, default 1) sets the worker's fetch threads, and `UNITPRICER_WARM_HOURS` (default 12) the warm-refresh interval.
 - Source budgets (optional, in `app.env`): `UNITPRICER_BUDGET_<OFF_SEARCH|OPENPRICES|WALMART>_{CAPACITY,REFILL_PER_SECOND,DAILY_LIMIT}`. They seed a budget row only when it is first created; later changes go in the admin. `_DAILY_LIMIT` unset or blank keeps the default cap (Walmart 5000 per day, the others none), a number sets the cap, and `unlimited` (any case) removes it. Any other value stops startup with a configuration error. `_CAPACITY` must be at least 1. Open Prices defaults to capacity 1 at 1 per second (no burst), the pace the daily sync has always kept; a 429, 503 or transport error from it blocks the shared row with backoff.
 
 ## First-deploy bootstrap
@@ -43,6 +44,16 @@ The script runs `git fetch origin`, then refuses unless GitHub Actions workflow 
 ### Build-on-server mode
 
 `UNITPRICER_BUILD_ON_SERVER=1 deploy/deploy.sh [ref]` skips pulling the app images. The green-CI check still applies. On the droplet it runs `docker build -t ghcr.io/dantearcese/unitpricer:sha-<sha> "https://github.com/DanteArcese/unitpricer.git#<sha>"` (and the same for `unitpricer-backup` from `#<sha>:deploy/backup`, when that directory exists), then `docker compose pull db cloudflared`. The remote script is passed to `ssh` as an argument, so `docker compose run` cannot swallow it.
+
+### Open search: migrations and backfill
+
+Migrations `catalog` 0008-0010 (open-search schema, fetch heartbeat, curate-next proxy) run automatically on deploy with `migrate`. After the first deploy that includes them, run the backfill once so existing offers get their generic phrase and measure:
+
+```bash
+docker compose run --rm -T web python manage.py backfill_generic </dev/null
+```
+
+It is safe to re-run. New offers get these fields at ingestion. Raise or remove a source cap with `unlimited` as described under source budgets; budgets already in the database change only in the admin.
 
 ## Rollback
 

@@ -224,3 +224,4 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Hosting | DigitalOcean droplet + Docker Compose + Cloudflare Tunnel; gated beta, public waitlist |
 | Name | **UnitPricer** (unitpricer.com); renamed from codename `shopwit` (#26) |
 | In-store observed prices (#61) | Open Prices rows become dated `observed` offers in a separate "Seen in stores" section, 90-day window by observation date, chain-grouped store filter, ODbL attribution and export; ranking and live surfaces are untouched |
+| Open-ended search (#65) | Generic tier with measure groups, structured facets, background live fetch, anonymous demand counts; curated categories as upgrades. See `2026-11-08-open-search-design.md`. |

@@ -28,6 +28,8 @@ Tests need PostgreSQL; see the README. Run one file with `uv run pytest tests/te
 
 ## Adding a category
 
+Any search already works without a category: the generic tier groups results by measure and offers structured facets. A curated category is an upgrade for things that need a precise attribute (fat %, roast, grain) or a special unit (per load, sheets x ply). The admin "curate next" view ranks anonymous search demand to show which phrases deserve one. Do not add a category for a mass- or volume-priced food that has neither need.
+
 A category is two files that must be added together:
 
 - `categories/<group>/<slug>.yaml`: the definition. The category's slug is its path without

@@ -10,7 +10,7 @@ which this roadmap references by section (§).
 
 ```
 M0 Access & foundations ──┐
-                          ├─► M2 Catalog & ingestion ─► M3 Browse & search ─► ⛳ dogfood, name, deploy ─► M4 Lists & accounts
+                          ├─► M2 Catalog & ingestion ─► M3 Browse & search ─► ⛳ B: dogfood, name, deploy ─► Open search ─► M4 Lists & accounts
 M1 Normalizer core ───────┘                                                                                      │
                                                                                                                  ▼
             M7 Nutrition per $ ◄─ M6 Launch ◄─ ⛳ launch readiness ◄─ M5 Coverage & quality
@@ -105,6 +105,23 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 
 ---
 
+## Open search (#65)
+
+**Goal:** Any grocery or household search works, not only curated categories: a generic tier with measure groups and structured facets, background live fetch under per-source budgets, and anonymous demand counts that decide which categories to curate next (spec: [`2026-11-08-open-search-design.md`](superpowers/specs/2026-11-08-open-search-design.md)).
+**Plan:** [`plans/2026-11-08-open-search.md`](superpowers/plans/2026-11-08-open-search.md)
+
+| # | Task |
+|---|---|
+| 1 | Generic measure and phrase normalization, plus unified units |
+| 2 | Schema and backfill |
+| 3 | Generic results page with facets and near-misses |
+| 4 | Fetch queue, budgets and worker thread |
+| 5 | OFF → Open Prices live source (off by default) |
+| 6 | Walmart live source (when credentials arrive) |
+| 7 | Demand counting, "curate next" and warm refresh |
+
+---
+
 ## M4: Lists and accounts
 
 **Goal:** Lists by spec, plus optional accounts (§4 items 5–6, §8, §9).
@@ -112,7 +129,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 
 | # | Task |
 |---|---|
-| 4.1 | List and ListItem models (spec = category + filters + target quantity, optional pinned product) |
+| 4.1 | List and ListItem models (spec = curated category + filters, or generic query + facets + dimension; target quantity; optional pinned product) |
 | 4.2 | List resolution: cheapest qualifying fresh offer per item at the selected stores |
 | 4.3 | Totals per store; cheapest single store vs. cheapest split; quantity fit (e.g. 2 × 64 oz vs. 1 × 128 oz) |
 | 4.4 | Anonymous lists stored in the session |
@@ -128,7 +145,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 | # | Task |
 |---|---|
 | 5.1 | Second and third connectors (Walmart, Amazon or Sovrn, whichever weren't done in M2) |
-| 5.2 | Expand to about 25 categories (§6 list), each with fixtures. **Plan:** [`plans/2026-11-08-category-expansion.md`](superpowers/plans/2026-11-08-category-expansion.md) |
+| 5.2 | Household categories first; food categories from 'curate next' demand (see the open-search spec §14.2), each with fixtures. **Plan:** [`plans/2026-11-08-category-expansion.md`](superpowers/plans/2026-11-08-category-expansion.md) |
 | 5.3 | Parse-rate monitoring: alert when a connector's or category's resolved rate drops |
 | 5.4 | "Report a wrong attribute" link, feeding the review queue |
 | 5.5 | Performance pass: query plans for filtered category pages; indexes on JSONB attributes |
