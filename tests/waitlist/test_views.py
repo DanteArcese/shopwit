@@ -226,3 +226,19 @@ def test_privacy_on_both_hosts(client, host):
         "Changes",
     ):
         assert f">{heading}<" in html
+
+
+def test_send_failure_shows_busy_page_and_removes_row(client, monkeypatch, caplog):
+    import smtplib
+
+    def boom(sub, now):
+        raise smtplib.SMTPException("down")
+
+    monkeypatch.setattr("waitlist.views.send_confirmation", boom)
+    r = signup(client)
+    assert r.status_code == 503
+    assert "We can&#x27;t send confirmation emails right now." in r.content.decode() or (
+        "We can't send confirmation emails right now." in r.content.decode()
+    )
+    assert Subscriber.objects.count() == 0
+    assert "waitlist confirmation send failed" in caplog.text

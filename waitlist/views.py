@@ -78,9 +78,8 @@ def signup(request):
     try:
         sent = send_confirmation(sub, now)
     except Exception:
-        if created:
-            sub.delete()
-        raise
+        logger.exception("waitlist confirmation send failed")
+        sent = False
     if not sent and created:
         sub.delete()
         return render(
