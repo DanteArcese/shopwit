@@ -23,6 +23,8 @@
   </main>
   <footer class="site-footer">
     <a href="{% url 'disclosure' %}">Disclosure</a>
+    <a href="{% url 'privacy' %}">Privacy</a>
+    <a href="https://github.com/DanteArcese/unitpricer">Source code</a>
     <a id="settings-link" href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>
   </footer>
 </body>

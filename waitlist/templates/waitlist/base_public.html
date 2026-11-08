@@ -1,0 +1,23 @@
+{% load static %}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}UnitPricer: fair price per unit{% endblock %}</title>
+  <meta name="description" content="{% block description %}UnitPricer ranks groceries by fair price per unit, by spec, not by brand. Free and open source.{% endblock %}">
+  <link rel="canonical" href="https://unitpricer.com{% block canonical %}/{% endblock %}">
+  <link rel="icon" href="{% static 'web/favicon.svg' %}" type="image/svg+xml">
+  <link rel="stylesheet" href="{% static 'web/app.css' %}">
+  <link rel="stylesheet" href="{% static 'waitlist/landing.css' %}">
+</head>
+<body class="public">
+  <main>
+    {% block main %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    <a href="/privacy">Privacy</a>
+    <a href="https://github.com/DanteArcese/unitpricer">Source code</a> (AGPL-3.0)
+    <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a>
+  </footer>
+</body>
+</html>

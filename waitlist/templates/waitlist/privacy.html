@@ -1,0 +1,40 @@
+{% extends "waitlist/base_public.html" %}
+{% block title %}Privacy | UnitPricer{% endblock %}
+{% block description %}What UnitPricer collects, who handles it and how long it is kept.{% endblock %}
+{% block canonical %}/privacy{% endblock %}
+{% block main %}
+<h1>Privacy</h1>
+<h2>What we collect</h2>
+<ul>
+  <li>Waitlist: your email address and the times you signed up, confirmed and were sent the launch announcement.</li>
+  <li>Beta app: a session cookie and a settings cookie that remember your preferences.</li>
+  <li>No analytics, no ads and no tracking pixels.</li>
+</ul>
+<h2>Why</h2>
+<p>To confirm your signup and to send you one launch email. Nothing else.</p>
+<h2>Who handles it</h2>
+<ul>
+  <li>DigitalOcean (New York): hosting.</li>
+  <li>Cloudflare: network, security and access control for the beta.</li>
+  <li>Resend: email delivery.</li>
+  <li>Cloudflare R2: encrypted off-site backups kept 30 days.</li>
+  <li>Sentry: error reports, only if enabled; they are scrubbed of personal data.</li>
+</ul>
+<h2>Cookies</h2>
+<ul>
+  <li><code>csrftoken</code>: on forms only, to protect them from forgery.</li>
+  <li>Cloudflare security cookies.</li>
+  <li>Beta app: <code>CF_Authorization</code> and <code>sessionid</code>.</li>
+</ul>
+<h2>How long</h2>
+<ul>
+  <li>Unconfirmed signups are deleted after 7 days.</li>
+  <li>Confirmed signups are kept until you unsubscribe or we close the waitlist.</li>
+  <li>Backups age out after 30 days.</li>
+  <li>Server logs hold no IP addresses.</li>
+</ul>
+<h2>Your choices</h2>
+<p>Use the unsubscribe link in any email we send, which deletes your address. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> to see or delete your data.</p>
+<h2>Changes</h2>
+<p>Last updated: 2026-11-08</p>
+{% endblock %}
