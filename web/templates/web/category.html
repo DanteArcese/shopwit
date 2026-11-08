@@ -5,6 +5,8 @@
 {% if q_rest %}
 <p class="note">also matching &lsquo;{{ q_rest }}&rsquo; (not applied as a filter) <a href="{{ dismiss_url }}" aria-label="Dismiss">Dismiss</a></p>
 {% endif %}
+<details class="filters-drawer" open>
+<summary>Filters</summary>
 <form class="filters" method="get" action="{{ category_url }}" hx-get="{{ category_url }}" hx-trigger="change" hx-target="#results" hx-push-url="true">
   {% for c in controls %}
     {% if c.type == "bool" %}
@@ -43,6 +45,7 @@
   {% endif %}
   <noscript><button type="submit">Apply filters</button></noscript>
 </form>
+</details>
 <div id="results" aria-live="polite">
 {% include "web/_results.html" %}
 </div>

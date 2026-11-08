@@ -14,3 +14,12 @@ if (!("ping" in HTMLAnchorElement.prototype)) {
     }
   });
 }
+
+// Filters drawer: server renders it open (works without JS); collapse it on narrow screens
+// so results come first. Desktop CSS hides the summary, so it stays open there.
+(function () {
+  var drawer = document.querySelector("details.filters-drawer");
+  if (drawer && window.matchMedia && window.matchMedia("(max-width: 47.99rem)").matches) {
+    drawer.open = false;
+  }
+})();

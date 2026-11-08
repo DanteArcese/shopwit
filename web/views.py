@@ -97,10 +97,14 @@ def _controls(category: Category, params) -> list[dict]:
 def _present(row, comparison: str, unit_system: str, dimension: str) -> dict:
     offer = row.offer
     unit_text = None
+    price_text = format_money(offer.price, offer.currency)
+    announce = f"price {price_text}"
     if row.unit_price is not None:
         price, label = display_unit_price(row.unit_price, comparison, unit_system)
         unit_text = f"{format_money(price, offer.currency)} / {label}"
+        announce += f", {format_money(price, offer.currency)} per {label}"
     return {
+        "price_label": announce,
         "title": offer.title or row.product.title,
         "brand": offer.brand or row.product.brand,
         "size": display_size(offer.measures, dimension, unit_system),
@@ -210,6 +214,7 @@ def search(request):
             "title": cheapest[p.pk].title or p.title,
             "brand": cheapest[p.pk].brand or p.brand,
             "price": format_money(cheapest[p.pk].price, cheapest[p.pk].currency),
+            "price_label": "price " + format_money(cheapest[p.pk].price, cheapest[p.pk].currency),
             "retailer": display_name(cheapest[p.pk].retailer),
             "offer": cheapest[p.pk],
         }

@@ -154,5 +154,14 @@ a { color: var(--accent); }
 .empty { padding: 1rem 0; }
 .site-footer { display: flex; gap: 1rem; }
 
-.affiliate-banner { padding: .5rem .75rem; margin: 0 0 1rem; background: #f4f4f0; border-left: 3px solid #888; font-size: .9rem; }
+.affiliate-banner { padding: .5rem .75rem; margin: 0 0 1rem; background: var(--surface); border-left: 3px solid var(--muted); font-size: .9rem; }
 .amazon-note { margin: .25rem 0; }
+
+.filters-drawer { margin: 1rem 0; }
+.filters-drawer summary { display: flex; align-items: center; min-height: 44px; font-weight: 600; cursor: pointer; }
+.filters-drawer .filters { margin-top: 0.5rem; }
+.result-price { display: inline-flex; gap: 0.5rem; }
+@media (min-width: 48rem) {
+  .filters-drawer summary { display: none; }
+  .filters { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
+}

@@ -5,8 +5,7 @@
   </div>
   <div class="result-meta">
     {% if row.size %}<span>{{ row.size }}</span>{% endif %}
-    <span>{{ row.price }}</span>
-    {% if row.unit_price %}<span class="unit-price">{{ row.unit_price }}</span>{% endif %}
+    <span class="result-price" role="group" aria-label="{{ row.price_label }}"><span>{{ row.price }}</span>{% if row.unit_price %} <span class="unit-price">{{ row.unit_price }}</span>{% endif %}</span>
     <span>{{ row.retailer }}</span>
     {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
   </div>
