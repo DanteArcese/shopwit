@@ -38,8 +38,6 @@ jobs:
       contents: read
       packages: write
     env:
-      # To add another image (e.g. deploy/backup), add an entry here and a
-      # matching build/push step pair below.
       APP_IMAGE: ghcr.io/dantearcese/unitpricer
     steps:
       - uses: actions/checkout@v7
@@ -50,6 +48,12 @@ jobs:
           context: .
           load: true
           tags: unitpricer:ci
+      - name: Build backup image
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/backup
+          load: true
+          tags: unitpricer-backup:ci
       - name: Smoke-check production settings
         # check --deploy does not connect to the database; the URL is a dummy.
         run: >-
@@ -91,3 +95,12 @@ jobs:
           tags: |
             ghcr.io/dantearcese/unitpricer:sha-${{ github.sha }}
             ghcr.io/dantearcese/unitpricer:main
+      - name: Push backup image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: docker/build-push-action@v7
+        with:
+          context: deploy/backup
+          push: true
+          tags: |
+            ghcr.io/dantearcese/unitpricer-backup:sha-${{ github.sha }}
+            ghcr.io/dantearcese/unitpricer-backup:main

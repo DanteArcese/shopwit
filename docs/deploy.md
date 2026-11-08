@@ -27,7 +27,7 @@ echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> .env   # hex is URL-safe (it
 
 Then add `TUNNEL_TOKEN` and the other keys below with an editor. Images come from GHCR, which may be private and whose visibility cannot be changed through the API. Either make the `unitpricer` package public yourself (GitHub > Packages > package settings > Change visibility), or use build-on-server mode below.
 
-The `unitpricer-backup` image exists only once Task 9 (`deploy/backup`) has landed; until then the stack cannot start the `backup` service, and build-on-server mode skips that image build with a note.
+The `unitpricer-backup` image is built from `deploy/backup` by CI (pushed from main) or by build-on-server mode.
 
 ## Deploy
 
@@ -61,7 +61,32 @@ docker compose run --rm -T web python manage.py <command> </dev/null   # drop -T
 
 ## Backups and restore
 
-Nightly `pg_dump -Fc` at 03:30 UTC by the `backup` service to R2 bucket `unitpricer-backups` (prefix `pg/`, 30-day lifecycle rule). Until R2 is enabled, dumps go to the `backups` volume mounted at `/backups`. DigitalOcean weekly backups are the second layer. Restore steps are in the backup image's documentation (Task 9); drill them and record results:
+The `backup` service runs `pg_dump -Fc` at 03:30 UTC (`BACKUP_AT`), checks the dump with `pg_restore --list`, and only then stores it. A failed dump or failed check stores nothing and sends no heartbeat. If `BACKUP_HEARTBEAT_URL` is set it is pinged after each good run, so point an uptime monitor at it. DigitalOcean weekly droplet backups are the second layer.
+
+**Without R2 (current default).** When any of `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` is empty, the dump stays in the `backups` volume (`/backups`), the newest 7 `unitpricer-*.dump` files are kept, and the log says `R2 not configured; kept dump locally`. This copy lives on the same droplet, so it does not survive losing the droplet; the weekly provider backup covers that.
+
+**With R2.** The dump is also uploaded to bucket `unitpricer-backups`, prefix `pg/`; the bucket's lifecycle rule deletes objects after 30 days (the script does no remote retention). The local newest-7 copy is still kept.
+
+### Enabling R2 later
+
+1. In Cloudflare, enable R2, create bucket `unitpricer-backups`, and add a lifecycle rule deleting objects under `pg/` after 30 days.
+2. Create an R2 API token with Object Read & Write limited to that bucket.
+3. Put `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` in `/srv/unitpricer/.env` (mode 600), then `docker compose up -d backup`.
+4. Trigger one run and confirm the object appears: `docker compose exec backup backup.sh once`.
+
+### Restore drill
+
+Restore into a scratch database, never straight over production first.
+
+```bash
+cd /srv/unitpricer
+docker compose exec db createdb -U unitpricer drill
+docker compose exec backup backup.sh restore-latest "postgres://unitpricer:$POSTGRES_PASSWORD@db/drill"
+docker compose exec db psql -U unitpricer drill -c 'select count(*) from django_migrations'
+docker compose exec db dropdb -U unitpricer drill
+```
+
+`restore-latest` takes the newest object under `pg/` when R2 is configured, otherwise the newest local dump, and runs `pg_restore --no-owner --clean --if-exists`. Compare row counts of a few real tables with production, then record the drill:
 
 | Date | Dump used | Restored to | Rows verified | Time taken | Notes |
 |---|---|---|---|---|---|

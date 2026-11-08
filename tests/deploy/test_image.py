@@ -64,3 +64,18 @@ def test_ci_pushes_only_from_main():
         cond = s.get("if", "")
         assert "refs/heads/main" in cond and "push" in cond
     assert "ghcr.io/dantearcese/unitpricer" in (ROOT / ".github/workflows/ci.yml").read_text()
+
+
+def test_ci_builds_and_pushes_backup_image_from_main_only():
+    wf = yaml.safe_load((ROOT / ".github/workflows/ci.yml").read_text())
+    steps = wf["jobs"]["image"]["steps"]
+    builds = [s for s in steps if s.get("with", {}).get("context") == "deploy/backup"]
+    assert len(builds) == 2
+    ci_build = [s for s in builds if not s["with"].get("push")]
+    push = [s for s in builds if s["with"].get("push")]
+    assert ci_build and "unitpricer-backup:ci" in ci_build[0]["with"]["tags"]
+    assert "if" not in ci_build[0]
+    tags = push[0]["with"]["tags"]
+    assert "ghcr.io/dantearcese/unitpricer-backup:sha-${{ github.sha }}" in tags
+    assert "ghcr.io/dantearcese/unitpricer-backup:main" in tags
+    assert "refs/heads/main" in push[0]["if"] and "push" in push[0]["if"]
