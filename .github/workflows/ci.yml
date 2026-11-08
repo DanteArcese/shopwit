@@ -4,6 +4,9 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -63,6 +66,15 @@ jobs:
           -e DATABASE_URL=postgres://x:y@localhost:5432/z
           unitpricer:ci
           python manage.py check --deploy --fail-level WARNING
+      - name: Validate production compose file
+        # Dummy values only; this checks interpolation and structure, nothing is started.
+        run: |
+          touch app.env  # env_file must exist; contents are not needed here
+          docker compose -f compose.prod.yaml config -q
+        env:
+          UNITPRICER_IMAGE_TAG: sha-ci
+          POSTGRES_PASSWORD: ci-dummy
+          TUNNEL_TOKEN: ci-dummy
       - name: Log in to GHCR
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: docker/login-action@v4

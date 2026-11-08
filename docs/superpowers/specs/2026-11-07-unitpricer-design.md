@@ -183,7 +183,7 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 ## 12. Hosting
 
 - Local development: Docker Compose (web, worker, Postgres).
-- Production hosting is **undecided**. Options (VPS, Vercel, a PaaS, etc.) will be compared before the first deploy.
+- Production: a DigitalOcean droplet running Docker Compose (web, worker, Postgres, backup) behind a Cloudflare Tunnel; no published ports. The apex serves a public waitlist; the app host is a gated beta behind Cloudflare Access. Runbook: `docs/deploy.md`.
 
 ## 13. Error handling and observability
 
@@ -201,7 +201,7 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 ## 15. Open decisions
 
 1. ~~Final product name and domain~~ Decided: UnitPricer, unitpricer.com.
-2. Production hosting (Checkpoint B, before first deploy).
+2. ~~Production hosting~~ Decided: DigitalOcean droplet + Docker Compose + Cloudflare Tunnel.
 3. Unofficial data sources for in-store chains (after the core release).
 4. Whether Amazon and Walmart honor links routed through Sovrn's tracking redirect (ask Sovrn at Checkpoint B).
 
@@ -219,4 +219,5 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Outbound links | Direct to retailer or network tracking link; no redirect, shortener or intermediate page; clicks counted by ping/beacon |
 | First connector (Checkpoint A) | Walmart Affiliate API, built against documented sample responses until walmart.io access works; Sovrn as link router |
 | Units | Metric/imperial user setting; locale-neutral storage |
+| Hosting | DigitalOcean droplet + Docker Compose + Cloudflare Tunnel; gated beta, public waitlist |
 | Name | **UnitPricer** (unitpricer.com); renamed from codename `shopwit` (#26) |

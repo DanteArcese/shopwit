@@ -99,7 +99,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 ⛳ **Checkpoint B: dogfood, name and first deploy.**
 1. **Dogfood.** Use it for real shopping for two weeks. Log every wrong attribute, missing product and confusing screen as an issue, and fix the worst before M4.
 2. **Final name and domain.** ✅ Done early: **UnitPricer**, `unitpricer.com` (Cloudflare Registrar). Remaining: DNSSEC and a DMARC record in the Cloudflare dashboard.
-3. **Production hosting.** Compare a VPS (Docker Compose), a PaaS (Fly.io, Railway, Render) and serverless (Vercel). This needs a long-running worker and Postgres, which serverless suits poorly. Decide on cost, operations effort and backups.
+3. **Production hosting.** ✅ Decided: DigitalOcean droplet + Docker Compose + Cloudflare Tunnel; gated beta, public waitlist. Comparison: [`research/2026-11-07-hosting-options.md`](research/2026-11-07-hosting-options.md); runbook: [`deploy.md`](deploy.md).
 4. **First deploy** on the chosen host (TLS, backups, error monitoring), with the affiliate disclosure page. Plan: [`plans/2026-11-08-first-deploy.md`](superpowers/plans/2026-11-08-first-deploy.md) (DigitalOcean droplet, public waitlist on the apex, gated beta). Then register the domain with Sovrn and the other programs so approval runs in parallel with M4–M5.
 5. **Sovrn merchant audit.** With UnitPricer's own site key, script the Approved Merchants API to list every grocery and household merchant that is actually monetizable, marked by whether UnitPricer has a data source for it. Feeds Checkpoint D.
 

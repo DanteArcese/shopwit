@@ -1,0 +1,83 @@
+# Production stack. Copied to /srv/unitpricer/compose.yaml by deploy/deploy.sh;
+# ${...} values come from /srv/unitpricer/.env. See docs/deploy.md.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: unitpricer
+      POSTGRES_DB: unitpricer
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U unitpricer -d unitpricer"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    image: ghcr.io/dantearcese/unitpricer:${UNITPRICER_IMAGE_TAG:?}
+    restart: unless-stopped
+    env_file: app.env
+    environment:
+      DATABASE_URL: postgres://unitpricer:${POSTGRES_PASSWORD}@db:5432/unitpricer
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request as u; u.urlopen(u.Request('http://127.0.0.1:8000/healthz', headers={'Host': 'unitpricer.com'}), timeout=5)"
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  worker:
+    image: ghcr.io/dantearcese/unitpricer:${UNITPRICER_IMAGE_TAG:?}
+    restart: unless-stopped
+    command: python manage.py run_scheduler
+    stop_grace_period: 60s
+    env_file: app.env
+    environment:
+      DATABASE_URL: postgres://unitpricer:${POSTGRES_PASSWORD}@db:5432/unitpricer
+    depends_on:
+      db:
+        condition: service_healthy
+
+  cloudflared:
+    image: cloudflare/cloudflared:2026.10.7
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN:?}
+    depends_on:
+      - web
+
+  backup:
+    image: ghcr.io/dantearcese/unitpricer-backup:${UNITPRICER_IMAGE_TAG:?}
+    restart: unless-stopped
+    environment:
+      PGHOST: db
+      PGUSER: unitpricer
+      PGDATABASE: unitpricer
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      # R2 is optional at first deploy; Task 9's backup falls back to /backups.
+      R2_ACCOUNT_ID: ${R2_ACCOUNT_ID:-}
+      R2_ACCESS_KEY_ID: ${R2_ACCESS_KEY_ID:-}
+      R2_SECRET_ACCESS_KEY: ${R2_SECRET_ACCESS_KEY:-}
+      R2_BUCKET: unitpricer-backups
+      BACKUP_AT: "03:30"
+      BACKUP_HEARTBEAT_URL: ${BACKUP_HEARTBEAT_URL:-}
+    volumes:
+      - backups:/backups
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  backups:
