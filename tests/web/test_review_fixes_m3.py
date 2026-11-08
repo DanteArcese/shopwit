@@ -214,7 +214,7 @@ def test_live_status_element(client, milk_rows):
     html = client.get("/c/dairy/milk/").content.decode()
     assert '<div id="results" aria-live' not in html
     assert 'id="results-status"' in html and 'role="status"' in html
-    assert "3 results" in html
+    assert "4 results" in html
     part = client.get("/c/dairy/milk/?fat=2", HTTP_HX_REQUEST="true").content.decode()
     assert 'id="results-status"' in part and "1 result<" in part
 

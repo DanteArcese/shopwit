@@ -1,1 +1,1 @@
-<p id="results-status" class="visually-hidden" role="status" aria-live="polite"{% if oob %} hx-swap-oob="true"{% endif %}>{{ ranked_total }} result{{ ranked_total|pluralize }}</p>
+{% if oob %}<p id="results-status" hx-swap-oob="innerHTML">{{ status_total }} result{{ status_total|pluralize }}</p>{% else %}<p id="results-status" class="visually-hidden" role="status" aria-live="polite">{{ status_total }} result{{ status_total|pluralize }}</p>{% endif %}

@@ -8,15 +8,13 @@ formats amounts. Money stays Decimal throughout.
 from decimal import ROUND_HALF_UP, Decimal
 
 from normalize.compare import COMPARISONS
-from normalize.quantity import _ureg
+from normalize.quantity import unit_registry
 
 ONE = Decimal(1)
 
-# (comparison, unit_system) -> (label, factor): price per canonical unit * factor
-# = price per displayed unit.
 def _exact(unit: str, target: str) -> Decimal:
     """Pint's own conversion (the registry ingestion uses), as an exact-ish Decimal."""
-    return Decimal(format(float((1 * _ureg(unit)).to(target).magnitude), ".12g"))
+    return Decimal(format(float((1 * unit_registry()(unit)).to(target).magnitude), ".12g"))
 
 
 ML_PER_FL_OZ = _exact("fluid_ounce", "milliliter")
@@ -25,6 +23,8 @@ M2_PER_SQ_FT = Decimal("0.09290304")  # exact by definition of the foot
 FL_OZ_PER_GAL = 128
 OZ_PER_LB = 16
 
+# (comparison, unit_system) -> (label, factor): price per canonical unit * factor
+# = price per displayed unit.
 DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
     ("per_volume", "imperial"): ("fl oz", ML_PER_FL_OZ),
     ("per_volume", "metric"): ("100 mL", Decimal("100")),

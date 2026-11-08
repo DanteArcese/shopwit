@@ -17,36 +17,46 @@ class Page(HTMLParser):
     def __init__(self):
         super().__init__()
         self.tags = []  # (tag, attrs dict)
-        self.label_for = set()
-        self.in_label = 0
-        self.wrapped = set()  # indexes of controls inside a label
+        self.labels = []  # {"for": id or None, "text": str, "controls": [tag indexes]}
+        self.open_label = None
         self.h1 = 0
 
     def handle_starttag(self, tag, attrs):
         a = dict(attrs)
         if tag == "label":
-            self.in_label += 1
-            if a.get("for"):
-                self.label_for.add(a["for"])
+            self.open_label = {"for": a.get("for"), "text": "", "controls": []}
+            self.labels.append(self.open_label)
         if tag == "h1":
             self.h1 += 1
         if tag in ("input", "select", "textarea"):
-            if self.in_label:
-                self.wrapped.add(len(self.tags))
+            if self.open_label is not None:
+                self.open_label["controls"].append(len(self.tags))
             self.tags.append((tag, a))
         elif tag == "html":
             self.tags.append((tag, a))
 
+    def handle_data(self, data):
+        if self.open_label is not None:
+            self.open_label["text"] += data
+
     def handle_endtag(self, tag):
         if tag == "label":
-            self.in_label -= 1
+            self.open_label = None
 
     def unlabelled(self):
+        """Controls with no accessible name: aria-label or a label, each with non-empty text."""
+        named = set()
+        for label in self.labels:
+            if not label["text"].strip():
+                continue
+            named.update(label["controls"])
+            if label["for"]:
+                named.update(i for i, (_, a) in enumerate(self.tags) if a.get("id") == label["for"])
         bad = []
         for i, (tag, a) in enumerate(self.tags):
             if tag == "html" or a.get("type") in ("hidden", "submit"):
                 continue
-            if a.get("aria-label") or i in self.wrapped or (a.get("id") and a["id"] in self.label_for):
+            if (a.get("aria-label") or "").strip() or i in named:
                 continue
             bad.append((tag, a))
         return bad
@@ -126,14 +136,39 @@ def contrast(a, b):
     return (hi + 0.05) / (lo + 0.05)
 
 
-PAIRS = [("fg", "bg"), ("fg", "surface"), ("muted", "bg"), ("muted", "surface"),
-         ("accent", "bg"), ("accent", "surface"), ("accent-fg", "accent")]
+def _token_uses(prop: str) -> set:
+    """Colour tokens the stylesheet uses for a property (e.g. `color: var(--fg)`)."""
+    return set(re.findall(rf"(?<![\w-]){prop}:\s*var\(--([\w-]+)\)", CSS.read_text()))
+
+
+def _pairs():
+    """Text/background pairs derived from the CSS: every text token over every
+    background token it can sit on. A `<bg>-fg` token pairs only with `<bg>`, and
+    a background that has such a token (accent) takes only that text."""
+    texts = _token_uses("color")
+    backgrounds = _token_uses("background")
+    pairs = set()
+    for fg in texts:
+        for bg in backgrounds:
+            if fg == bg or (fg.endswith("-fg") and fg[: -len("-fg")] != bg):
+                continue
+            if f"{bg}-fg" in texts and fg != f"{bg}-fg":
+                continue
+            pairs.add((fg, bg))
+    return sorted(pairs)
+
+
+def test_contrast_pairs_derived_from_css():
+    pairs = _pairs()
+    for expected in [("fg", "bg"), ("fg", "surface"), ("muted", "bg"), ("muted", "surface"),
+                     ("accent", "bg"), ("accent", "surface"), ("accent-fg", "accent")]:
+        assert expected in pairs, expected
 
 
 @pytest.mark.parametrize("theme", ["light", "dark"])
 def test_text_contrast(theme):
     v = _themes()[theme]
-    for fg, bg in PAIRS:
+    for fg, bg in _pairs():
         assert contrast(v[fg], v[bg]) >= 4.5, (theme, fg, bg, contrast(v[fg], v[bg]))
 
 
@@ -219,3 +254,46 @@ def test_demo_data_reports_missing_recordings(db, settings, capsys):
     out = capsys.readouterr().out
     assert "/c/dairy/milk/" in out and "127.0.0.1" not in out
     assert "no recordings" in out
+
+
+# ---- #33 polish ----
+def test_status_node_persists_across_htmx_swaps(client, milk_rows):
+    full = client.get("/c/dairy/milk/").content.decode()
+    assert len(re.findall(r'id="results-status"', full)) == 1
+    assert re.search(r'<p id="results-status"[^>]*role="status"', full)
+    part = client.get("/c/dairy/milk/", HTTP_HX_REQUEST="true").content.decode()
+    # innerHTML swap keeps the live-region node itself, so updates are announced
+    assert re.search(r'<p id="results-status"[^>]*hx-swap-oob="innerHTML"[^>]*>\d+ results?</p>', part)
+    assert 'role="status"' not in part
+
+
+def test_status_count_includes_unranked(client, milk_rows):
+    html = client.get("/c/dairy/milk/").content.decode()
+    shown = html.count('class="result"')
+    assert shown >= 4
+    m = re.search(r'id="results-status"[^>]*>(\d+) results?<', html)
+    assert int(m.group(1)) == shown
+    empty = client.get("/c/dairy/milk/?size_min=99999").content.decode()
+    assert re.search(r'id="results-status"[^>]*>0 results<', empty)
+
+
+def test_stores_is_checkbox_group_without_selected_counter(client, milk_rows):
+    html = client.get("/c/dairy/milk/").content.decode()
+    assert "<select name=\"store\"" not in html
+    assert re.search(r'<input type="checkbox" name="store" value="\w+"', html)
+
+
+def test_size_unit_not_pushed_without_bounds():
+    js = JS.read_text()
+    assert "htmx:configRequest" in js and "size_unit" in js
+
+
+def test_size_inputs_not_stretched():
+    assert re.search(r"\.size-range\s*\{[^}]*align-items:\s*(flex-)?start", CSS.read_text())
+
+
+def test_label_check_rejects_empty_label_text():
+    page = Page()
+    page.feed('<label for="a"> </label><input id="a"><label><input name="b"></label>'
+              '<label>Named <input name="c"></label><input aria-label=" ">')
+    assert [a.get("name") or a.get("id") or "aria" for _, a in page.unlabelled()] == ["a", "b", "aria"]

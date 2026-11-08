@@ -44,3 +44,9 @@ document.addEventListener("click", function (event) {
   localize(document);
   document.addEventListener("htmx:afterSwap", function (e) { localize(e.target || document); });
 })();
+
+// The hidden size_unit only matters with a size bound; keep it out of the URL otherwise.
+document.addEventListener("htmx:configRequest", function (e) {
+  var p = e.detail.parameters;
+  if (p && !p["size_min"] && !p["size_max"]) delete p["size_unit"];
+});
