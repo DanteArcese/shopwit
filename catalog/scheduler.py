@@ -15,6 +15,9 @@ from django.utils import timezone
 from connectors import registry
 from connectors.base import Connector
 
+from connectors.open_prices import OpenPricesClient
+
+from . import observed
 from .ingest import ingest
 from .models import Category, IngestionRun
 
@@ -89,7 +92,27 @@ def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> li
             continue
         log_run(run)
         runs.append(run)
+    if settings.OPEN_PRICES_ENABLED and observed.due(now):
+        runs.extend(_open_prices(now))
     return runs
+
+
+def _open_prices(now: datetime) -> list[IngestionRun]:
+    client = None
+    try:
+        client = OpenPricesClient()
+        run = observed.sync_open_prices(client, now)
+    except Exception as exc:
+        logger.error("ingest connector=%s failed: %s", observed.CONNECTOR, type(exc).__name__)
+        return [_fail_run(observed.CONNECTOR, "all", now, exc)]
+    finally:
+        if client is not None:
+            try:
+                client.close()
+            except Exception as exc:
+                logger.warning("closing Open Prices client failed: %s", type(exc).__name__)
+    log_run(run)
+    return [run]
 
 
 def run_loop(

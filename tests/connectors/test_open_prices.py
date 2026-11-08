@@ -153,6 +153,7 @@ def _loc(**over):
         ({"location": _loc(osm_address_country_code="EC")}, True, "country"),
         ({"location": NULL_LOC}, True, "no_location"),
         ({"location": _loc(type="ONLINE")}, True, "online"),
+        ({"location": _loc(osm_name="!!! ***", osm_brand=None)}, True, "no_location"),
         (
             {"source": "Open Prices Web App - /experiments/proof-price-tag-assistant"},
             True,

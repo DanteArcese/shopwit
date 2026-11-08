@@ -179,3 +179,42 @@ def test_tick_isolates_unexpected_errors_per_pair(cats, caplog):
     assert not IngestionRun.objects.filter(status="running").exists()
     text = " ".join(r.getMessage() for r in caplog.records)
     assert "secret-token-123" not in text and "RuntimeError" in text
+
+
+def test_tick_runs_open_prices_when_enabled(cats, settings, monkeypatch):
+    calls = []
+
+    class FakeOP:
+        unparsed = 0
+
+        def fetch_window(self, since, currency):
+            calls.append((since, currency))
+            return []
+
+        def close(self):
+            calls.append("closed")
+
+    monkeypatch.setattr(scheduler, "OpenPricesClient", FakeOP)
+    settings.OPEN_PRICES_ENABLED = False
+    scheduler.tick(NOW, {})
+    assert calls == []
+    settings.OPEN_PRICES_ENABLED = True
+    runs = scheduler.tick(NOW, {})
+    assert [(r.connector, r.category_slug, r.status) for r in runs] == [
+        ("openprices", "all", "succeeded")
+    ]
+    assert len(calls) == 2 and calls[1] == "closed"
+    assert scheduler.tick(NOW, {}) == []  # now fresh
+
+
+def test_tick_open_prices_error_is_isolated(cats, settings, monkeypatch):
+    class Boom:
+        def __init__(self):
+            raise RuntimeError("secret")
+
+    monkeypatch.setattr(scheduler, "OpenPricesClient", Boom)
+    settings.OPEN_PRICES_ENABLED = True
+    runs = scheduler.tick(NOW, {})
+    assert [(r.connector, r.status, r.error) for r in runs] == [
+        ("openprices", "failed", "RuntimeError")
+    ]

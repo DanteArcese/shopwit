@@ -177,6 +177,8 @@ def skip_reason(
         return "online"
     if loc.type != "OSM" or not loc.osm_type or not loc.osm_id:
         return "no_location"
+    if chain_key(loc)[0] == "op-":  # name is only punctuation: no usable chain slug
+        return "no_location"
     if (loc.country_code or "").upper() != country.upper():
         return "country"
     if not include_assisted and obs.source and "/experiments/" in obs.source:
