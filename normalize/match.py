@@ -18,8 +18,8 @@ def phrase_regex(phrase: str) -> re.Pattern:
 
 
 def exclude_regex(phrase: str) -> re.Pattern:
-    """Like phrase_regex, but "peanut-free" does not trigger an exclude of "peanut"."""
-    return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)(?!-free\b)")
+    """Like phrase_regex, but "peanut-free" / "peanut free" do not exclude "peanut"."""
+    return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)(?![- ]free\b)")
 
 
 def _forms(phrase: str, plural: bool) -> list[str]:
