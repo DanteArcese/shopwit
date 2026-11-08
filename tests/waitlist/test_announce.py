@@ -84,6 +84,15 @@ def test_announce_requires_public_url(settings):
         run()
 
 
+def test_announce_requires_site_url(settings):
+    settings.SITE_URL = ""
+    settings.DEBUG = False
+    make(1)
+    with pytest.raises(CommandError, match="SITE_URL"):
+        run()
+    assert mail.outbox == []
+
+
 def test_limit():
     make(5)
     out = run("--limit", "2")

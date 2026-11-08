@@ -25,6 +25,8 @@ class Command(BaseCommand):
             raise CommandError("UNITPRICER_POSTAL_ADDRESS is empty; commercial email needs a postal address.")
         if not settings.PUBLIC_URL and not settings.DEBUG:
             raise CommandError("UNITPRICER_PUBLIC_URL is unset; unsubscribe links would be broken.")
+        if not settings.SITE_URL and not settings.DEBUG:
+            raise CommandError("UNITPRICER_SITE_URL is unset; announcement links would be broken.")
 
         now = timezone.now()
         Subscriber.purge_unconfirmed(now)
