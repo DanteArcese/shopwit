@@ -2,6 +2,8 @@ import jwt
 from django.conf import settings
 from django.http import HttpResponseForbidden
 
+from web.hosts import normalize_host
+
 _jwks_client = None
 
 
@@ -23,10 +25,12 @@ class CloudflareAccessMiddleware:
         self.get_response = get_response
 
     def __call__(self, request):
-        if not settings.CF_ACCESS_AUD or not settings.APP_HOST:
+        if not settings.CF_ACCESS_AUD:
             return self.get_response(request)
-        host = request.get_host().split(":")[0].lower()
-        if host != settings.APP_HOST or request.path == "/healthz":
+        host = normalize_host(request)
+        public = settings.PUBLIC_HOST
+        # Fail closed: every host except the public ones needs a token.
+        if (public and host in (public, f"www.{public}")) or request.path == "/healthz":
             return self.get_response(request)
         token = request.META.get("HTTP_CF_ACCESS_JWT_ASSERTION")
         if not token:
@@ -39,6 +43,7 @@ class CloudflareAccessMiddleware:
                 algorithms=["RS256"],
                 audience=settings.CF_ACCESS_AUD,
                 issuer=f"https://{settings.CF_ACCESS_TEAM_DOMAIN}",
+                options={"require": ["exp", "iss", "aud"]},
             )
         except jwt.PyJWTError:
             # Includes JWKS fetch failures: fail closed.

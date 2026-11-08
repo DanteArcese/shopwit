@@ -2,6 +2,11 @@ from django.conf import settings
 from django.http import HttpResponsePermanentRedirect
 
 
+def normalize_host(request):
+    """Host without port or trailing dot, lowercased (Django accepts 'host.' in ALLOWED_HOSTS)."""
+    return request.get_host().split(":")[0].rstrip(".").lower()
+
+
 class HostRoutingMiddleware:
     """Serve the public site on PUBLIC_HOST and the full app everywhere else."""
 
@@ -12,7 +17,7 @@ class HostRoutingMiddleware:
         public = settings.PUBLIC_HOST
         if not public:
             return self.get_response(request)
-        host = request.get_host().split(":")[0].lower()
+        host = normalize_host(request)
         if host == f"www.{public}":
             return HttpResponsePermanentRedirect(f"https://{public}{request.get_full_path()}")
         if host == public:

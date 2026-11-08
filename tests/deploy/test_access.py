@@ -105,3 +105,22 @@ def test_apex_and_healthz_not_checked(client):
 def test_inactive_without_aud(client, settings):
     settings.CF_ACCESS_AUD = ""
     assert get(client).status_code == 200
+
+
+def test_trailing_dot_host_still_checked(client):
+    assert get(client, host=APP + ".").status_code == 403
+
+
+def test_token_without_exp_403(client, private_key):
+    claims = {"aud": [AUD], "iss": f"https://{TEAM}", "email": "me@example.com"}
+    token = jwt.encode(claims, private_key, algorithm="RS256")
+    assert get(client, token).status_code == 403
+
+
+@pytest.mark.django_db
+def test_trailing_dot_public_hosts(client, settings):
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP]
+    assert get(client, path="/c/dairy/milk/", host=PUBLIC + ".").status_code == 404
+    assert get(client, host=PUBLIC + ".").status_code == 200
+    r = get(client, host=f"www.{PUBLIC}.")
+    assert r.status_code == 301

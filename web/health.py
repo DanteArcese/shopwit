@@ -3,6 +3,7 @@ from django.db import DatabaseError, connection
 from django.http import HttpResponse, JsonResponse
 
 from catalog.models import IngestionRun
+from web.hosts import normalize_host
 
 
 def healthz(request):
@@ -21,7 +22,7 @@ def healthz(request):
 
 
 def robots_txt(request):
-    host = request.get_host().split(":")[0].lower()
+    host = normalize_host(request)
     if settings.PUBLIC_HOST and host == settings.PUBLIC_HOST:
         body = "User-agent: *\nAllow: /\n"
     else:
