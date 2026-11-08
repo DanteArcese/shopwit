@@ -16,7 +16,7 @@ from django.views.decorators.http import require_http_methods
 from catalog.browse import BRAND_TIERS, browse, parse_filters
 from catalog.freshness import fresh_offers
 from catalog.models import Category, Product
-from catalog.retailers import available_retailers, display_name
+from catalog.retailers import RETAILERS, available_retailers, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
 from normalize import load_categories
 from normalize.query import resolve_query
@@ -24,6 +24,7 @@ from normalize.query import resolve_query
 from .prefs import Prefs, get_prefs, save_prefs
 
 SEARCH_LIMIT = 25
+MAX_QUERY_LENGTH = 200
 SIZE_UNITS = {
     "volume": {"imperial": "fl oz", "metric": "L"},
     "mass": {"imperial": "oz", "metric": "kg"},
@@ -50,6 +51,15 @@ def safe_next(request, value: str | None) -> str:
     ):
         return value
     return "/"
+
+
+def _store_options(prefs: Prefs, available: list[str]) -> list[dict]:
+    """Available stores, plus saved ones that currently have no fresh offers."""
+    options = [{"code": c, "name": display_name(c), "stale": False} for c in available]
+    for code in sorted(prefs.stores or (), key=lambda c: (display_name(c), c)):
+        if code not in available:
+            options.append({"code": code, "name": f"{display_name(code)} (no current prices)", "stale": True})
+    return options
 
 
 def _canonical_params(category: Category, params, unit_system: str) -> dict[str, str]:
@@ -127,8 +137,9 @@ def category(request, slug):
             for c in [cat.comparison_default, *cat.comparison_alternates]
         ],
         "comparison": result.comparison,
-        "stores": [{"code": c, "name": display_name(c)} for c in available_retailers(when)],
+        "stores": _store_options(prefs, available_retailers(when)),
         "selected_stores": selected_stores,
+        "ranked_total": result.total_products - len(result.unranked),
         "ranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked],
         "unranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked],
     }
@@ -159,7 +170,7 @@ def _redirect_query(resolution) -> str:
 
 
 def search(request):
-    q = request.GET.get("q", "").strip()
+    q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH]
     if not q:
         return redirect("home")
     resolution = resolve_query(q, _active_definitions())
@@ -210,7 +221,8 @@ def settings_page(request):
         system = request.POST.get("unit_system")
         if system not in ("imperial", "metric"):
             system = prefs.unit_system
-        chosen = frozenset(request.POST.getlist("stores")) & frozenset(codes)
+        known = set(RETAILERS) | set(codes) | set(prefs.stores or ())
+        chosen = frozenset(request.POST.getlist("stores")) & known
         stores = None if request.POST.get("all_stores") or not chosen else chosen
         save_prefs(request, Prefs(system, stores))
         return HttpResponseRedirect(safe_next(request, request.POST.get("next")))
@@ -219,6 +231,6 @@ def settings_page(request):
         "web/settings.html",
         {
             "next": safe_next(request, request.GET.get("next")),
-            "stores": [{"code": c, "name": display_name(c)} for c in codes],
+            "stores": _store_options(prefs, codes),
         },
     )

@@ -43,3 +43,24 @@ def test_settings_csrf_enforced(db):
 
     c = Client(enforce_csrf_checks=True)
     assert c.post("/settings", {"unit_system": "metric"}).status_code == 403
+
+
+def test_saved_stale_store_survives_units_only_save(client, offers):
+    client.post("/settings", {"unit_system": "imperial", "stores": ["walmart", "costco"]})
+    # costco has no fresh offers but is saved; it must be shown and survive
+    html = client.get("/settings").content.decode()
+    assert "no current prices" in html
+    client.post("/settings", {"unit_system": "metric", "stores": ["walmart", "costco"]})
+    assert client.session["prefs"] == {"unit_system": "metric", "stores": ["costco", "walmart"]}
+
+
+def test_all_saved_stores_down_stays_selected(client, offers):
+    client.post("/settings", {"unit_system": "imperial", "stores": ["costco"]})
+    assert client.session["prefs"]["stores"] == ["costco"]
+    client.post("/settings", {"unit_system": "metric", "stores": ["costco"]})
+    assert client.session["prefs"] == {"unit_system": "metric", "stores": ["costco"]}
+
+
+def test_unknown_store_code_rejected(client, offers):
+    client.post("/settings", {"unit_system": "metric", "stores": ["walmart", "bogus"]})
+    assert client.session["prefs"]["stores"] == ["walmart"]

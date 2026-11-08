@@ -1,0 +1,18 @@
+<li class="result">
+  <div class="result-main">
+    <strong class="result-title">{{ row.title }}</strong>
+    {% if row.brand %}<span class="result-brand">{{ row.brand }}</span>{% endif %}
+  </div>
+  <div class="result-meta">
+    {% if row.size %}<span>{{ row.size }}</span>{% endif %}
+    <span>{{ row.price }}</span>
+    {% if row.unit_price %}<span class="unit-price">{{ row.unit_price }}</span>{% endif %}
+    <span>{{ row.retailer }}</span>
+    {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
+  </div>
+  <div class="result-fine">
+    price as of <time datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }}</time>
+    {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
+  </div>
+  {% include "web/_outbound.html" with offer=row.offer label="View at "|add:row.retailer %}
+</li>

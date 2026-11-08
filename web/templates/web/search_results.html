@@ -4,17 +4,7 @@
 <h1>Results for &lsquo;{{ q }}&rsquo;</h1>
 {% if results %}
 <ol class="results">
-  {% for row in results %}
-  <li class="result">
-    <div class="result-main">
-      <strong class="result-title">{{ row.title }}</strong>
-      {% if row.brand %}<span class="result-brand">{{ row.brand }}</span>{% endif %}
-    </div>
-    <div class="result-meta"><span>{{ row.price }}</span> <span>{{ row.retailer }}</span></div>
-    <div class="result-fine">price as of <time datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }}</time></div>
-    {% include "web/_outbound.html" with offer=row.offer label="View at "|add:row.retailer %}
-  </li>
-  {% endfor %}
+  {% for row in results %}{% include "web/_row.html" %}{% endfor %}
 </ol>
 {% else %}
 <p class="empty">No fresh prices found for &lsquo;{{ q }}&rsquo;. Try browsing a category from the <a href="{% url 'home' %}">home page</a>.</p>

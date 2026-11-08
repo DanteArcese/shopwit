@@ -43,7 +43,8 @@ def test_price_as_of_present_for_each_row(client, milk_rows):
 
 def test_unknown_label_shown(client, milk_rows):
     html = client.get("/c/dairy/milk/").content.decode()
-    assert "fat unknown" in html
+    assert html.count("fat unknown") == 1
+    assert "Cargo Milk" in html
 
 
 def test_cant_rank_section(client, milk_rows):
@@ -107,3 +108,28 @@ def test_q_rest_note(client, milk_rows):
 def test_q_rest_escaped(client, milk_rows):
     html = client.get("/c/dairy/milk/?q_rest=<script>x</script>").content.decode()
     assert "<script>x" not in html
+
+
+def test_saved_store_without_fresh_offers_shown_and_empty_state(client, milk_rows):
+    client.post("/settings", {"unit_system": "metric", "stores": ["costco"]})
+    html = client.get("/c/dairy/milk/").content.decode()
+    assert "No fresh prices match these filters" in html
+    assert re.search(r'<option[^>]*value="costco"[^>]*>Costco \(no current prices\)', html)
+
+
+def test_empty_state_shown_when_only_unranked(client, load):
+    from tests.catalog.helpers import raw
+
+    load([raw(title="Mystery Whole Milk", price="3.00", item="d", brand="M")])
+    html = client.get("/c/dairy/milk/").content.decode()
+    assert "No fresh prices match these filters" in html
+    assert "Mystery Whole Milk" in html
+
+
+def test_cap_notice(client, milk_rows, monkeypatch):
+    import catalog.browse as b
+
+    real = b.browse
+    monkeypatch.setattr("web.views.browse", lambda *a, **k: real(*a, limit=2))
+    html = client.get("/c/dairy/milk/").content.decode()
+    assert "Showing the top 2 of 3" in html

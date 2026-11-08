@@ -60,3 +60,9 @@ def test_search_empty_redirects_home(client, db):
         resp = client.get("/search", {"q": q})
         assert resp.status_code == 302 and resp["Location"] == "/"
     assert client.get("/search").status_code == 302
+
+
+def test_search_query_length_capped(client, db):
+    resp = client.get("/search", {"q": "x" * 5000})
+    assert resp.status_code == 200
+    assert "&lsquo;" + "x" * 200 + "&rsquo;" in resp.content.decode()
