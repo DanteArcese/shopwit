@@ -403,14 +403,14 @@ def test_privacy_page_mentions_postal_code(client):
     collect = html[html.index(">What we collect<") : html.index(">Why<")]
     assert (
         "Beta app: the ZIP code and distance you choose in Settings. They are saved on our server "
-        "in your session record (linked to your browser by a session cookie, expiring 2 weeks after "
-        "you last save your settings), used only to show in-store prices from nearby stores, and "
+        "in your session record (linked to your browser by a session cookie, expiring 60 days after "
+        "you last save your settings or lists), used only to show in-store prices from nearby stores, and "
         "never logged. Clear the ZIP code in Settings to remove it."
     ) in collect
 
 
 def test_privacy_session_lifetime_matches_settings(settings):
-    assert settings.SESSION_COOKIE_AGE == 14 * 24 * 3600
+    assert settings.SESSION_COOKIE_AGE == 60 * 24 * 3600
     assert settings.SESSION_SAVE_EVERY_REQUEST is False  # so expiry counts from the last save
 
 
