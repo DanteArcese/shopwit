@@ -11,7 +11,7 @@ from collections import Counter
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from pathlib import Path
 
 import yaml
@@ -244,11 +244,12 @@ def _bound(raw: str | None, dimension: str, unit_system: str) -> float | None:
         return None
     try:
         value = Decimal(raw.strip())
-    except InvalidOperation:
+        if not value.is_finite() or value < 0:
+            return None
+        result = size_to_canonical(value, dimension, unit_system)
+    except (ArithmeticError, OverflowError, ValueError):
         return None
-    if not value.is_finite() or value < 0:
-        return None
-    return size_to_canonical(value, dimension, unit_system)
+    return result if math.isfinite(result) else None
 
 
 def parse_generic_filters(
@@ -342,8 +343,12 @@ def facets(
     """Facets over the offers; each sees the offers passing every other active filter."""
     out: list[Facet] = []
 
+    pools: dict[str, list[Offer]] = {}
+
     def pool(skip: str) -> list[Offer]:
-        return [o for o in offers if _passes(o, f, store_brands, skip)]
+        if skip not in pools:
+            pools[skip] = [o for o in offers if _passes(o, f, store_brands, skip)]
+        return pools[skip]
 
     # brand
     spellings: dict[str, Counter] = {}
@@ -351,7 +356,9 @@ def facets(
         key = fold(o.brand or "")
         if key:
             spellings.setdefault(key, Counter())[o.brand] += 1
-    counts = _counts((fold(o.brand or ""), o.product_id) for o in pool("brand") if fold(o.brand or ""))
+    counts = _counts(
+        (fold(o.brand or ""), o.product_id) for o in pool("brand") if fold(o.brand or "")
+    )
     if len(counts) >= 2 or f.brands:
         options = []
         for key in sorted(set(counts) | f.brands):
@@ -410,7 +417,11 @@ def facets(
     # size, one facet per dimension
     base = pool("size")
     for dimension, key in SIZE_PARAMS.items():
-        amounts = {o.measure_amount for o in base if o.measure_dim == dimension and o.measure_amount is not None}
+        amounts = {
+            o.measure_amount
+            for o in base
+            if o.measure_dim == dimension and o.measure_amount is not None
+        }
         if len(amounts) >= 2 or dimension in f.sizes:
             if not amounts:
                 continue

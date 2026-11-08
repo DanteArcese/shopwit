@@ -307,3 +307,39 @@ def test_only_in_store_results_neutral_live_line(client, db):
     status = page[page.index('id="results-status"') :].split("</p>")[0]
     assert "0 products" not in status and "1 product" in status
     assert "No live store prices match" in page and "No saved prices match" not in page
+
+
+@pytest.mark.parametrize("bound", ["9e999999", "1e400", "1e999999999999"])
+def test_huge_size_bounds_ignored(client, oat_drinks, bound):
+    base = results_titles(html(client, "oat drink"))
+    for param in ("vol_min", "vol_max", "mass_min", "oz_max", "count_min"):
+        resp = client.get("/search", {"q": "oat drink", param: bound})
+        assert resp.status_code == 200
+        assert results_titles(resp.content.decode()) == base
+
+
+def _hidden_path(body):
+    import re
+
+    m = re.search(r'<input type="hidden" name="path" value="([^"]*)"', body)
+    return m.group(1) if m else None
+
+
+def test_path_survives_htmx_updates(client, oat_drinks):
+    hx = {"HTTP_HX_REQUEST": "true"}
+    full = client.get("/search", {"q": "oat drink"}).content.decode()
+    assert _hidden_path(full) is None
+    # set path via an hx request, then toggle a brand as the form would (hidden path included)
+    body = client.get("/search", {"q": "oat drink", "path": "Food/Dairy"}, **hx).content.decode()
+    assert _hidden_path(body) == "Food/Dairy"
+    body = client.get(
+        "/search", {"q": "oat drink", "path": _hidden_path(body), "brand": "oatly"}, **hx
+    ).content.decode()
+    assert _hidden_path(body) == "Food/Dairy"
+    # clear path (the clear link drops it); the next toggle must not bring it back
+    body = client.get("/search", {"q": "oat drink", "brand": "oatly"}, **hx).content.decode()
+    assert _hidden_path(body) is None
+    body = client.get(
+        "/search", {"q": "oat drink", "brand": ["oatly", "alpro"]}, **hx
+    ).content.decode()
+    assert _hidden_path(body) is None

@@ -266,7 +266,9 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
         ],
         "filters_active": filters.active,
         "path_param": filters.path or "",
-        "clear_all_url": _facet_url(q, request.GET, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)),
+        "clear_all_url": _facet_url(
+            q, request.GET, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)
+        ),
         "keep_qs": f"&{keep}" if keep else "",
         "live_empty": not live_groups and seen_result.total_products > 0,
         "status_text": status_text(
