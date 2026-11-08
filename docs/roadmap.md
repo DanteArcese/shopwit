@@ -108,6 +108,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 ## M4: Lists and accounts
 
 **Goal:** Lists by spec, plus optional accounts (§4 items 5–6, §8, §9).
+**Plan:** [`plans/2026-11-08-m4-lists-accounts.md`](superpowers/plans/2026-11-08-m4-lists-accounts.md)
 
 | # | Task |
 |---|---|
