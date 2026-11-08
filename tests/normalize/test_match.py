@@ -4,7 +4,7 @@ from decimal import Decimal
 from pathlib import Path
 
 from normalize.categories import CategoryDef
-from normalize.match import brand_tier, load_store_brands, match_category
+from normalize.match import brand_tier, exclude_regex, load_store_brands, match_category
 from normalize.types import AttrValue, RawOffer
 
 STORE_BRANDS = frozenset({"kirkland signature", "365", "365 by whole foods market"})
@@ -202,3 +202,24 @@ def test_trademark_symbols_do_not_break_match():
 def test_title_brand_join_cannot_span_phrase():
     cats = {"dairy/whole": cat("dairy/whole", ["whole milk"])}
     assert match_category(offer("Whole", brand="Milk Co"), cats) is None
+
+
+def test_exclude_regex_whole_phrase():
+    rx = exclude_regex("peanut")
+    assert rx.search("peanut butter")
+    assert rx.search("creamy peanut")
+    assert not rx.search("peanuts")
+    assert not rx.search("unpeanut")
+
+
+def test_exclude_regex_free_forms_do_not_exclude():
+    rx = exclude_regex("peanut")
+    assert not rx.search("peanut-free cookies")
+    assert not rx.search("peanut free cookies")
+    assert not rx.search("cookies, peanut free")
+    assert rx.search("peanut freedom bar")
+    assert rx.search("peanut-freedom bar")
+
+
+def test_exclude_regex_folds_phrase():
+    assert exclude_regex("Peanut").search("peanut butter")

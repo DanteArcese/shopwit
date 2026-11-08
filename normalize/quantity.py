@@ -45,7 +45,7 @@ _PACK_OF = re.compile(r"\bpack\s+of\s+(\d+)\b", re.IGNORECASE)
 # --- volume / mass -----------------------------------------------------------
 # (regex alternation, pint unit) pairs; longer spellings first.
 _VOLUME_UNITS = [
-    (r"fl\.?\s*oz\.?|fz|fluid\s+ounces?", "fluid_ounce"),
+    (r"fl\.?[\s-]*oz\.?|fz|fluid\s+ounces?", "fluid_ounce"),
     (r"gal(?:lons?)?", "gallon"),
     (r"qt|quarts?", "quart"),
     (r"pt|pints?", "pint"),
@@ -63,7 +63,7 @@ _MASS_UNITS = [
 
 def _unit_regex(units: list[tuple[str, str]]) -> re.Pattern[str]:
     alts = "|".join(f"(?P<u{i}>{pat})" for i, (pat, _) in enumerate(units))
-    return re.compile(rf"{_NUM}\s*(?:{alts})(?![A-Za-z])", re.IGNORECASE)
+    return re.compile(rf"{_NUM}\s*-?\s*(?:{alts})(?![A-Za-z])", re.IGNORECASE)
 
 
 _VOLUME_RE = _unit_regex(_VOLUME_UNITS)
@@ -89,17 +89,46 @@ def _multiplier(text: str, start: int) -> int:
     return int(m.group(1)) if m else 1
 
 
+# Second part of a compound ("1 lb 2 oz"): another number + unit right after the first.
+_ANY_UNIT = (
+    r"fl_oz|fl\.?[\s-]*oz|fz|fluid\s+ounces?|gal(?:lons?)?|qt|quarts?|pt|pints?|ml"
+    r"|milliliters?|millilitres?|l|liters?|litres?|oz|ounces?|lbs?|pounds?|kg|kilograms?"
+    r"|g|grams?"
+)
+_FOLLOWER = re.compile(
+    rf"\.?\s*{_NUM}\s*-?\s*(?:{_ANY_UNIT})(?![A-Za-z])",
+    re.IGNORECASE,
+)
+# Larger unit first, then the smaller one it may be combined with.
+_COMPOUNDS = {("pound", "ounce"), ("kilogram", "gram")}
+
+
+def _unit_name(m: re.Match[str], units: list[tuple[str, str]]) -> str:
+    return next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
+
+
 def _measure(
     text: str, rx: re.Pattern[str], units: list[tuple[str, str]], target: str
 ) -> float | None:
     m = rx.search(text)
     if not m or _ambiguous_lead(text, m):
         return None
-    unit = next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
-    value = _to_float(m.group(1)) * _multiplier(text, m.start())
-    if value <= 0:
+    unit = _unit_name(m, units)
+    value = _to_float(m.group(1)) * _ureg(unit)
+    follow = _FOLLOWER.match(text, m.end())
+    if follow:
+        # Another quantity directly follows: only lb+oz and kg+g combine. Never guess.
+        part = _MASS_RE.match(text, follow.start(1))
+        if not part or _ambiguous_lead(text, part):
+            return None
+        second = _unit_name(part, _MASS_UNITS)
+        if (unit, second) not in _COMPOUNDS:
+            return None
+        value = value + _to_float(part.group(1)) * _ureg(second)
+    value = value * _multiplier(text, m.start())
+    if value.magnitude <= 0:
         return None
-    return float((value * _ureg(unit)).to(target).magnitude)
+    return float(value.to(target).magnitude)
 
 
 def _volume(text: str) -> Measures:
@@ -113,7 +142,7 @@ def _mass(text: str) -> Measures:
 
 
 def _strip_fl_oz(text: str) -> str:
-    return re.sub(r"fl\.?\s*oz\.?|fz", " ", text, flags=re.IGNORECASE)
+    return re.sub(r"fl\.?[\s-]*oz\.?|fz", " fl_oz ", text, flags=re.IGNORECASE)
 
 
 # --- count -------------------------------------------------------------------

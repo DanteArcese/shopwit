@@ -277,3 +277,61 @@ def test_multipack_and_hyphenated_words_still_parse():
         24 * 29.5735, rel=1e-3
     )
     assert parse_measures(["Ultra-Filtered Milk 1 gal"], "volume")["volume_ml"] == pytest.approx(3785.41, rel=1e-3)
+
+
+@pytest.mark.parametrize(
+    "text", ["Cereal 1 lb 2 oz", "Cereal 1-lb 2 oz", "Cereal 1 lb. 2 oz.", "Cereal 1 LB 2 OZ"]
+)
+def test_compound_lb_oz_is_the_sum(text):
+    assert parse_measures([text], "mass")["mass_g"] == pytest.approx(510.29, abs=0.01)
+
+
+def test_compound_kg_g_is_the_sum():
+    assert parse_measures(["Rice 1 kg 500 g"], "mass") == {"mass_g": pytest.approx(1500)}
+
+
+def test_compound_respects_multipack():
+    assert parse_measures(["Cereal 2 pack 1 lb 2 oz"], "mass")["mass_g"] == pytest.approx(
+        2 * 510.29, abs=0.02
+    )
+
+
+@pytest.mark.parametrize(
+    "text,dim",
+    [
+        ("Cereal 2 oz 1 lb", "mass"),  # smaller unit first
+        ("Cereal 1 lb 2 fl oz", "mass"),  # mixed dimension
+        ("Cereal 1 oz 2 oz", "mass"),  # same unit twice
+        ("Cereal 1 kg 2 oz", "mass"),  # unsupported pair
+        ("Juice 1 gal 2 fl oz", "volume"),
+        ("Juice 1 qt 1 pt", "volume"),
+    ],
+)
+def test_other_adjacent_pairs_are_absent(text, dim):
+    assert parse_measures([text], dim) == {}
+
+
+def test_separated_second_quantity_is_not_compound():
+    assert parse_measures(["Cereal 12 oz (340 g)"], "mass")["mass_g"] == pytest.approx(340.19, abs=0.01)
+    assert parse_measures(["Cereal 12 oz, 6 ct"], "mass")["mass_g"] == pytest.approx(340.19, abs=0.01)
+
+
+@pytest.mark.parametrize(
+    "text,dim,expected",
+    [
+        ("Coffee 12-oz bag", "mass", 340.19),
+        ("Sugar 2-lb", "mass", 907.18),
+        ("Water 64-fl-oz", "volume", 64 * 29.5735),
+        ("Water 64-fl oz", "volume", 64 * 29.5735),
+        ("Water 64 fl-oz", "volume", 64 * 29.5735),
+    ],
+)
+def test_hyphenated_unit_forms(text, dim, expected):
+    key = "mass_g" if dim == "mass" else "volume_ml"
+    assert parse_measures([text], dim)[key] == pytest.approx(expected, rel=1e-3)
+
+
+@pytest.mark.parametrize("text", ["Juice 1-2 gal", "Juice 1-2-gal", "Coffee 10-12-oz"])
+def test_hyphenated_ranges_stay_unknown(text):
+    dim = "mass" if "Coffee" in text else "volume"
+    assert parse_measures([text], dim) == {}
