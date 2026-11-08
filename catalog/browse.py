@@ -20,6 +20,8 @@ from .models import Category, Offer, Product
 BRAND_TIERS = ("name_brand", "store_brand")
 SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2"}
 # Attributes a comparison's unit price depends on, beyond quantity.
+# Relative slack so float conversion noise never drops an exact-size match.
+SIZE_TOLERANCE = 1e-9
 COMPARISON_ATTRS = {"area_x_ply": {"ply"}}
 
 
@@ -46,6 +48,7 @@ class BrowseResult:
     unranked: list[Row]
     comparison: str
     total_products: int
+    unranked_total: int = 0
 
 
 def _parse_value(attr, raw: str):
@@ -101,9 +104,9 @@ def _unit_price(offer: Offer, comparison: str) -> Decimal | None:
 def _reason(offer: Offer, comparison: str) -> str:
     unit = COMPARISONS[comparison].unit_label if comparison in COMPARISONS else "unit"
     related = COMPARISON_ATTRS.get(comparison, set())
+    if any(e == "quantity" or e.startswith("quantity:") for e in offer.unresolved):
+        return "size unknown"
     for entry in offer.unresolved:
-        if entry == "quantity" or entry.startswith("quantity:"):
-            return "size unknown"
         if entry.startswith("attribute:"):
             name = entry.split(":")[1]
             if name in related:
@@ -141,9 +144,9 @@ def browse(
             size = o.measures.get(key)
             if size is None:
                 continue
-            if spec.size_min is not None and size < spec.size_min:
+            if spec.size_min is not None and size < spec.size_min * (1 - SIZE_TOLERANCE):
                 continue
-            if spec.size_max is not None and size > spec.size_max:
+            if spec.size_max is not None and size > spec.size_max * (1 + SIZE_TOLERANCE):
                 continue
             sized.append(o)
         offers = sized
@@ -172,7 +175,8 @@ def browse(
     unranked.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer))
     return BrowseResult(
         ranked=ranked[:limit],
-        unranked=unranked,
+        unranked=unranked[:limit],
+        unranked_total=len(unranked),
         comparison=comparison,
         total_products=len(ranked) + len(unranked),
     )

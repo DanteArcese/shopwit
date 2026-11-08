@@ -5,15 +5,16 @@
  */
 "use strict";
 
-// Browsers without <a ping> support get a beacon instead. Never delays navigation.
-if (!("ping" in HTMLAnchorElement.prototype)) {
-  document.addEventListener("click", function (event) {
-    var link = event.target.closest && event.target.closest("a[data-offer]");
-    if (link && navigator.sendBeacon) {
-      navigator.sendBeacon("/click?o=" + encodeURIComponent(link.dataset.offer));
-    }
-  });
-}
+// Count outbound clicks. Firefox ships <a ping> disabled, so always send a beacon, and drop the
+// ping attribute first so ping-enabled browsers do not count twice. Never delays navigation.
+document.addEventListener("click", function (event) {
+  var link = event.target.closest && event.target.closest("a[data-offer]");
+  if (!link) return;
+  link.removeAttribute("ping");
+  if (navigator.sendBeacon) {
+    navigator.sendBeacon("/click?o=" + encodeURIComponent(link.dataset.offer));
+  }
+});
 
 // Filters drawer: server renders it open (works without JS); collapse it on narrow screens
 // so results come first. Desktop CSS hides the summary, so it stays open there.

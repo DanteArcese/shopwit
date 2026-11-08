@@ -11,7 +11,12 @@ register = template.Library()
 def outbound(offer, label="View at retailer"):
     """An <a> to the retailer (or network tracking URL); autoescaped."""
     attrs = link_attrs(offer, settings.AFFILIATE)
-    return format_html(
+    if not attrs["href"]:
+        return ""
+    link = format_html(
         '<a href="{}" rel="{}" target="{}" ping="{}" data-offer="{}">{}</a>',
         attrs["href"], attrs["rel"], attrs["target"], attrs["ping"], offer.pk, label,
     )
+    if attrs["sponsored"]:
+        return format_html('{} <span class="affiliate-mark">(affiliate link)</span>', link)
+    return link

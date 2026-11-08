@@ -4,14 +4,21 @@
 <ol class="results">
   {% for row in ranked %}{% include "web/_row.html" %}{% endfor %}
 </ol>
-{% else %}
+{% elif not unranked %}
 <p class="empty">No fresh prices match these filters. <a href="{{ category_url }}">Clear the filters</a></p>
 {% endif %}
 {% if unranked %}
 <section class="unranked">
-  <h2>Can't rank ({{ unranked|length }})</h2>
+  {% if not ranked %}<p class="empty">None of these can be ranked by price per {{ comparison_label }}. <a href="{{ category_url }}">Clear the filters</a></p>{% endif %}
+  <h2>Can't rank ({{ unranked_total }})</h2>
+  {% if unranked_total > unranked|length %}<p class="note">Showing {{ unranked|length }} of {{ unranked_total }} that can't be ranked</p>{% endif %}
   <ul class="results">
     {% for row in unranked %}{% include "web/_row.html" %}{% endfor %}
   </ul>
 </section>
+{% endif %}
+{% if oob %}
+{% include "web/_status.html" %}
+{% include "web/_q_rest.html" %}
+<a id="settings-link" hx-swap-oob="true" href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>
 {% endif %}

@@ -10,7 +10,7 @@
     {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
   </div>
   <div class="result-fine">
-    price as of <time data-localize datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }}</time>
+    price as of <time data-localize datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }} UTC</time>
     {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
   </div>
   {% if row.offer.retailer == "amazon" %}<p class="result-fine amazon-note">Product prices and availability are accurate as of the date/time indicated and are subject to change.</p>{% endif %}

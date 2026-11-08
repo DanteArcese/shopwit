@@ -8,32 +8,37 @@ formats amounts. Money stays Decimal throughout.
 from decimal import ROUND_HALF_UP, Decimal
 
 from normalize.compare import COMPARISONS
+from normalize.quantity import _ureg
 
 ONE = Decimal(1)
 
 # (comparison, unit_system) -> (label, factor): price per canonical unit * factor
 # = price per displayed unit.
+def _exact(unit: str, target: str) -> Decimal:
+    """Pint's own conversion (the registry ingestion uses), as an exact-ish Decimal."""
+    return Decimal(format(float((1 * _ureg(unit)).to(target).magnitude), ".12g"))
+
+
+ML_PER_FL_OZ = _exact("fluid_ounce", "milliliter")
+G_PER_OZ = _exact("ounce", "gram")
+M2_PER_SQ_FT = Decimal("0.09290304")  # exact by definition of the foot
+FL_OZ_PER_GAL = 128
+OZ_PER_LB = 16
+
 DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
-    ("per_volume", "imperial"): ("fl oz", Decimal("29.5735")),
+    ("per_volume", "imperial"): ("fl oz", ML_PER_FL_OZ),
     ("per_volume", "metric"): ("100 mL", Decimal("100")),
-    ("per_mass", "imperial"): ("oz", Decimal("28.3495")),
+    ("per_mass", "imperial"): ("oz", G_PER_OZ),
     ("per_mass", "metric"): ("100 g", Decimal("100")),
     ("per_count", "imperial"): ("each", ONE),
     ("per_count", "metric"): ("each", ONE),
-    ("area_x_ply", "imperial"): ("100 sq ft·ply", Decimal("9.290304")),
+    ("area_x_ply", "imperial"): ("100 sq ft·ply", M2_PER_SQ_FT * 100),
     ("area_x_ply", "metric"): ("m²·ply", ONE),
     ("per_100_sheets", "imperial"): ("100 sheets", ONE),
     ("per_100_sheets", "metric"): ("100 sheets", ONE),
     ("per_roll", "imperial"): ("roll", ONE),
     ("per_roll", "metric"): ("roll", ONE),
 }
-
-ML_PER_FL_OZ = Decimal("29.5735")
-G_PER_OZ = Decimal("28.3495")
-M2_PER_SQ_FT = Decimal("0.09290304")
-FL_OZ_PER_GAL = 128
-OZ_PER_LB = 16
-
 
 def display_unit_price(unit_price: Decimal, comparison: str, unit_system: str) -> tuple[Decimal, str]:
     """Convert a canonical unit price to (price, label) for the unit system.

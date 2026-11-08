@@ -1,4 +1,7 @@
-"""Per-visitor display preferences, kept in the session (no accounts, no cookies of our own)."""
+"""Per-visitor display preferences, kept in the server-side session (no accounts).
+
+Browsing sets no cookies; saving settings creates the session and CSRF cookies.
+"""
 
 from __future__ import annotations
 

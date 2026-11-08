@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.conf import settings
@@ -26,12 +26,22 @@ from .prefs import Prefs, get_prefs, save_prefs
 
 SEARCH_LIMIT = 25
 MAX_QUERY_LENGTH = 200
+# dimension -> unit system -> (URL code written by the form, display label)
 SIZE_UNITS = {
-    "volume": {"imperial": "fl oz", "metric": "L"},
-    "mass": {"imperial": "oz", "metric": "kg"},
-    "paper": {"imperial": "sq ft", "metric": "m²"},
-    "count": {"imperial": "ct", "metric": "ct"},
+    "volume": {"imperial": ("floz", "fl oz"), "metric": ("l", "L")},
+    "mass": {"imperial": ("oz", "oz"), "metric": ("kg", "kg")},
+    "paper": {"imperial": ("sqft", "sq ft"), "metric": ("m2", "m²")},
+    "count": {"imperial": ("ct", "ct"), "metric": ("ct", "ct")},
 }
+
+
+def _size_system(dimension: str, code: str | None, viewer_system: str) -> str:
+    """The unit system a size bound is written in: the URL's size_unit when valid
+    for this dimension, else the viewer's."""
+    for system, (known, _label) in SIZE_UNITS.get(dimension, {}).items():
+        if code == known and dimension != "count":
+            return system
+    return viewer_system
 
 
 def now():
@@ -39,7 +49,9 @@ def now():
 
 
 def home(request):
-    return render(request, "web/home.html")
+    response = render(request, "web/home.html")
+    patch_vary_headers(response, ["Accept-Language"])
+    return response
 
 
 def safe_next(request, value: str | None) -> str:
@@ -72,10 +84,10 @@ def _canonical_params(category: Category, params, unit_system: str) -> dict[str,
             continue
         try:
             value = Decimal(raw.strip())
-        except InvalidOperation:
-            continue
-        if value.is_finite():
-            out[key] = str(size_to_canonical(value, category.dimension, unit_system))
+            if value.is_finite():
+                out[key] = str(size_to_canonical(value, category.dimension, unit_system))
+        except (ArithmeticError, ValueError):
+            continue  # unparseable or out of range: ignore the bound
     return out
 
 
@@ -122,7 +134,9 @@ def category(request, slug):
     prefs = get_prefs(request)
     when = now()
     params = request.GET
-    spec = parse_filters(cat, _canonical_params(cat, params, prefs.unit_system))
+    size_system = _size_system(cat.dimension, params.get("size_unit"), prefs.unit_system)
+    size_code, size_label = SIZE_UNITS.get(cat.dimension, {}).get(size_system, ("", ""))
+    spec = parse_filters(cat, _canonical_params(cat, params, size_system))
     selected_stores = {s for s in params.getlist("store") if s}
     stores = frozenset(selected_stores) if selected_stores else prefs.stores
     result = browse(cat, spec, params.get("comparison"), stores, when)
@@ -142,7 +156,8 @@ def category(request, slug):
         "brand_tier": params.get("brand_tier", ""),
         "size_min": params.get("size_min", ""),
         "size_max": params.get("size_max", ""),
-        "size_unit": SIZE_UNITS.get(cat.dimension, {}).get(prefs.unit_system, ""),
+        "size_unit": size_label,
+        "size_unit_code": size_code,
         "comparisons": [
             {"name": c, "label": DISPLAY.get((c, prefs.unit_system), ("", None))[0]}
             for c in [cat.comparison_default, *cat.comparison_alternates]
@@ -150,7 +165,9 @@ def category(request, slug):
         "comparison": result.comparison,
         "stores": _store_options(prefs, available_retailers(when)),
         "selected_stores": selected_stores or set(prefs.stores or ()),
-        "ranked_total": result.total_products - len(result.unranked),
+        "ranked_total": result.total_products - result.unranked_total,
+        "unranked_total": result.unranked_total,
+        "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
     }
@@ -159,9 +176,13 @@ def category(request, slug):
         rest = [(k, v) for k in params for v in params.getlist(k) if k != "q_rest"]
         context["q_rest"] = q_rest
         context["dismiss_url"] = url + (f"?{urlencode(rest)}" if rest else "")
-    template = "web/_results.html" if request.headers.get("HX-Request") == "true" else "web/category.html"
+    htmx = request.headers.get("HX-Request") == "true"
+    # A history-restore cache miss is also an HX-Request but needs the full page.
+    restore = request.headers.get("HX-History-Restore-Request") == "true"
+    template = "web/_results.html" if htmx and not restore else "web/category.html"
+    context["oob"] = template == "web/_results.html"
     response = render(request, template, context)
-    patch_vary_headers(response, ["HX-Request"])
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request", "Accept-Language"])
     return response
 
 
@@ -227,7 +248,9 @@ def search(request):
         "has_outbound": bool(results),
         "has_amazon": any(r["offer"].retailer == "amazon" for r in results),
     }
-    return render(request, "web/search_results.html", context)
+    response = render(request, "web/search_results.html", context)
+    patch_vary_headers(response, ["Accept-Language"])
+    return response
 
 
 def disclosure(request):

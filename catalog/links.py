@@ -57,8 +57,13 @@ def outbound_url(offer, affiliate: Mapping[str, str | None]) -> str:
 
 def link_attrs(offer, affiliate: Mapping[str, str | None]) -> dict:
     routed = _route(offer, affiliate)
+    href = routed or offer.url
+    # Defence in depth: never emit a non-http(s) href (e.g. javascript:).
+    if urlsplit(href).scheme.lower() not in ("http", "https"):
+        href = None
     return {
-        "href": routed or offer.url,
+        "href": href,
+        "sponsored": bool(routed),
         "rel": "sponsored noopener noreferrer" if routed else "noopener noreferrer",
         "target": "_blank",
         "ping": f"/click?o={offer.pk}",

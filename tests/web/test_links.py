@@ -43,7 +43,7 @@ def test_no_config_returns_canonical():
 
 def test_sponsored_rel_only_when_affiliate():
     plain = link_attrs(offer(), {})
-    assert plain == {"href": CANON, "rel": "noopener noreferrer", "target": "_blank", "ping": "/click?o=7"}
+    assert plain == {"href": CANON, "sponsored": False, "rel": "noopener noreferrer", "target": "_blank", "ping": "/click?o=7"}
     spons = link_attrs(offer(), {"sovrn_site_key": "K"})
     assert spons["rel"] == "sponsored noopener noreferrer"
     assert spons["href"].startswith("https://sovrn.co")

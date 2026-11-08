@@ -122,7 +122,8 @@ def test_empty_state_shown_when_only_unranked(client, load):
 
     load([raw(title="Mystery Whole Milk", price="3.00", item="d", brand="M")])
     html = client.get("/c/dairy/milk/").content.decode()
-    assert "No fresh prices match these filters" in html
+    assert "No fresh prices match these filters" not in html
+    assert "None of these can be ranked by price per" in html
     assert "Mystery Whole Milk" in html
 
 
