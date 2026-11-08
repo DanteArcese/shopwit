@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime
 
 from django.conf import settings
@@ -20,7 +21,14 @@ from .models import Category, IngestionRun, Offer, PriceHistory, Product
 
 
 def _upsert(
-    connector, raw, normalized: NormalizedOffer, model_cache: dict, now: datetime, touched: set[int]
+    raw,
+    normalized: NormalizedOffer,
+    model_cache: dict,
+    now: datetime,
+    touched: set[int],
+    *,
+    records_price_history: bool,
+    extra_defaults: Mapping[str, object] | None = None,
 ) -> NormalizedOffer:
     """Write one offer; adds the affected product ids (new and previous) to ``touched``.
 
@@ -57,9 +65,10 @@ def _upsert(
             },
             "measures": normalized.measures,
             "unresolved": list(normalized.unresolved),
+            **(extra_defaults or {}),
         },
     )
-    if connector.records_price_history:
+    if records_price_history:
         last = offer.price_history.order_by("-observed_at", "-id").first()
         if last is None or last.price != raw.price:
             PriceHistory.objects.create(
@@ -116,7 +125,15 @@ def ingest(
             if normalized.category is None:
                 continue
             with transaction.atomic():
-                normalized = _upsert(connector, raw, normalized, model_cache, now, touched)
+                normalized = _upsert(
+                    raw,
+                    normalized,
+                    model_cache,
+                    now,
+                    touched,
+                    records_price_history=connector.records_price_history,
+                    extra_defaults={"kind": Offer.Kind.LIVE},
+                )
         except Exception as exc:  # one bad offer must not poison the run
             skipped += 1
             if not run.error:

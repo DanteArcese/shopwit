@@ -195,3 +195,45 @@ def test_override_does_not_collide_on_attribute_prefix(cats):
     p.manual_attributes = {"fat": "2"}
     merge_product(p, NOW)
     assert "attribute:fat_free:ambiguous" in open_details(p)
+
+
+def test_manual_fix_rebuilds_observed_unit_prices_without_merging_them(cats):
+    from datetime import date
+
+    tp = Category.objects.get(slug="household/toilet-paper")
+    p = Product.objects.create(identity="x:5", title="TP", category=tp)
+    make_offer(
+        p, tp, "1", measures={"area_m2": 10.0, "sheets": 200, "rolls": 4},
+        unresolved=["attribute:ply", "unit_price:area_x_ply"], price="20.00",
+    )
+    o = make_offer(
+        p, tp, "2", retailer="op-x", measures={"area_m2": 20.0, "sheets": 400, "rolls": 8},
+        unresolved=["attribute:ply", "unit_price:area_x_ply"], price="40.00",
+    )
+    Offer.objects.filter(pk=o.pk).update(kind="observed", observed_on=date(2026, 11, 1))
+    merge_product(p, NOW)
+    p.manual_attributes = {"ply": 2}
+    p.save()
+    merge_product(p, NOW)
+    o.refresh_from_db()
+    assert Decimal(o.unit_prices["area_x_ply"]) == Decimal("1")
+    assert "unit_price:area_x_ply" not in o.unresolved
+    p.refresh_from_db()
+    assert p.measures == {"area_m2": 10.0, "sheets": 200, "rolls": 4}  # live offer only
+
+
+def test_no_review_items_for_products_with_only_observed_offers(cats):
+    from datetime import date
+
+    milk = Category.objects.get(slug="dairy/milk")
+    p = Product.objects.create(identity="x:6", title="Milk", category=milk)
+    o = make_offer(p, milk, "1", retailer="op-x", unresolved=["attribute:fat:ambiguous"])
+    Offer.objects.filter(pk=o.pk).update(kind="observed", observed_on=date(2026, 11, 1))
+    merge_product(p, NOW)
+    assert p.review_items.count() == 0
+    make_offer(p, milk, "2", unresolved=["attribute:fat:ambiguous"])
+    merge_product(p, NOW)
+    assert "attribute:fat:ambiguous" in open_details(p)
+    Offer.objects.filter(retailer="a").delete()
+    merge_product(p, NOW)
+    assert open_details(p) == set()

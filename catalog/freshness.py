@@ -37,4 +37,12 @@ def fresh_offers(now: datetime) -> QuerySet[Offer]:
         query |= Q(retailer=name, last_seen_at__gte=cutoff_for(name, now))
     # Retailers without a registered connector fall back to the setting.
     query |= ~Q(retailer__in=registered) & Q(last_seen_at__gte=now - settings.FRESHNESS_CUTOFF)
-    return Offer.objects.filter(query)
+    return Offer.objects.filter(query, kind=Offer.Kind.LIVE, currency=settings.SITE_CURRENCY)
+
+
+def fresh_observed(now: datetime) -> QuerySet[Offer]:
+    """Observed (Open Prices) offers, aged by observation date rather than sync time."""
+    oldest = (now - settings.OBSERVED_MAX_AGE).date()
+    return Offer.objects.filter(
+        kind=Offer.Kind.OBSERVED, observed_on__gte=oldest, currency=settings.SITE_CURRENCY
+    )

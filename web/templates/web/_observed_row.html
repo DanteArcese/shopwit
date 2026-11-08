@@ -1,0 +1,17 @@
+<li class="result observed-row">
+  <div class="result-main">
+    <strong class="result-title">{{ row.title }}</strong>
+    {% if row.brand %}<span class="result-brand">{{ row.brand }}</span>{% endif %}
+  </div>
+  <div class="result-meta">
+    {% if row.size %}<span>{{ row.size }}</span>{% endif %}
+    <span class="result-price"><span class="visually-hidden">{{ row.price_label }}</span><span aria-hidden="true">{{ row.price }}</span>{% if row.unit_price %} <span class="unit-price" aria-hidden="true">{{ row.unit_price }}</span>{% endif %}</span>
+    {% if row.is_sale %}<span class="sale">sale price</span>{% endif %}
+    {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
+  </div>
+  <div class="result-fine">
+    seen at {{ row.store }} on <time datetime="{{ row.observed_on|date:'Y-m-d' }}">{{ row.observed_on|date:"M j, Y" }}</time>
+    {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
+  </div>
+  <a href="{{ row.source_url }}" rel="noopener noreferrer">Price on Open Prices</a>
+</li>

@@ -174,7 +174,7 @@ the name on its own line (`- Good & Gather`) and add or update a fixture that ex
 | `tests/categories/` | Fixture files, one per category, run by `tests/test_category_fixtures.py`. |
 | `connectors/` | Retailer connectors behind a common interface, plus a recorded-response harness so CI makes no live calls. |
 | `enrichment/` | Open Food Facts client and caching. |
-| `catalog/` | Django app: models, ingestion, scheduler, and management commands (`sync_categories`, `refresh`, `run_scheduler`, `demo_data`, `off_sync`, `off_backfill`). |
+| `catalog/` | Django app: models, ingestion, scheduler, and management commands (`sync_categories`, `refresh`, `run_scheduler`, `demo_data`, `off_sync`, `off_backfill`, `open_prices_sync`, `export_open_prices`). |
 | `web/` | Django views, URLs, templates and static files (browse, search, disclosure, settings). |
 | `config/` | Django settings and project URLs. |
 | `data/` | Shared data such as `store_brands.yaml`. |

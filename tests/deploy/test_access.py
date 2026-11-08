@@ -130,3 +130,19 @@ def test_trailing_dot_public_hosts(client, settings):
     assert get(client, host=PUBLIC + ".").status_code == 200
     r = get(client, host=f"www.{PUBLIC}.")
     assert r.status_code == 301
+
+
+@pytest.mark.django_db
+def test_healthz_last_ingestion_ignores_open_prices(client):
+    from catalog.models import IngestionRun
+
+    live = IngestionRun.objects.create(connector="walmart", category_slug="x", started_at=time_now())
+    IngestionRun.objects.create(connector="openprices", category_slug="all", started_at=time_now())
+    body = get(client, path="/healthz").json()
+    assert body["last_ingestion"] == live.created_at.isoformat()
+
+
+def time_now():
+    from django.utils import timezone
+
+    return timezone.now()

@@ -20,6 +20,8 @@ UNITPRICER_DEPLOY_HOST=deploy@<ip> deploy/deploy.sh [ref]   # Deploy a CI-green 
 
 First run (empty database): `cp .env.example .env`, then in `.env` set `DJANGO_DEBUG=1` (local dev, so no `DJANGO_SECRET_KEY` is needed) and `DATABASE_URL` (entries in the file, not shell prefixes). Then `uv run --env-file .env python manage.py migrate` and `uv run --env-file .env python manage.py sync_categories`, before starting the worker (`run_scheduler`) or `runserver`. With no categories loaded the scheduler has nothing to refresh. `uv run --env-file .env python manage.py refresh --connector walmart --recordings tests/connectors/recordings/walmart` runs offline; categories without recordings are reported `failed`.
 
+Open Prices: `uv run --env-file .env python manage.py open_prices_sync [--recordings tests/connectors/recordings/open_prices]` pulls the window now (the scheduler does it daily when `UNITPRICER_OPEN_PRICES=1`); `manage.py export_open_prices --out FILE.jsonl.gz` writes the ODbL export.
+
 Try it locally (needs `DJANGO_DEBUG=1`, migrations applied): `uv run --env-file .env python manage.py demo_data` loads categories and recorded Walmart milk offers offline (no `WALMART_*` vars), then `uv run --env-file .env python manage.py runserver` and open `/c/dairy/milk/` on it. `demo_data` refuses to run when `DEBUG` is off.
 
 Tests need real Postgres. With `DATABASE_URL` unset, `tests/postgres_plugin.py` starts a throwaway cluster in `.pytest-pg/` from system binaries (one-time `sudo apt install postgresql` required). CI uses a postgres:17 service.

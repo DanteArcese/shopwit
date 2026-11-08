@@ -4,7 +4,7 @@ from django.utils import timezone
 
 from .forms import ProductAdminForm
 from .merge import merge_product
-from .models import Category, IngestionRun, Offer, Product, ReviewItem
+from .models import Category, IngestionRun, Offer, OpenPriceObservation, Product, ReviewItem, Store
 
 
 class DetailPrefixFilter(admin.SimpleListFilter):
@@ -101,3 +101,17 @@ class IngestionRunAdmin(ReadOnlyAdmin):
 class CategoryAdmin(ReadOnlyAdmin):
     list_display = ("slug", "name", "dimension", "active")
     list_filter = ("active",)
+
+
+@admin.register(Store)
+class StoreAdmin(ReadOnlyAdmin):
+    list_display = ("code", "name", "city", "chain_name", "country_code")
+    list_filter = ("chain_name",)
+    search_fields = ("code", "name", "chain_name", "city")
+
+
+@admin.register(OpenPriceObservation)
+class OpenPriceObservationAdmin(ReadOnlyAdmin):
+    list_display = ("price_id", "product_name", "store", "price", "observed_on")
+    list_select_related = ("store",)
+    search_fields = ("product_name", "upc")

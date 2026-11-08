@@ -59,6 +59,16 @@ ssh deploy@<ip> 'cd /srv/unitpricer && docker compose logs -f web worker'
 docker compose run --rm -T web python manage.py <command> </dev/null   # drop -T and </dev/null for an interactive shell
 ```
 
+### Open Prices (in-store shelf prices)
+
+Off by default. To enable, add `UNITPRICER_OPEN_PRICES=1` to `/srv/unitpricer/app.env` (optional: `UNITPRICER_OPEN_PRICES_ASSISTED=0` to drop AI-assisted entries, `UNITPRICER_OPEN_PRICES_HOURS`, `UNITPRICER_OPEN_PRICES_COUNTRY`), then `docker compose up -d web worker`. The worker starts the first sync within one tick (about five minutes) after the restart, then syncs once a day; there is no manual step. The first sync makes about 110 requests and takes a few minutes. Do not also run `open_prices_sync` by hand while the flag is on: the command refuses when an Open Prices run started within the last hour is still RUNNING (override with `--force`), and a pull far smaller than the stored data deletes nothing unless you pass `--allow-deletions`. To pull manually (for example with the flag off):
+
+```bash
+docker compose run --rm -T web python manage.py open_prices_sync </dev/null
+```
+
+Confirm the `ingest connector=openprices category=all status=succeeded` log line shows `fetched` of about 10,500 (about 5,000 with assisted entries off), and that `/c/dairy/milk/` on the beta host shows "Seen in stores". The ODbL export for a data request: `docker compose run --rm -T web python manage.py export_open_prices --out /tmp/open-prices.jsonl.gz </dev/null` (write to a mounted path to keep the file). The public site has no dump link yet; that waits for the public launch.
+
 ## Backups and restore
 
 The `backup` service runs `pg_dump -Fc` at 03:30 UTC (`BACKUP_AT`), checks the dump with `pg_restore --list`, and only then stores it. A failed dump or failed check stores nothing and sends no heartbeat. If `BACKUP_HEARTBEAT_URL` is set it is pinged after each good run, so point an uptime monitor at it. DigitalOcean daily droplet backups (kept 7 days) are the second layer.
