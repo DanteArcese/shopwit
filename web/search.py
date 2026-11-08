@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import re
 from collections.abc import Sequence
 from dataclasses import dataclass
@@ -43,6 +44,8 @@ from normalize.text import fold
 
 from .net import client_ip
 from .prefs import get_prefs, split_stores
+
+logger = logging.getLogger(__name__)
 
 HEADINGS = {
     "volume": "By volume",
@@ -422,7 +425,10 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
         and not BOT_UA.search(request.headers.get("User-Agent", ""))
     ):
         phrase = normalize_phrase(q)
-        record_demand(phrase, when.date())  # a genuine search: never a poll, swap or bot
+        try:
+            record_demand(phrase, when.date())  # a genuine search: never a poll, swap or bot
+        except Exception as exc:  # counting is best-effort; the type name only, never the phrase
+            logger.error("search demand not recorded: %s", type(exc).__name__)
         sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
         if sources and phrase and not is_personal(phrase):
             jobs = enqueue(phrase, "search", when, sources, client_key=client_ip(request))

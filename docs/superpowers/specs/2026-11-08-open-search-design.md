@@ -32,7 +32,7 @@ The principles of the main spec still hold. Ranking is honest (Principle 2). Gen
 | D12 | **Units are unified everywhere:** metric per kg and per L, imperial per oz and per fl oz, on generic results **and on curated category pages**, which change from per 100 g / per 100 mL (§5.2, §13.1). |
 | D13 | The **OFF category tree** serves as the category path for OFF and Open Prices rows, which have no store path (§5.3, §7.1). |
 | D14 | The worker **re-fetches the top 50 demand phrases every 12 h**, within the shared budgets and after visitor jobs (§6.6). |
-| D15 | **Demand thresholds:** a phrase is listed in "curate next" after 3 distinct days and pruned 30 days after it was last seen when it has fewer than 3 days (§9). |
+| D15 | **Demand thresholds:** a phrase is listed in "curate next" after 3 distinct days and pruned 30 days after it was last seen, however many days it was seen (§9; amended 2026-11-08 by user ruling, was "when it has fewer than 3 days"). |
 
 ## 3. Goals and non-goals
 
@@ -305,7 +305,7 @@ None of the three has a user, IP, session, user agent or request time finer than
 
 - **When:** once per generic results page render (not per poll, not on curated redirects, not on the apex host), for a non-personal phrase (§4).
 - **What:** `SearchDemand` upsert on `phrase`: `count += 1`; when `last_seen < today` then `days_seen += 1` and `last_seen = today`. One statement (`INSERT … ON CONFLICT … DO UPDATE`). Days are UTC dates.
-- **Pruning** (daily, in the worker; thresholds per D15): delete phrases with `days_seen < 3` and `last_seen` older than 30 days; when more than 50,000 rows remain, delete the rows with the fewest `days_seen`, then oldest `last_seen`, down to 50,000.
+- **Pruning** (daily, in the worker; thresholds per D15): delete every phrase whose `last_seen` is older than 30 days, whatever its `days_seen` (user ruling 2026-11-08); when more than 50,000 rows remain, delete the rows with the fewest `days_seen`, then oldest `last_seen`, down to 50,000.
 - **"Curate next"** (Django admin, read-only): phrases with `days_seen >= 3`, ranked by `days_seen` desc, then `count` desc, then `last_seen` desc. Each row shows the held-result count for the phrase now and its most common store category path, as a hint for which category to write. Phrases seen on fewer than 3 days are never listed, so a one-off search that slipped past the personal-phrase filter does not surface.
 - **Not counted:** curated matches (the category already exists), empty queries, and personal-looking phrases. Phrases longer than 100 characters are cut to 100 by normalization and then counted.
 

@@ -33,6 +33,8 @@ SESSION_CLEANUP_INTERVAL = timedelta(days=1)
 # Per-process marker: a restarted worker clears once more, which is harmless.
 _sessions_cleared_at: datetime | None = None
 _feedback_purged_at: datetime | None = None
+_demand_pruned_at: datetime | None = None
+DEMAND_PRUNE_INTERVAL = timedelta(days=1)
 
 
 def due(now: datetime, connectors: Mapping[str, Connector]) -> list[tuple[str, str]]:
@@ -168,16 +170,22 @@ def purge_feedback_emails(now: datetime) -> bool:
 
 
 def demand_housekeeping(now: datetime) -> None:
-    """Prune stale demand rows and, every WARM_INTERVAL, queue warm refreshes. Never raises."""
+    """Prune stale demand rows once a day and, every WARM_INTERVAL, queue warm refreshes.
+
+    Never raises.
+    """
+    global _demand_pruned_at
+    if _demand_pruned_at is None or now - _demand_pruned_at >= DEMAND_PRUNE_INTERVAL:
+        _demand_pruned_at = now
+        try:
+            pruned = prune_demand(now.date())
+            if pruned:
+                logger.info("demand pruned=%s", pruned)
+        except Exception as exc:
+            logger.error("demand prune failed: %s", type(exc).__name__)
     try:
-        pruned = prune_demand(now.date())
-        if pruned:
-            logger.info("demand pruned=%s", pruned)
-    except Exception as exc:
-        logger.error("demand prune failed: %s", type(exc).__name__)
-    try:
-        if warm_due(now):
-            sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+        sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+        if sources and warm_due(now):  # no live source: nothing to warm
             logger.info("warm round jobs=%s", warm_round(now, sources))
     except Exception as exc:
         logger.error("warm round failed: %s", type(exc).__name__)
