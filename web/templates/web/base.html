@@ -12,6 +12,7 @@
 <body>
   <header class="site-header{% block header_class %}{% endblock %}">
     <a class="site-name" href="{% url 'home' %}">UnitPricer</a>
+    <a class="nav-link" href="{% url 'lists:index' %}">Lists</a>
     {% block header_search %}
     <form class="search" action="{% url 'search' %}" method="get" role="search">
       <input type="search" name="q" aria-label="Search products" placeholder="Search products" value="{{ q|default:'' }}">

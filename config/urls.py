@@ -11,5 +11,6 @@ urlpatterns = [
     path("privacy", waitlist_views.privacy, name="privacy"),
     path("feedback", feedback_views.feedback, name="feedback"),
     path("admin/", admin.site.urls),
+    path("lists/", include("lists.urls")),
     path("", include("web.urls")),
 ]

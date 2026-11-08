@@ -1,0 +1,26 @@
+{% extends "web/base.html" %}
+{% block title %}Add to list - UnitPricer{% endblock %}
+{% block main %}
+<h1>Add to list</h1>
+<p class="add-summary"><strong>{{ summary }}</strong></p>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+<form class="list-form" method="post" action="{% url 'lists:add' %}">
+  {% csrf_token %}
+  {% for name, value in hidden %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+  <label for="amount">How much do you need?</label>
+  <div class="amount-row">
+    <input type="text" id="amount" name="amount" inputmode="decimal" value="{{ amount }}" required>
+    <select name="unit" aria-label="Unit">
+      {% for code, label in units %}<option value="{{ code }}"{% if code == unit %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+  </div>
+  <label for="list">List</label>
+  <select id="list" name="list">
+    {% for l in lists %}<option value="{{ l.id }}"{% if l.id == selected %} selected{% endif %}>{{ l.name }}</option>{% endfor %}
+    <option value="new"{% if selected == "new" %} selected{% endif %}>New list</option>
+  </select>
+  <label for="list-name">Name for a new list</label>
+  <input type="text" id="list-name" name="list_name" maxlength="80" placeholder="My list">
+  <button type="submit">Add to list</button>
+</form>
+{% endblock %}

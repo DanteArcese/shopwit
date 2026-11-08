@@ -1,5 +1,6 @@
 <section class="measure-group" id="{{ group.dom_id }}">
   <h2>{{ group.heading }}</h2>
+  {% if group.add_url %}<p class="add-link"><a href="{{ group.add_url }}">Add to list</a></p>{% endif %}
   {% if group.dimension == "oz_labeled" %}<p class="note">Sold by "oz" without saying weight or fluid ounces, so these are compared only with each other.</p>{% endif %}
   <ol class="results">
     {% for row in group.rows %}{% if group.observed %}{% include "web/_observed_row.html" %}{% else %}{% include "web/_row.html" %}{% endif %}{% endfor %}

@@ -15,12 +15,18 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
-from catalog.browse import BRAND_TIERS, browse, parse_filters
+from catalog.browse import BRAND_TIERS, browse, parse_filters, spec_params
 from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
 from catalog.models import Category, ClickEvent, Offer
 from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
-from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
+from catalog.units import (
+    DISPLAY,
+    display_size,
+    display_unit_price,
+    format_money,
+    size_to_canonical,
+)
 from normalize import load_categories
 from normalize.query import resolve_query
 
@@ -204,6 +210,7 @@ def category(request, slug):
         # since HTMX swaps can bring links in later.
         "has_outbound": True,
         "has_amazon": any(r["offer"].retailer == "amazon" for r in ranked + unranked),
+        "add_url": reverse("lists:add") + "?" + urlencode({"category": cat.slug, **spec_params(spec)}),
         "category": cat,
         "category_url": url,
         "controls": _controls(cat, params),
@@ -303,7 +310,9 @@ def search(request):
         query = _redirect_query(resolution)
         return HttpResponseRedirect(f"{target}?{query}" if query else target)
 
-    from .search import generic_results  # imported here: web.search uses helpers from this module
+    from .search import (
+        generic_results,  # imported here: web.search uses helpers from this module
+    )
 
     return generic_results(request, q, definitions=definitions)
 

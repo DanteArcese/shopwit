@@ -17,7 +17,6 @@ from django.conf import settings
 
 from catalog.browse import (
     BRAND_TIERS,
-    FilterSpec,
     matching_offers,
     parse_filters_strict,
 )
@@ -29,7 +28,7 @@ from catalog.generic import (
     generic_matching_offers,
     load_label_allowlist,
 )
-from catalog.models import Category, Offer
+from catalog.models import Category, FetchJob
 from catalog.retailers import available_retailers, display_name, is_chain_code
 from connectors.registry import live_source_info
 from normalize.generic import normalize_phrase
@@ -150,7 +149,7 @@ def _candidates(item: ItemSpec, stores: frozenset[str], now: datetime, cache: di
                 measure_dim=dimension,
                 retailer__in=stores,
             )
-            return None, list(qs.defer("search_vector")), None
+            return None, list(qs.defer("search_vector").select_related("product", "store")), None
         offers = generic_matching_offers(
             item.query,
             {k: list(v) for k, v in item.facets.items()},
@@ -183,7 +182,7 @@ def _candidates(item: ItemSpec, stores: frozenset[str], now: datetime, cache: di
             category=category,
             retailer__in=stores,
         )
-        return category, list(qs.defer("search_vector").select_related("product")), None
+        return category, list(qs.defer("search_vector").select_related("product", "store")), None
     return category, matching_offers(category, spec, stores, now), None
 
 
@@ -230,8 +229,16 @@ def resolve_item(
     return ItemResolution(item, category, by_store, best, alternatives, None)
 
 
-def _enqueue_generic(spec: ListSpec, now: datetime) -> None:
-    """Queue a live fetch per distinct generic phrase, under the normal dedup and budgets."""
+MAX_FETCH_PHRASES = 10
+
+
+def queue_fetches(spec: ListSpec, now: datetime, client_key: str | None) -> int:
+    """Queue a live fetch per distinct generic phrase (at most MAX_FETCH_PHRASES).
+
+    Called by the list page's full GET only, never by resolution. Phrases with a
+    succeeded fetch inside the source's refresh window are skipped; the rest go through
+    the normal dedup and budgets. Best effort: returns the number of phrases submitted.
+    """
     phrases = sorted(
         {
             p
@@ -241,15 +248,31 @@ def _enqueue_generic(spec: ListSpec, now: datetime) -> None:
         }
     )
     if not phrases:
-        return
+        return 0
     try:
         sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
         if not sources:
-            return
+            return 0
+        due = []
         for phrase in phrases:
-            enqueue(phrase, "list", now, sources, client_key=None)
+            fresh = {
+                name
+                for name, info in sources.items()
+                if FetchJob.objects.filter(
+                    source=name,
+                    phrase=phrase,
+                    status=FetchJob.Status.SUCCEEDED,
+                    finished_at__gte=now - info.refresh_after,
+                ).exists()
+            }
+            if fresh != set(sources):
+                due.append(phrase)
+        for phrase in due[:MAX_FETCH_PHRASES]:
+            enqueue(phrase, "list", now, sources, client_key=client_key)
+        return len(due[:MAX_FETCH_PHRASES])
     except Exception as exc:  # best effort; the type name only, never the phrase
         logger.error("list fetch not queued: %s", type(exc).__name__)
+        return 0
 
 
 def _live_stores(stores: frozenset[str] | None, now: datetime) -> tuple[str, ...]:
@@ -265,7 +288,6 @@ def resolve_list(
     now: datetime,
     max_split_stores: int | None = 2,
 ) -> ListResolution:
-    _enqueue_generic(spec, now)
     ordered = _live_stores(stores, now)
     allowed = frozenset(ordered)
     cache: dict = {}

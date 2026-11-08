@@ -32,6 +32,9 @@ APP_ROUTES = [
     ("post", "/click", {}),
     ("get", "/feedback", {}),
     ("post", "/feedback", {}),
+    ("get", "/lists/", {}),
+    ("post", "/lists/new", {}),
+    ("get", "/lists/add?category=dairy%2Fmilk", {}),
 ]
 
 

@@ -38,7 +38,7 @@ def gitem(
     n=90,
     query="fizz soda",
     dim="volume",
-    amount=Decimal("2000"),
+    amount=Decimal(2000),
     facets=None,
     unit_system="metric",
 ):
@@ -507,13 +507,23 @@ def test_generic_reasons_and_staleness():
     res = resolve_item(gitem(), BOTH, NOW)
     assert res.best.offer.title == "Fizz Soda Fresh"
     assert (
-        resolve_item(gitem(amount=Decimal("100000")), BOTH, NOW).reason
+        resolve_item(gitem(amount=Decimal(100000)), BOTH, NOW).reason
         == "Needs more than 24 packages"
     )
 
 
 @pytest.mark.django_db
-def test_resolve_list_enqueues_list_jobs(monkeypatch):
+def test_resolve_list_is_pure(monkeypatch):
+    def boom(*a, **kw):
+        raise AssertionError("resolution must not enqueue")
+
+    monkeypatch.setattr(rs, "enqueue", boom)
+    resolve_list(lst(gitem(), item(4)), BOTH, NOW)
+    assert FetchJob.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_queue_fetches_enqueues_list_jobs(monkeypatch):
     info = SourceInfo(name="src", budget_keys=(), refresh_after=timedelta(hours=6))
     monkeypatch.setattr(rs, "live_source_info", lambda **kw: {"src": info})
     calls = []
@@ -529,24 +539,45 @@ def test_resolve_list_enqueues_list_jobs(monkeypatch):
         gitem(3, "oat milk"),
         item(4),
     )
-    resolve_list(spec, BOTH, NOW)
-    assert sorted(calls) == [("fizz soda", "list", None), ("oat milk", "list", None)]
+    rs.queue_fetches(spec, NOW, "key")
+    assert sorted(calls) == [("fizz soda", "list", "key"), ("oat milk", "list", "key")]
     assert set(FetchJob.objects.values_list("phrase", "origin")) == {
         ("fizz soda", "list"),
         ("oat milk", "list"),
     }
-    resolve_list(spec, BOTH, NOW)  # dedup: no new jobs
+    rs.queue_fetches(spec, NOW, "key")  # dedup: no new jobs
     assert FetchJob.objects.count() == 2
 
 
 @pytest.mark.django_db
-def test_enqueue_failure_does_not_break_resolution(monkeypatch, caplog):
-    monkeypatch.setattr(rs, "live_source_info", lambda **kw: {"src": object()})
+def test_queue_fetches_caps_phrases_and_skips_fresh(monkeypatch):
+    info = SourceInfo(name="src", budget_keys=(), refresh_after=timedelta(hours=6))
+    monkeypatch.setattr(rs, "live_source_info", lambda **kw: {"src": info})
+    calls = []
+    monkeypatch.setattr(rs, "enqueue", lambda phrase, *a, **kw: calls.append(phrase) or [])
+    FetchJob.objects.create(
+        source="src",
+        phrase="aaa fresh",
+        origin="search",
+        status=FetchJob.Status.SUCCEEDED,
+        finished_at=NOW - timedelta(hours=1),
+        not_before=NOW - timedelta(hours=2),
+    )
+    spec = lst(
+        gitem(1, "aaa fresh"),
+        *[gitem(10 + n, f"phrase {n:02d}") for n in range(15)],
+    )
+    assert rs.queue_fetches(spec, NOW, None) == 10
+    assert len(calls) == 10 and "aaa fresh" not in calls
+
+
+@pytest.mark.django_db
+def test_enqueue_failure_does_not_break_queueing(monkeypatch, caplog):
+    monkeypatch.setattr(rs, "live_source_info", lambda **kw: {"src": SourceInfo(name="src", budget_keys=(), refresh_after=timedelta(hours=6))})
 
     def fail(*a, **kw):
         raise RuntimeError("secret phrase fizz soda")
 
     monkeypatch.setattr(rs, "enqueue", fail)
-    out = resolve_list(lst(gitem()), BOTH, NOW)
-    assert out.items[0].reason == "No current prices match at your stores"
+    rs.queue_fetches(lst(gitem()), NOW, None)
     assert "fizz" not in caplog.text and "RuntimeError" in caplog.text
