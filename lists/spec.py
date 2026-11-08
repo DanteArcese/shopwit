@@ -2,19 +2,36 @@
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections.abc import Mapping
 from dataclasses import dataclass, field, replace
 from datetime import datetime
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from typing import Literal
+
+from catalog.units import TARGET_UNITS
+
+from .fit import GENERIC_MEASURE_KEYS
+
+# Logs carry counts only, never list names, queries, slugs or ids.
+logger = logging.getLogger("lists.spec")
 
 MAX_LISTS = 20
 MAX_ITEMS = 100
 MAX_NAME = 80
 DEFAULT_NAME = "My list"
 MAX_QUERY = 100
+MAX_ID = 32  # ListItem.uid / ShoppingList.uid
+MAX_CATEGORY = 100  # Category.slug
+MAX_FILTERS = 20  # keys per filters / facets map
+MAX_FILTER_VALUE = 100  # characters per key or value
+MAX_FACET_VALUES = 20  # values per facet key
+TARGET_QUANTUM = Decimal("0.001")
+TARGET_MAX = Decimal("1000000")
 UNIT_SYSTEMS = ("metric", "imperial")
+CURATED_MEASURES = frozenset(key for units in TARGET_UNITS.values() for _l, key, _f in units.values())
+GENERIC_MEASURES = GENERIC_MEASURE_KEYS
 
 
 class ListLimitError(Exception):
@@ -57,6 +74,14 @@ def new_id() -> str:
 
 def clean_name(name: str | None) -> str:
     return " ".join((name or "").split())[:MAX_NAME].strip() or DEFAULT_NAME
+
+
+def check_items(spec: ListSpec) -> None:
+    """Raise ListLimitError past MAX_ITEMS, ValueError on a repeated item id."""
+    if len(spec.items) > MAX_ITEMS:
+        raise ListLimitError(f"a list holds at most {MAX_ITEMS} items")
+    if len({i.id for i in spec.items}) != len(spec.items):
+        raise ValueError("item ids must be unique within a list")
 
 
 def new_list(name: str, now: datetime) -> ListSpec:
@@ -106,25 +131,40 @@ def to_json(spec: ListSpec) -> dict:
     }
 
 
+def _short(value: object) -> bool:
+    return isinstance(value, str) and len(value) <= MAX_FILTER_VALUE
+
+
 def _str_map(value: object) -> dict[str, str] | None:
-    if not isinstance(value, dict):
+    if not isinstance(value, dict) or len(value) > MAX_FILTERS:
         return None
-    if not all(isinstance(k, str) and isinstance(v, str) for k, v in value.items()):
+    if not all(_short(k) and _short(v) for k, v in value.items()):
         return None
     return dict(value)
 
 
 def _facet_map(value: object) -> dict[str, tuple[str, ...]] | None:
-    if not isinstance(value, dict):
+    if not isinstance(value, dict) or len(value) > MAX_FILTERS:
         return None
     out = {}
     for k, v in value.items():
-        if not isinstance(k, str) or not isinstance(v, list | tuple):
+        if not _short(k) or not isinstance(v, list | tuple) or len(v) > MAX_FACET_VALUES:
             return None
-        if not all(isinstance(x, str) for x in v):
+        if not all(_short(x) for x in v):
             return None
         out[k] = tuple(v)
     return out
+
+
+def _target_amount(raw: object) -> Decimal | None:
+    try:
+        amount = Decimal(str(raw))
+        if not amount.is_finite():
+            return None
+        amount = amount.quantize(TARGET_QUANTUM, rounding=ROUND_HALF_UP)
+    except ArithmeticError:  # includes InvalidOperation from an oversized quantize
+        return None
+    return amount if 0 < amount <= TARGET_MAX else None
 
 
 def item_from_json(data: object) -> ItemSpec | None:
@@ -133,7 +173,7 @@ def item_from_json(data: object) -> ItemSpec | None:
     try:
         item_id = data["id"]
         measure = data["target_measure"]
-        amount = Decimal(str(data["target_amount"]))
+        amount = _target_amount(data["target_amount"])
         kind = data.get("kind", "curated")  # legacy data has no kind
         category = data.get("category")
         query = data.get("query", "")
@@ -143,21 +183,25 @@ def item_from_json(data: object) -> ItemSpec | None:
         facets = _facet_map(data.get("facets", {}))
     except (KeyError, InvalidOperation, ValueError, TypeError):
         return None
-    if not isinstance(item_id, str) or not item_id or not isinstance(measure, str) or not measure:
+    if not isinstance(item_id, str) or not 0 < len(item_id) <= MAX_ID:
         return None
-    if not amount.is_finite() or amount <= 0:
+    if not isinstance(measure, str) or amount is None:
         return None
     if filters is None or facets is None or not isinstance(query, str):
+        return None
+    if len(query) > MAX_QUERY:
         return None
     if pinned is not None and (not isinstance(pinned, int) or isinstance(pinned, bool)):
         return None
     if unit_system not in UNIT_SYSTEMS:
         return None
     if kind == "curated":
-        if not isinstance(category, str) or not category:
+        if not isinstance(category, str) or not 0 < len(category) <= MAX_CATEGORY:
+            return None
+        if measure not in CURATED_MEASURES:
             return None
     elif kind == "generic":
-        if not query:
+        if not query or measure not in GENERIC_MEASURES:
             return None
         category = None
     else:
@@ -180,7 +224,7 @@ def from_json(data: object) -> ListSpec | None:
     if not isinstance(data, dict):
         return None
     list_id, name, raw_items = data.get("id"), data.get("name"), data.get("items")
-    if not isinstance(list_id, str) or not list_id or not isinstance(name, str):
+    if not isinstance(list_id, str) or not 0 < len(list_id) <= MAX_ID or not isinstance(name, str):
         return None
     if not isinstance(raw_items, list):
         return None
@@ -190,7 +234,13 @@ def from_json(data: object) -> ListSpec | None:
         return None
     if updated_at.tzinfo is None:
         return None
-    items = tuple(i for i in map(item_from_json, raw_items) if i is not None)
-    return ListSpec(
-        id=list_id, name=clean_name(name), items=items[:MAX_ITEMS], updated_at=updated_at
-    )
+    items: list[ItemSpec] = []
+    seen: set[str] = set()
+    for item in map(item_from_json, raw_items):
+        if item is not None and item.id not in seen and len(items) < MAX_ITEMS:
+            seen.add(item.id)
+            items.append(item)
+    dropped = len(raw_items) - len(items)
+    if dropped:
+        logger.warning("dropped %d malformed, repeated or excess list item(s)", dropped)
+    return ListSpec(id=list_id, name=clean_name(name), items=tuple(items), updated_at=updated_at)

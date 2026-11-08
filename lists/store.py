@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Protocol
 
 from django.db import transaction
@@ -9,6 +10,9 @@ from django.db import transaction
 from . import spec as sp
 from .models import ListItem, ShoppingList
 from .spec import ItemSpec, ListLimitError, ListSpec
+
+# Counts only: never list names, items or ids.
+logger = logging.getLogger("lists.store")
 
 
 class ListStore(Protocol):
@@ -31,8 +35,12 @@ class SessionListStore:
     def _all(self) -> list[ListSpec]:
         raw = self.session.get(self.KEY, [])
         if not isinstance(raw, list):
+            logger.warning("dropped malformed session lists")
             return []
-        return [s for s in map(sp.from_json, raw) if s is not None]
+        specs = [s for s in map(sp.from_json, raw) if s is not None]
+        if len(specs) != len(raw):
+            logger.warning("dropped %d malformed session list(s)", len(raw) - len(specs))
+        return specs
 
     def lists(self) -> list[ListSpec]:
         return _recent_first(self._all())
@@ -41,6 +49,7 @@ class SessionListStore:
         return next((s for s in self._all() if s.id == list_id), None)
 
     def save(self, spec: ListSpec) -> None:
+        sp.check_items(spec)
         current = self._all()
         if all(s.id != spec.id for s in current) and len(current) >= sp.MAX_LISTS:
             raise ListLimitError(f"at most {sp.MAX_LISTS} lists")
@@ -87,6 +96,7 @@ class AccountListStore:
         return _to_spec(row) if row else None
 
     def save(self, spec: ListSpec) -> None:
+        sp.check_items(spec)
         with transaction.atomic():
             row = ShoppingList.objects.filter(user=self.user, uid=spec.id).first()
             if row is None:

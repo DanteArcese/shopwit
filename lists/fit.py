@@ -44,7 +44,7 @@ class Fit:
     surplus: Decimal
 
 
-def _package_size(offer: Any, measure_key: str) -> Decimal | None:
+def package_size(offer: Any, measure_key: str) -> Decimal | None:
     if (
         measure_key in GENERIC_MEASURE_KEYS
         and getattr(offer, "measure_dim", None) == measure_key
@@ -56,7 +56,7 @@ def _package_size(offer: Any, measure_key: str) -> Decimal | None:
 
 
 def fit_offer(offer: Any, measure_key: str, target: Decimal) -> Fit | None:
-    size = _package_size(offer, measure_key)
+    size = package_size(offer, measure_key)
     if size is None:
         return None
     n = packages_needed(target, size)

@@ -198,3 +198,83 @@ def test_store_for_picks_backend(user, rf):
 
     req.user = AnonymousUser()
     assert isinstance(store_for(req), SessionListStore)
+
+
+def _item_json(**over):
+    return {**sp.item_to_json(curated()), **over}
+
+
+def _list_json(*items):
+    return {**sp.to_json(sp.new_list("L", NOW)), "items": list(items)}
+
+
+def test_from_json_rejects_oversized_fields():
+    ok = sp.item_from_json(_item_json())
+    assert ok is not None
+    g = sp.item_to_json(generic())
+    assert sp.item_from_json({**g, "query": "q" * sp.MAX_QUERY}) is not None
+    assert sp.item_from_json({**g, "query": "q" * (sp.MAX_QUERY + 1)}) is None
+    assert sp.item_from_json(_item_json(category="c" * (sp.MAX_CATEGORY + 1))) is None
+    assert sp.item_from_json(_item_json(id="i" * (sp.MAX_ID + 1))) is None
+    many = {f"k{i}": "v" for i in range(sp.MAX_FILTERS + 1)}
+    assert sp.item_from_json(_item_json(filters=many)) is None
+    assert sp.item_from_json(_item_json(filters={"fat": "v" * (sp.MAX_FILTER_VALUE + 1)})) is None
+    assert sp.item_from_json(_item_json(filters={"k" * (sp.MAX_FILTER_VALUE + 1): "v"})) is None
+    assert sp.item_from_json({**g, "facets": {"brand": ["x"] * (sp.MAX_FACET_VALUES + 1)}}) is None
+    assert sp.item_from_json({**g, "facets": {"brand": ["x" * (sp.MAX_FILTER_VALUE + 1)]}}) is None
+    wide = {f"k{i}": ["v"] for i in range(sp.MAX_FILTERS + 1)}
+    assert sp.item_from_json({**g, "facets": wide}) is None
+
+
+def test_from_json_checks_target_measure():
+    assert sp.item_from_json(_item_json(target_measure="cubits")) is None
+    assert sp.item_from_json(_item_json(target_measure="volume")) is None  # a generic dimension
+    for m in ("volume_ml", "mass_g", "count", "rolls", "sheets"):
+        assert sp.item_from_json(_item_json(target_measure=m)) is not None
+    g = sp.item_to_json(generic())
+    assert sp.item_from_json({**g, "target_measure": "volume_ml"}) is None
+    for m in ("volume", "mass", "count", "oz_labeled"):
+        assert sp.item_from_json({**g, "target_measure": m}) is not None
+
+
+def test_from_json_quantizes_target_amount():
+    assert sp.item_from_json(_item_json(target_amount="946.35295")).target_amount == Decimal("946.353")
+    assert str(sp.item_from_json(_item_json(target_amount="2")).target_amount) == "2.000"
+    assert sp.item_from_json(_item_json(target_amount="0.0004")) is None
+    assert sp.item_from_json(_item_json(target_amount="1e30")) is None
+    assert sp.item_from_json(_item_json(target_amount="1000000")) is not None
+    assert sp.item_from_json(_item_json(target_amount="1000000.001")) is None
+
+
+def test_from_json_drops_duplicate_ids_and_logs_without_user_data(caplog):
+    a = _item_json(id="a" * 32, query="", category="secret/slug")
+    dup = {**a, "category": "other/slug"}
+    bad = _item_json(id="b" * 32, target_amount="nan", category="private/thing")
+    with caplog.at_level("WARNING", logger="lists"):
+        back = sp.from_json(_list_json(a, dup, bad))
+    assert [i.category for i in back.items] == ["secret/slug"]
+    assert "dropped 2" in caplog.text
+    assert "secret" not in caplog.text and "private" not in caplog.text and "aaaa" not in caplog.text
+
+
+def test_session_store_logs_dropped_lists(caplog):
+    session = SessionStore()
+    good = sp.new_list("Mine", NOW)
+    session["lists"] = [sp.to_json(good), {"id": "x", "name": "Groceries for Bob"}]
+    with caplog.at_level("WARNING", logger="lists"):
+        assert SessionListStore(session).lists() == [good]
+    assert "dropped 1" in caplog.text and "Bob" not in caplog.text
+
+
+def test_save_enforces_item_limit_and_unique_ids(user):
+    too_many = sp.ListSpec(
+        sp.new_id(), "Big", tuple(curated(i + 1) for i in range(sp.MAX_ITEMS + 1)), NOW
+    )
+    dup = sp.ListSpec(sp.new_id(), "Dup", (curated(1), curated(1)), NOW)
+    for store in (SessionListStore(SessionStore()), AccountListStore(user)):
+        with pytest.raises(ListLimitError):
+            store.save(too_many)
+        with pytest.raises(ValueError):
+            store.save(dup)
+        assert store.lists() == []
+    assert ListItem.objects.count() == 0
