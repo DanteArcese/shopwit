@@ -21,6 +21,7 @@ packages:
   - unattended-upgrades
   - ca-certificates
   - curl
+  - git
 
 write_files:
   - path: /etc/ssh/sshd_config.d/60-unitpricer.conf
@@ -42,7 +43,15 @@ write_files:
 
 runcmd:
   - install -d -m 700 -o deploy -g deploy /home/deploy/.ssh
-  - install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
+  # Keys: DigitalOcean metadata first; fall back to root's file with the
+  # disable_root forced-command prefix (ending in exit 142) stripped.
+  - >-
+    (curl -fsS http://169.254.169.254/metadata/v1/public-keys -o /home/deploy/.ssh/authorized_keys.tmp
+    && [ -s /home/deploy/.ssh/authorized_keys.tmp ]
+    && mv /home/deploy/.ssh/authorized_keys.tmp /home/deploy/.ssh/authorized_keys)
+    || sed -E 's/^.*exit 142" //' /root/.ssh/authorized_keys > /home/deploy/.ssh/authorized_keys
+  - chown deploy:deploy /home/deploy/.ssh/authorized_keys
+  - chmod 600 /home/deploy/.ssh/authorized_keys
   - ufw default deny incoming
   - ufw allow OpenSSH
   - ufw --force enable
@@ -50,8 +59,8 @@ runcmd:
   - curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
   - chmod a+r /etc/apt/keyrings/docker.asc
   - echo "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu noble stable" > /etc/apt/sources.list.d/docker.list
-  - apt-get update
-  - DEBIAN_FRONTEND=noninteractive apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+  - apt-get -o DPkg::Lock::Timeout=600 update
+  - DEBIAN_FRONTEND=noninteractive apt-get -o DPkg::Lock::Timeout=600 install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
   - usermod -aG docker deploy
   - install -d -o deploy -g deploy -m 750 /srv/unitpricer
   - systemctl restart ssh

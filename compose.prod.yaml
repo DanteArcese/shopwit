@@ -35,6 +35,7 @@ services:
       timeout: 10s
       retries: 3
       start_period: 20s
+      start_interval: 2s
 
   worker:
     image: ghcr.io/dantearcese/unitpricer:${UNITPRICER_IMAGE_TAG:?}

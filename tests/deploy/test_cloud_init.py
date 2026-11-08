@@ -51,3 +51,20 @@ def test_firewall_order_and_docker_install():
 
 def test_no_secrets():
     assert not re.search(r"(?i)token|password=|secret", TEXT)
+
+
+def test_never_copies_roots_authorized_keys_verbatim():
+    cmds = [c if isinstance(c, str) else " ".join(c) for c in CFG["runcmd"]]
+    for cmd in cmds:
+        if "/root/.ssh/authorized_keys" in cmd:
+            assert "exit 142" in cmd and "sed" in cmd
+    joined = "\n".join(cmds)
+    assert "169.254.169.254/metadata/v1/public-keys" in joined
+    assert "chmod 600 /home/deploy/.ssh/authorized_keys" in joined
+
+
+def test_git_and_apt_lock_timeout():
+    assert "git" in CFG["packages"]
+    for cmd in CFG["runcmd"]:
+        if "apt-get" in cmd:
+            assert "DPkg::Lock::Timeout=600" in cmd

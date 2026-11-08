@@ -15,6 +15,20 @@ Both live in `/srv/unitpricer`, mode `600`, owner `deploy`. Never commit them.
 - `.env` (compose interpolation): `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all optional until R2 is enabled), `BACKUP_HEARTBEAT_URL` (optional), `UNITPRICER_IMAGE_TAG` (written by `deploy.sh`).
 - `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL`, `UNITPRICER_SITE_URL`, `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`.
 
+## First-deploy bootstrap
+
+On the droplet, as `deploy`, in `/srv/unitpricer`:
+
+```bash
+install -m 600 /dev/null .env
+install -m 600 /dev/null app.env
+echo "POSTGRES_PASSWORD=$(openssl rand -hex 32)" >> .env   # hex is URL-safe (it goes into DATABASE_URL)
+```
+
+Then add `TUNNEL_TOKEN` and the other keys below with an editor. Images come from GHCR, which may be private and whose visibility cannot be changed through the API. Either make the `unitpricer` package public yourself (GitHub > Packages > package settings > Change visibility), or use build-on-server mode below.
+
+The `unitpricer-backup` image exists only once Task 9 (`deploy/backup`) has landed; until then the stack cannot start the `backup` service, and build-on-server mode skips that image build with a note.
+
 ## Deploy
 
 ```bash
@@ -23,7 +37,11 @@ deploy/deploy.sh            # origin/main
 deploy/deploy.sh <git-ref>
 ```
 
-The script refuses unless GitHub Actions workflow `CI` has a successful `push` run for that commit (which pushed the `sha-<sha>` image). It copies `compose.prod.yaml`, sets `UNITPRICER_IMAGE_TAG`, pulls, runs `migrate` and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
+The script runs `git fetch origin`, then refuses unless GitHub Actions workflow `CI` has a successful `push` run on `main` for that commit (which pushed the `sha-<sha>` image). It installs that commit's own `compose.prod.yaml` (so rollbacks get the old file), sets `UNITPRICER_IMAGE_TAG`, pulls, runs `migrate` and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
+
+### Build-on-server mode
+
+`UNITPRICER_BUILD_ON_SERVER=1 deploy/deploy.sh [ref]` skips pulling the app images. The green-CI check still applies. On the droplet it runs `docker build -t ghcr.io/dantearcese/unitpricer:sha-<sha> "https://github.com/DanteArcese/unitpricer.git#<sha>"` (and the same for `unitpricer-backup` from `#<sha>:deploy/backup`, when that directory exists), then `docker compose pull db cloudflared`. The remote script is passed to `ssh` as an argument, so `docker compose run` cannot swallow it.
 
 ## Rollback
 
@@ -38,7 +56,7 @@ ssh deploy@<ip> 'cd /srv/unitpricer && docker compose logs -f web worker'
 ## One-off commands
 
 ```bash
-docker compose run --rm web python manage.py <command>
+docker compose run --rm -T web python manage.py <command> </dev/null   # drop -T and </dev/null for an interactive shell
 ```
 
 ## Backups and restore
