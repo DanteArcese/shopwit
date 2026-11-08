@@ -12,12 +12,12 @@ def shown(price, comparison, system, currency="USD"):
 
 def test_volume_imperial_and_metric():
     assert shown("0.002350", "per_volume", "imperial") == ("$0.0695", "fl oz")
-    assert shown("0.002350", "per_volume", "metric") == ("$0.235", "100 mL")
+    assert shown("0.002350", "per_volume", "metric") == ("$2.35", "L")
 
 
 def test_mass():
     assert shown("0.010000", "per_mass", "imperial") == ("$0.283", "oz")
-    assert shown("0.010000", "per_mass", "metric") == ("$1.00", "100 g")
+    assert shown("0.010000", "per_mass", "metric") == ("$10.00", "kg")
 
 
 def test_count():

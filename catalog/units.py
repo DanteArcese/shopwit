@@ -27,9 +27,9 @@ OZ_PER_LB = 16
 # = price per displayed unit.
 DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
     ("per_volume", "imperial"): ("fl oz", ML_PER_FL_OZ),
-    ("per_volume", "metric"): ("100 mL", Decimal("100")),
+    ("per_volume", "metric"): ("L", Decimal("1000")),
     ("per_mass", "imperial"): ("oz", G_PER_OZ),
-    ("per_mass", "metric"): ("100 g", Decimal("100")),
+    ("per_mass", "metric"): ("kg", Decimal("1000")),
     ("per_count", "imperial"): ("each", ONE),
     ("per_count", "metric"): ("each", ONE),
     ("area_x_ply", "imperial"): ("100 sq ft·ply", M2_PER_SQ_FT * 100),
