@@ -35,7 +35,7 @@
   <input type="email" id="reply-email" name="reply_email" maxlength="254" autocomplete="email" value="{{ form.reply_email.value|default:'' }}"{% if form.reply_email.errors %} aria-invalid="true" aria-describedby="reply-email-error"{% endif %}>
   <p class="hint">Never published. Deleted when we close your item, or after 90 days. See <a href="{% url 'privacy' %}">Privacy</a>.</p>
   <div class="hp" aria-hidden="true">
-    <label>Leave this empty <input name="company" tabindex="-1" autocomplete="off"></label>
+    <label>Leave this empty <input name="hp_field_x" tabindex="-1" autocomplete="off"></label>
   </div>
   <button type="submit">Send</button>
 </form>

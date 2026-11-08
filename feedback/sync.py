@@ -10,14 +10,15 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from django.db import transaction
+from django.db import DatabaseError, transaction  # noqa: F401  (DatabaseError: tests)
 from django.utils import timezone
 
 from catalog.models import ReviewItem
 
+from . import github  # noqa: F401  (used by tests through this module)
 from .github import GitHubClient
 from .models import Feedback, StoreRequest
-from .text import display_name, neutralize, quote
+from .text import display_name, neutralize, quote, title_safe
 
 LABELS = {
     Feedback.Kind.BUG: "bug",
@@ -70,6 +71,8 @@ def approve(
     """Approve one item and sync it. Returns "review", "disabled" or "synced".
 
     Raises httpx errors from GitHub; the item then stays approved for a retry.
+    An issue number is committed as soon as the issue exists, so a retry after
+    a later failure updates that issue instead of opening a duplicate.
     """
     _mark_approved(item, now or timezone.now())
     if item.kind == Feedback.Kind.DATA:
@@ -79,17 +82,29 @@ def approve(
         return "disabled"
     if item.kind == Feedback.Kind.STORE:
         number = _sync_store(item, client)
-    else:
+    elif item.github_issue_number is None:
         number = client.create_issue(
             TITLES[item.kind].format(pk=item.pk), issue_body(item), [LABELS[item.kind]]
         )
-    item.github_issue_number = number
-    item.status = Feedback.Status.SYNCED
-    item.save(update_fields=["github_issue_number", "status"])
+        with transaction.atomic():
+            Feedback.objects.filter(pk=item.pk).update(github_issue_number=number)
+        item.github_issue_number = number
+    else:
+        number = item.github_issue_number
+    _finish(item, number)
     return "synced"
 
 
+def _finish(item: Feedback, number: int) -> None:
+    item.github_issue_number = number
+    item.status = Feedback.Status.SYNCED
+    item.sync_error = ""
+    item.save(update_fields=["github_issue_number", "status", "sync_error"])
+
+
 def _sync_store(item: Feedback, client: GitHubClient) -> int:
+    # Short transaction: the row lock keeps two approvals from opening two
+    # issues, and the new number is committed right after the issue exists.
     with transaction.atomic():
         request, _ = StoreRequest.objects.select_for_update().get_or_create(
             store_key=item.store_key,
@@ -98,21 +113,20 @@ def _sync_store(item: Feedback, client: GitHubClient) -> int:
         body = store_body(request.approved_count())
         if request.github_issue_number is None:
             request.github_issue_number = client.create_issue(
-                f"Store request: {request.display_name}", body, ["store-request"]
+                f"Store request: {title_safe(request.display_name)}", body, ["store-request"]
             )
             request.save(update_fields=["github_issue_number"])
         else:
             client.update_issue_body(request.github_issue_number, body)
-        # Requests approved while sync was off are counted in the same issue.
-        Feedback.objects.filter(
-            kind=Feedback.Kind.STORE,
-            store_key=item.store_key,
-            status=Feedback.Status.APPROVED,
-        ).exclude(pk=item.pk).update(
-            status=Feedback.Status.SYNCED,
-            github_issue_number=request.github_issue_number,
-        )
-        return request.github_issue_number
+    _mark_store_items_synced(item.store_key, request.github_issue_number)
+    return request.github_issue_number
+
+
+def _mark_store_items_synced(key: str, number: int) -> None:
+    """Requests approved while sync was off are counted in the same issue."""
+    Feedback.objects.filter(
+        kind=Feedback.Kind.STORE, store_key=key, status=Feedback.Status.APPROVED
+    ).update(status=Feedback.Status.SYNCED, github_issue_number=number, sync_error="")
 
 
 def merge(
@@ -123,4 +137,5 @@ def merge(
     item.approved_at = item.approved_at or now or timezone.now()
     item.github_issue_number = number
     item.status = Feedback.Status.SYNCED
-    item.save(update_fields=["approved_at", "github_issue_number", "status"])
+    item.sync_error = ""
+    item.save(update_fields=["approved_at", "github_issue_number", "status", "sync_error"])

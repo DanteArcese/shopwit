@@ -285,3 +285,10 @@ def test_observed_ties_break_by_newest_then_store_code(milk, stores, frozen_now)
     assert browse(milk, spec, None, None, NOW, observed=True).ranked[0].offer == new
     new.delete()
     assert browse(milk, spec, None, None, NOW, observed=True).ranked[0].offer.store == b  # osm-n1 < osm-n2
+
+
+def test_observed_row_has_report_link(client, milk_rows, observe):
+    offer = observe()
+    html = get(client).content.decode()
+    section = html[html.index('<section class="observed">'):]
+    assert f'href="/feedback?type=wrong-data&amp;offer={offer.pk}" rel="nofollow">Report a problem</a>' in section

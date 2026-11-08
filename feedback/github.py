@@ -6,6 +6,8 @@ import httpx
 from django.conf import settings
 
 API = "https://api.github.com"
+# Seconds per request; well under gunicorn's 30 s worker timeout.
+TIMEOUT = 8
 # Tests replace this with an httpx.MockTransport; None means the real network.
 _transport: httpx.BaseTransport | None = None
 
@@ -23,7 +25,7 @@ class GitHubClient:
                 "X-GitHub-Api-Version": "2022-11-28",
                 "User-Agent": "unitpricer-feedback",
             },
-            timeout=15,
+            timeout=TIMEOUT,
             transport=transport,
         )
 
@@ -56,3 +58,14 @@ def make_client() -> GitHubClient | None:
     return GitHubClient(
         settings.GITHUB_TOKEN, settings.GITHUB_REPO, transport=_transport
     )
+
+
+# What the admin action catches: transport/HTTP errors and malformed responses.
+SYNC_ERRORS = (httpx.HTTPError, KeyError, ValueError, TypeError)
+
+
+def describe(exc: Exception) -> str:
+    """Short, secret-free description: "HTTP 401", or the exception type name."""
+    if isinstance(exc, httpx.HTTPStatusError):
+        return f"HTTP {exc.response.status_code}"
+    return type(exc).__name__

@@ -1,6 +1,6 @@
 import pytest
 
-from feedback.text import neutralize, quote, store_key
+from feedback.text import neutralize, quote, store_key, title_safe
 
 pytestmark = pytest.mark.django_db
 
@@ -73,3 +73,24 @@ def test_backslash_cannot_unescape():
 
 def test_quote_prefixes_every_line():
     assert quote("one\r\ntwo\n\nthree") == "> one\n> two\n> \n> three"
+
+
+def test_store_key_truncated_to_field_length():
+    from feedback.models import Feedback, StoreRequest
+
+    limit = Feedback._meta.get_field("store_key").max_length
+    assert StoreRequest._meta.get_field("store_key").max_length == limit
+    assert len(store_key("ß" * 120)) == limit
+    assert not store_key("a " * 100 + "b").endswith(" ")
+
+
+def test_ampersand_escaped():
+    assert neutralize("salt & pepper &lt;") == "salt &amp; pepper &amp;lt;"
+
+
+def test_title_safe_removes_email_and_wraps_tokens():
+    out = title_safe("Bob's bob@example.com @octocat https://x.example #5")
+    assert "example.com" not in out
+    assert "[email removed]" in out
+    assert "`@octocat`" in out and "`https://x.example`" in out and "`#5`" in out
+    assert title_safe("a`b") == "ab"

@@ -38,6 +38,8 @@ class Feedback(models.Model):
     )
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
     approved_at = models.DateTimeField(null=True, blank=True)
+    # Last GitHub sync failure, e.g. "HTTP 401"; blank once a sync succeeds.
+    sync_error = models.CharField(max_length=40, blank=True)
     github_issue_number = models.PositiveIntegerField(null=True, blank=True)
     review_item = models.ForeignKey(
         "catalog.ReviewItem",
@@ -81,5 +83,5 @@ class StoreRequest(models.Model):
         return Feedback.objects.filter(
             kind=Feedback.Kind.STORE,
             store_key=self.store_key,
-            approved_at__isnull=False,
+            status__in=[Feedback.Status.APPROVED, Feedback.Status.SYNCED],
         ).count()

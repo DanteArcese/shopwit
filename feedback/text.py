@@ -11,7 +11,11 @@ def store_key(name: str) -> str:
     text = unicodedata.normalize("NFKC", name or "").casefold()
     text = "".join(c for c in text if c not in _APOSTROPHES)
     text = "".join(" " if unicodedata.category(c)[0] in "PSZC" else c for c in text)
-    return " ".join(w for w in text.split() if w != "the")
+    key = " ".join(w for w in text.split() if w != "the")
+    # Casefolding can lengthen text ("ß" -> "ss"); keep within the column.
+    from .models import Feedback
+
+    return key[: Feedback._meta.get_field("store_key").max_length].rstrip()
 
 
 def display_name(name: str) -> str:
@@ -29,7 +33,7 @@ _TOKEN = re.compile(
     re.IGNORECASE,
 )
 _ESCAPES = str.maketrans(
-    {"\\": "\\\\", "`": "\\`", "[": "\\[", "]": "\\]", "<": "&lt;", ">": "&gt;"}
+    {"&": "&amp;", "\\": "\\\\", "`": "\\`", "[": "\\[", "]": "\\]", "<": "&lt;", ">": "&gt;"}
 )
 
 
@@ -48,10 +52,7 @@ def neutralize(text: str) -> str:
     pos = 0
     for m in _TOKEN.finditer(text):
         out.append(_escape(text[pos : m.start()]))
-        token, tail = m.group(), ""
-        if m.lastgroup == "url":  # trailing punctuation belongs to the sentence
-            token = token.rstrip(").,;:!?'\"")
-            tail = m.group()[len(token) :]
+        token, tail = _split_url(m)
         out.append(
             _escape("[email removed]") if m.lastgroup == "email" else f"`{token}`"
         )
@@ -65,3 +66,27 @@ def quote(text: str) -> str:
     """Markdown blockquote of (already neutralized) text."""
     lines = text.replace("\r\n", "\n").replace("\r", "\n").split("\n")
     return "\n".join(f"> {line}" for line in lines)
+
+
+def title_safe(text: str) -> str:
+    """User text for an issue title: no emails; mentions, refs and links as code spans."""
+    text = text.replace("`", "")
+    out = []
+    pos = 0
+    for m in _TOKEN.finditer(text):
+        out.append(text[pos : m.start()])
+        token, tail = _split_url(m)
+        out.append("[email removed]" if m.lastgroup == "email" else f"`{token}`")
+        out.append(tail)
+        pos = m.end()
+    out.append(text[pos:])
+    return "".join(out)
+
+
+def _split_url(m: re.Match) -> tuple[str, str]:
+    """A URL's trailing punctuation belongs to the sentence, not the link."""
+    token = m.group()
+    if m.lastgroup != "url":
+        return token, ""
+    trimmed = token.rstrip(").,;:!?'\"")
+    return trimmed, token[len(trimmed) :]

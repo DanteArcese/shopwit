@@ -9,7 +9,7 @@ pytestmark = pytest.mark.django_db
 
 
 def post(client, data, ip="203.0.113.5"):
-    payload = {"kind": "bug", "message": "", "company": ""}
+    payload = {"kind": "bug", "message": "", "hp_field_x": ""}
     payload.update(data)
     return client.post("/feedback", payload, HTTP_HOST=APP, HTTP_CF_CONNECTING_IP=ip)
 
@@ -28,7 +28,7 @@ def test_form_renders_on_app_host(client):
     assert "csrfmiddlewaretoken" in html
     for value in ("store", "data", "bug", "idea", "other"):
         assert f'value="{value}"' in html
-    assert 'name="company"' in html  # honeypot
+    assert 'name="hp_field_x"' in html  # honeypot
 
 
 @pytest.mark.parametrize("method", ["get", "post"])
@@ -146,18 +146,11 @@ def test_offer_ignored_unless_data_or_missing(client, offer):
     ]
 
 
-def test_observed_rows_have_report_link():
-    from pathlib import Path
-
-    tpl = Path(__file__).resolve().parents[2] / "web/templates/web/_observed_row.html"
-    assert "?type=wrong-data&amp;offer={{ row.offer.pk }}" in tpl.read_text()
-
-
 def test_honeypot_drops_silently_with_identical_response(client):
     real = post(client, {"kind": "bug", "message": "real"}, ip="198.51.100.1")
     trap = post(
         client,
-        {"kind": "bug", "message": "spam", "company": "Spam Inc"},
+        {"kind": "bug", "message": "spam", "hp_field_x": "Spam Inc"},
         ip="198.51.100.2",
     )
     assert trap.status_code == real.status_code == 200
@@ -202,3 +195,17 @@ def test_csrf_enforced(db):
     r = c.post("/feedback", {"kind": "bug", "message": "x"}, HTTP_HOST=APP)
     assert r.status_code == 403
     assert not Feedback.objects.exists()
+
+
+def test_honeypot_not_autofillable(client):
+    html = client.get("/feedback", HTTP_HOST=APP).content.decode()
+    assert re.search(r'<input name="hp_field_x"[^>]*autocomplete="off"', html)
+    assert 'name="company"' not in html
+
+
+def test_long_store_name_key_fits_field(client):
+    # NFKC/casefold doubles "ß" to "ss": 120 chars in, 240 out before truncation.
+    r = post(client, {"kind": "store", "store_name": "ß" * 120})
+    assert r.status_code == 200
+    fb = Feedback.objects.get()
+    assert fb.store_key == "s" * 120

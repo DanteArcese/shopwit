@@ -11,7 +11,7 @@ from .forms import TYPE_ALIASES, FeedbackForm
 
 VISITOR_LIMIT = 5  # per client IP per hour
 GLOBAL_LIMIT = 100  # saved items per day, all visitors
-HONEYPOT = "company"
+HONEYPOT = "hp_field_x"
 
 
 def _offer_from(raw) -> Offer | None:

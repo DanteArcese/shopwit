@@ -238,3 +238,180 @@ def test_status_change_in_save_clears_email(db):
     fb.save()
     fb.refresh_from_db()
     assert fb.reply_email == ""
+
+
+# ---- review round 1 ----
+
+
+@pytest.mark.parametrize("status", [401, 403, 422, 500, 502])
+def test_http_error_matrix_records_status_only(staff, token, monkeypatch, caplog, status):
+    import httpx
+
+    from feedback import github
+
+    secret = "SECRET-BODY-TEXT"
+    monkeypatch.setattr(
+        github, "_transport", httpx.MockTransport(lambda r: httpx.Response(status, text=secret))
+    )
+    a, b = make("bug"), make("idea")
+    r = act(staff, "approve", [a, b])
+    for fb in (a, b):  # a status error does not stop the batch
+        fb.refresh_from_db()
+        assert (fb.status, fb.sync_error, fb.github_issue_number) == ("approved", f"HTTP {status}", None)
+    text = messages_text(r)
+    assert f"HTTP {status}" in text
+    assert secret not in text and secret not in caplog.text
+    assert "test-token" not in text and "test-token" not in caplog.text
+    assert f"HTTP {status}" in caplog.text
+    assert f"HTTP {status}" in staff.get(URL).content.decode()
+
+
+def test_sync_error_cleared_on_success(staff, token, gh):
+    fb = make("bug", sync_error="HTTP 500")
+    act(staff, "approve", [fb])
+    fb.refresh_from_db()
+    assert (fb.status, fb.sync_error) == ("synced", "")
+
+
+def test_transport_error_aborts_batch(staff, token, monkeypatch):
+    import httpx
+
+    from feedback import github
+
+    calls = []
+
+    def boom(request):
+        calls.append(request)
+        raise httpx.ConnectTimeout("slow", request=request)
+
+    monkeypatch.setattr(github, "_transport", httpx.MockTransport(boom))
+    items = [make("bug"), make("idea"), make("other")]
+    r = act(staff, "approve", items)
+    assert len(calls) == 1
+    text = messages_text(r)
+    assert "2 item(s) not attempted" in text
+    statuses = [Feedback.objects.get(pk=i.pk).status for i in items]
+    assert statuses.count("new") == 2
+    errors = [Feedback.objects.get(pk=i.pk).sync_error for i in items]
+    assert sorted(errors) == ["", "", "ConnectTimeout"]
+
+
+def test_client_timeout_is_short(settings):
+    from feedback import github
+
+    settings.GITHUB_TOKEN = "x"
+    client = github.make_client()
+    try:
+        assert client._http.timeout.read == 8
+    finally:
+        client.close()
+
+
+def test_store_title_neutralized(staff, token, gh):
+    act(staff, "approve", [make("store", store_name="Bob's bob@example.com @octocat")])
+    title = gh.calls[0][2]["title"]
+    assert "example.com" not in title
+    assert "`@octocat`" in title
+
+
+def test_approved_count_excludes_closed_and_rejected(staff, token, gh):
+    first = make("store", store_name="Aldi")
+    act(staff, "approve", [first])
+    act(staff, "close", [first])
+    act(staff, "approve", [make("store", store_name="ALDI")])
+    assert "Requested 1 time" in gh.calls[-1][2]["body"]
+    assert StoreRequest.objects.get().approved_count() == 1
+
+
+def test_store_issue_number_saved_before_later_db_error(staff, token, gh, monkeypatch):
+    from feedback import sync
+
+    def broken(*args, **kwargs):
+        raise sync.DatabaseError("later failure")
+
+    real = sync._mark_store_items_synced
+    monkeypatch.setattr(sync, "_mark_store_items_synced", broken)
+    fb = make("store", store_name="Aldi")
+    with pytest.raises(sync.DatabaseError):
+        sync.approve(fb, sync.github.make_client())
+    assert StoreRequest.objects.get().github_issue_number == 101
+    monkeypatch.setattr(sync, "_mark_store_items_synced", real)
+    act(staff, "approve", [fb])
+    assert [c[0] for c in gh.calls] == ["POST", "PATCH"]  # retry updates, never duplicates
+
+
+def test_bug_issue_number_saved_before_later_db_error(token, gh, monkeypatch):
+    from feedback import sync
+
+    fb = make("bug")
+    calls = []
+    real_save = Feedback.save
+
+    def save(self, *args, **kwargs):
+        calls.append(kwargs.get("update_fields"))
+        if kwargs.get("update_fields") and "status" in kwargs["update_fields"] and self.github_issue_number:
+            raise sync.DatabaseError("later failure")
+        return real_save(self, *args, **kwargs)
+
+    monkeypatch.setattr(Feedback, "save", save)
+    with pytest.raises(sync.DatabaseError):
+        sync.approve(fb, sync.github.make_client())
+    monkeypatch.setattr(Feedback, "save", real_save)
+    fb.refresh_from_db()
+    assert fb.github_issue_number == 101
+    sync.approve(fb, sync.github.make_client())
+    fb.refresh_from_db()
+    assert fb.status == "synced" and len(gh.calls) == 1  # no duplicate issue
+
+
+@pytest.mark.parametrize("status", ["rejected", "closed"])
+def test_merge_excludes_rejected_and_closed(staff, token, gh, status):
+    fb = make("bug", status=status)
+    act(staff, "merge_into_issue", [fb], apply="1", issue_number="42")
+    assert gh.calls == []
+    fb.refresh_from_db()
+    assert fb.status == status
+
+
+def test_merge_survives_bad_response(staff, token, monkeypatch):
+    import httpx
+
+    from feedback import github
+
+    monkeypatch.setattr(github, "_transport", httpx.MockTransport(lambda r: httpx.Response(422)))
+    fb = make("bug")
+    r = act(staff, "merge_into_issue", [fb], apply="1", issue_number="42")
+    fb.refresh_from_db()
+    assert (fb.status, fb.sync_error) == ("new", "HTTP 422")
+    assert "HTTP 422" in messages_text(r)
+
+
+def test_view_only_staff_cannot_act(client, db, gh, token):
+    from django.contrib.auth import get_user_model
+    from django.contrib.auth.models import Permission
+
+    user = get_user_model().objects.create_user("viewer", password="pw", is_staff=True)
+    user.user_permissions.add(Permission.objects.get(codename="view_feedback"))
+    client.force_login(user)
+    fb = make("bug")
+    assert client.get(URL).status_code == 200
+    act(client, "approve", [fb])
+    fb.refresh_from_db()
+    assert fb.status == "new" and gh.calls == []
+
+
+def test_ingest_sync_resolves_ingest_items_but_keeps_user_report(offer):
+    from django.utils import timezone as tz
+
+    from catalog.merge import _sync_review_items
+
+    product = offer.product
+    ingest_item = ReviewItem.objects.create(product=product, detail="attribute:fat")
+    user_item = ReviewItem.objects.create(
+        product=product, detail="user report: wrong price or size", reason="user_report"
+    )
+    _sync_review_items(product, [], tz.now())
+    ingest_item.refresh_from_db()
+    user_item.refresh_from_db()
+    assert ingest_item.status == "resolved"
+    assert user_item.status == "open"

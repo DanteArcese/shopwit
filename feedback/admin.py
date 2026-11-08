@@ -28,6 +28,7 @@ class FeedbackAdmin(admin.ModelAdmin):
         "summary",
         "store_key",
         "github_issue_number",
+        "sync_error",
         "created_at",
     )
     list_filter = ("status", "kind")
@@ -44,6 +45,7 @@ class FeedbackAdmin(admin.ModelAdmin):
         "created_at",
         "approved_at",
         "github_issue_number",
+        "sync_error",
         "review_item",
     )
     fields = readonly_fields
@@ -53,7 +55,8 @@ class FeedbackAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return obj is None  # list actions only; the change page is read-only
+        # Actions need the change permission; the change page itself is read-only.
+        return obj is None and request.user.has_perm("feedback.change_feedback")
 
     @admin.display(description="text")
     def summary(self, obj):
@@ -61,23 +64,29 @@ class FeedbackAdmin(admin.ModelAdmin):
         return text[:80]
 
     @admin.action(
-        description="Approve and sync (GitHub issue, or review queue for wrong data)"
+        description="Approve and sync (GitHub issue, or review queue for wrong data)",
+        permissions=["change"],
     )
     def approve(self, request, queryset):
         client = github.make_client()
-        counts = {"synced": 0, "review": 0, "disabled": 0, "failed": 0, "no_product": 0}
+        counts = {"synced": 0, "review": 0, "disabled": 0, "no_product": 0}
+        failures: list[str] = []
+        skipped = 0
         try:
-            pending = queryset.filter(
-                status__in=[Feedback.Status.NEW, Feedback.Status.APPROVED]
+            pending = list(
+                queryset.filter(
+                    status__in=[Feedback.Status.NEW, Feedback.Status.APPROVED]
+                ).select_related("offer")
             )
-            for item in pending.select_related("offer"):
+            for i, item in enumerate(pending):
                 try:
                     outcome = sync.approve(item, client)
-                except (httpx.HTTPError, KeyError, ValueError) as exc:
-                    logger.error(
-                        "feedback %s sync failed: %s", item.pk, type(exc).__name__
-                    )
-                    counts["failed"] += 1
+                except github.SYNC_ERRORS as exc:
+                    failures.append(self._record_error(item, exc, "sync"))
+                    if isinstance(exc, httpx.TransportError):
+                        # Network trouble or a timeout: stop before the request times out.
+                        skipped = len(pending) - i - 1
+                        break
                     continue
                 if outcome == "review" and item.review_item_id is None:
                     outcome = "no_product"
@@ -87,9 +96,7 @@ class FeedbackAdmin(admin.ModelAdmin):
                 client.close()
         if counts["synced"]:
             self.message_user(
-                request,
-                f"{counts['synced']} item(s) synced to GitHub.",
-                messages.SUCCESS,
+                request, f"{counts['synced']} item(s) synced to GitHub.", messages.SUCCESS
             )
         if counts["review"]:
             self.message_user(
@@ -109,21 +116,36 @@ class FeedbackAdmin(admin.ModelAdmin):
                 f"{counts['disabled']} item(s) approved; {DISABLED}.",
                 messages.WARNING,
             )
-        if counts["failed"]:
+        if failures:
             self.message_user(
                 request,
-                f"{counts['failed']} item(s) approved but GitHub sync failed; approve again to retry.",
+                f"{len(failures)} item(s) approved but GitHub sync failed "
+                f"({', '.join(sorted(set(failures)))}); approve again to retry.",
                 messages.ERROR,
             )
+        if skipped:
+            self.message_user(
+                request,
+                f"{skipped} item(s) not attempted after a network error; approve them again.",
+                messages.WARNING,
+            )
 
-    @admin.action(description="Reject (deletes the reply email)")
+    def _record_error(self, item: Feedback, exc: Exception, what: str) -> str:
+        """Log and store a short description (status code or type, never body or token)."""
+        error = github.describe(exc)
+        logger.error("feedback %s %s failed: %s", item.pk, what, error)
+        item.sync_error = error[: Feedback._meta.get_field("sync_error").max_length]
+        item.save(update_fields=["sync_error"])
+        return error
+
+    @admin.action(description="Reject (deletes the reply email)", permissions=["change"])
     def reject(self, request, queryset):
         n = self._set_status(
             queryset.exclude(status=Feedback.Status.SYNCED), Feedback.Status.REJECTED
         )
         self.message_user(request, f"{n} item(s) rejected.", messages.SUCCESS)
 
-    @admin.action(description="Close (deletes the reply email)")
+    @admin.action(description="Close (deletes the reply email)", permissions=["change"])
     def close(self, request, queryset):
         n = self._set_status(queryset, Feedback.Status.CLOSED)
         self.message_user(request, f"{n} item(s) closed.", messages.SUCCESS)
@@ -136,15 +158,23 @@ class FeedbackAdmin(admin.ModelAdmin):
             n += 1
         return n
 
-    @admin.action(description="Merge into an existing GitHub issue (+1 comment)")
+    @admin.action(
+        description="Merge into an existing GitHub issue (+1 comment)", permissions=["change"]
+    )
     def merge_into_issue(self, request, queryset):
         items = list(
-            queryset.filter(kind__in=MERGEABLE).exclude(status=Feedback.Status.SYNCED)
+            queryset.filter(kind__in=MERGEABLE).exclude(
+                status__in=[
+                    Feedback.Status.SYNCED,
+                    Feedback.Status.REJECTED,
+                    Feedback.Status.CLOSED,
+                ]
+            )
         )
         if not items:
             self.message_user(
                 request,
-                "Only unsynced bug, idea or other items can be merged.",
+                "Only new or approved bug, idea or other items can be merged.",
                 messages.WARNING,
             )
             return None
@@ -167,28 +197,36 @@ class FeedbackAdmin(admin.ModelAdmin):
             self.message_user(request, f"Nothing merged: {DISABLED}.", messages.WARNING)
             return None
         number = form.cleaned_data["issue_number"]
-        merged = failed = 0
+        merged = 0
+        failures: list[str] = []
         try:
             for item in items:
                 try:
                     sync.merge(item, client, number)
                     merged += 1
-                except httpx.HTTPError as exc:
-                    logger.error(
-                        "feedback %s merge failed: %s", item.pk, type(exc).__name__
-                    )
-                    failed += 1
+                except github.SYNC_ERRORS as exc:
+                    failures.append(self._record_error(item, exc, "merge"))
+                    if isinstance(exc, httpx.TransportError):
+                        break
         finally:
             client.close()
         if merged:
             self.message_user(
                 request, f"{merged} item(s) merged into #{number}.", messages.SUCCESS
             )
-        if failed:
+        if failures:
             self.message_user(
                 request,
-                f"{failed} item(s) could not be merged into #{number}.",
+                f"{len(failures)} item(s) could not be merged into #{number} "
+                f"({', '.join(sorted(set(failures)))}).",
                 messages.ERROR,
+            )
+        not_tried = len(items) - merged - len(failures)
+        if not_tried:
+            self.message_user(
+                request,
+                f"{not_tried} item(s) not attempted after a network error.",
+                messages.WARNING,
             )
         return None
 
@@ -209,7 +247,7 @@ class StoreRequestAdmin(admin.ModelAdmin):
         return False
 
     def has_change_permission(self, request, obj=None):
-        return obj is None
+        return obj is None and request.user.has_perm("feedback.change_storerequest")
 
     @admin.display(description="approved requests")
     def approved(self, obj):
