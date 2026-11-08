@@ -172,3 +172,32 @@ def test_category_page_query_count_independent_of_rows(client, milk_rows, observ
         st = stores(f"osm-n{i * 10}", f"Chain{i}", "Town", chain_code=f"op-chain{i}", chain=f"Chain{i}")
         observe(price_id=i, store=st, title=f"Milk {i}")
     assert count() == base
+
+
+def test_hx_category_response_includes_observed_section(client, milk_rows, observe):
+    observe()
+    html = client.get("/c/dairy/milk/", HTTP_HX_REQUEST="true").content.decode()
+    assert "<html" not in html
+    assert "Seen in stores" in html and OBS_TITLE in html
+    assert "Open Database License (ODbL)" in html
+
+
+def test_hx_category_response_omits_empty_observed_section(client, milk_rows):
+    html = client.get("/c/dairy/milk/", HTTP_HX_REQUEST="true").content.decode()
+    assert "Bravo Whole Milk" in html and "Seen in stores" not in html
+
+
+def test_settings_page_query_count_independent_of_chains(client, db, stores, observe):
+    observe()
+
+    def count():
+        with CaptureQueriesContext(connection) as q:
+            assert client.get("/settings").status_code == 200
+        return len(q)
+
+    base = count()
+    for i in range(2, 7):
+        st = stores(f"osm-n{i * 10}", f"Chain{i}", "Town", chain_code=f"op-chain{i}", chain=f"Chain{i}")
+        observe(price_id=i, store=st, title=f"Milk {i}")
+    assert count() == base
+    assert "Chain3 (in-store prices)" in client.get("/settings").content.decode()

@@ -70,7 +70,8 @@ Categories are plain YAML files in `categories/`, and each one is proven by fixt
 
 ```
 connectors  ->  normalizer  ->  catalog (Postgres)  ->  web
-(Walmart)       (categories/)   (+ Open Food Facts)     (browse, search)
+(Walmart)       (categories/)   (+ Open Food Facts,      (browse, search)
+                                   Open Prices)
 ```
 
 ## Data and attribution
@@ -79,6 +80,10 @@ connectors  ->  normalizer  ->  catalog (Postgres)  ->  web
   Products Facts, available under the
   [Open Database License (ODbL)](https://opendatacommons.org/licenses/odbl/1-0/). Attribution is
   shown on the site's disclosure page.
+- Shelf prices in the "Seen in stores" section come from [Open Prices](https://prices.openfoodfacts.org),
+  made available under the ODbL. They are dated observations, not live prices. Our method is this
+  source code, and `manage.py export_open_prices --out FILE` writes the observations and their
+  normalization as gzip JSONL. A copy is available on request (see `/disclosure`).
 - Retailer data is used only as the retailer's program terms allow (for example, cached prices are
   timestamped and kept fresh for at most 24 hours).
 - **Affiliate disclosure:** UnitPricer may earn a commission on purchases made through its links.
