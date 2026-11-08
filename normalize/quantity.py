@@ -14,6 +14,12 @@ Measures = dict[str, float]
 
 _ureg = pint.UnitRegistry()
 
+
+def unit_registry() -> pint.UnitRegistry:
+    """The shared pint registry, for callers that must convert like ingestion does."""
+    return _ureg
+
+
 # One number: mixed "1 1/2", fraction "1/2", comma-grouped "1,500", decimal or integer.
 # Never starts mid-number (after a word char, ".", "/", or a "<digit>,").
 _START = r"(?<![\w./])(?<!\d,)"

@@ -46,6 +46,10 @@ def test_never_zero_for_nonzero():
     assert format_money(Decimal("0.0012345"), "USD") == "$0.00123"
     assert format_money(Decimal("0.000000123"), "USD") != "$0.00"
     assert format_money(Decimal("0.9996"), "USD") == "$1.00"
+    assert format_money(Decimal("0.9995"), "USD") == "$1.00"  # half-up at the 3-digit boundary
+    assert format_money(Decimal("0.99949"), "USD") == "$0.999"
+    assert format_money(Decimal("9.995"), "USD") == "$10.00"  # half-up at the cent boundary
+    assert format_money(Decimal("9.994"), "USD") == "$9.99"
     assert format_money(Decimal("0"), "USD") == "$0.00"
 
 

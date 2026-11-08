@@ -35,11 +35,10 @@
     </select>
   </label>
   {% if stores %}
-  <label>Stores{% if not selected_stores %} <span class="hint">(All stores)</span>{% endif %}
-    <select name="store" multiple size="{{ stores|length }}">
-      {% for s in stores %}<option value="{{ s.code }}"{% if s.code in selected_stores %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
-    </select>
-  </label>
+  <fieldset class="stores">
+    <legend>Stores{% if not selected_stores %} <span class="hint">(All stores)</span>{% endif %}</legend>
+    {% for s in stores %}<label class="check"><input type="checkbox" name="store" value="{{ s.code }}"{% if s.code in selected_stores %} checked{% endif %}> {{ s.name }}</label>{% endfor %}
+  </fieldset>
   {% endif %}
   <input type="hidden" name="size_unit" value="{{ size_unit_code }}">
   <noscript><button type="submit">Apply filters</button></noscript>

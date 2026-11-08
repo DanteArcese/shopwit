@@ -167,6 +167,7 @@ def category(request, slug):
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,
+        "status_total": result.total_products,
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,

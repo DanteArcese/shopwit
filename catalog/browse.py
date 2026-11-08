@@ -19,9 +19,9 @@ from .models import Category, Offer, Product
 
 BRAND_TIERS = ("name_brand", "store_brand")
 SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2"}
-# Attributes a comparison's unit price depends on, beyond quantity.
 # Relative slack so float conversion noise never drops an exact-size match.
 SIZE_TOLERANCE = 1e-9
+# Attributes a comparison's unit price depends on, beyond quantity.
 COMPARISON_ATTRS = {"area_x_ply": {"ply"}}
 
 
@@ -113,7 +113,7 @@ def _reason(offer: Offer, comparison: str) -> str:
                 return f"{name.replace('_', ' ')} unknown"
         elif entry == f"unit_price:{comparison}":
             return f"can't compute price per {unit}"
-    return "can't compute price per unit"
+    return f"can't compute price per {unit}"
 
 
 def browse(

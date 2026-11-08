@@ -114,7 +114,7 @@ def test_saved_store_without_fresh_offers_shown_and_empty_state(client, milk_row
     client.post("/settings", {"unit_system": "metric", "stores": ["costco"]})
     html = client.get("/c/dairy/milk/").content.decode()
     assert "No fresh prices match these filters" in html
-    assert re.search(r'<option[^>]*value="costco"[^>]*selected[^>]*>Costco \(no current prices\)', html)
+    assert re.search(r'<input[^>]*name="store"[^>]*value="costco"[^>]*checked[^>]*> Costco \(no current prices\)', html)
 
 
 def test_empty_state_shown_when_only_unranked(client, load):

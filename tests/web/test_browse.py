@@ -159,11 +159,18 @@ def test_ties_break_deterministically(milk):
     load(milk, [
         milk_offer("Zed Whole Milk, 1 L", "1.00", "z", retailer="walmart"),
         milk_offer("Abe Whole Milk, 1 L", "1.00", "a", retailer="target"),
-        milk_offer("Mid Whole Milk, 2 L", "1.90", "m"),  # same unit price as nothing; just cheaper per mL
+        milk_offer("Mid Whole Milk, 2 L", "1.90", "m"),  # cheaper per mL than both
+        # equal unit price (0.001/mL) but a different pack price: the cheaper pack wins the tie
+        milk_offer("Big Whole Milk, 2 L", "2.00", "g"),
+        milk_offer("Zap Whole Milk, 500 mL", "0.50", "zp"),
     ])
     res = browse(milk, NONE, None, None, NOW)
     assert titles(res.ranked) == [
-        "Mid Whole Milk, 2 L", "Abe Whole Milk, 1 L", "Zed Whole Milk, 1 L"
+        "Mid Whole Milk, 2 L",
+        "Zap Whole Milk, 500 mL",  # tie on unit price: lowest pack price first
+        "Abe Whole Milk, 1 L",  # tie on price too: title, then retailer
+        "Zed Whole Milk, 1 L",
+        "Big Whole Milk, 2 L",
     ]
     # equal unit price and title: price, then retailer
     load(milk, [
@@ -211,3 +218,12 @@ def test_query_count_is_flat(milk, django_assert_max_num_queries):
     load(milk, [milk_offer(f"B{i} Whole Milk, 1 L", "1.00", f"i{i}") for i in range(10)])
     with django_assert_max_num_queries(4):
         browse(milk, NONE, None, None, NOW)
+
+
+def test_unranked_reason_names_the_alternate_comparison(tp):
+    load(tp, [raw(title="Acme Toilet Paper, 6 rolls, 100 sq ft", price="6.00", item="a", brand="Acme")])
+    res = browse(tp, NONE, "per_100_sheets", None, NOW)
+    assert res.ranked == []
+    reason = res.unranked[0].reason
+    assert reason != "ply unknown"
+    assert "100 sheets" in reason, reason
