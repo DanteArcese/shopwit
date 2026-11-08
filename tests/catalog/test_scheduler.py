@@ -233,6 +233,7 @@ def test_tick_survives_open_prices_due_error(cats, settings, monkeypatch, caplog
 @pytest.fixture
 def fresh_cleanup(monkeypatch):
     monkeypatch.setattr(scheduler, "_sessions_cleared_at", None)
+    monkeypatch.setattr(scheduler, "_feedback_purged_at", None)
 
 
 def test_tick_clears_expired_sessions_daily(cats, fresh_cleanup, monkeypatch):
@@ -269,3 +270,34 @@ def test_clearsessions_failure_never_stops_tick(cats, fresh_cleanup, monkeypatch
     assert scheduler.tick(NOW, {}) == []
     assert "clearsessions failed: RuntimeError" in caplog.text
     assert scheduler.clear_expired_sessions(NOW + timedelta(hours=1)) is False  # waits a day
+
+
+def test_tick_purges_feedback_reply_emails_daily(cats, fresh_cleanup):
+    from feedback.models import Feedback
+
+    old = Feedback.objects.create(kind="bug", message="x", reply_email="old@example.com")
+    Feedback.objects.filter(pk=old.pk).update(created_at=NOW - timedelta(days=91))
+    scheduler.tick(NOW, {})
+    old.refresh_from_db()
+    assert old.reply_email == ""
+
+    again = Feedback.objects.create(kind="bug", message="y", reply_email="again@example.com")
+    Feedback.objects.filter(pk=again.pk).update(status="closed")
+    scheduler.tick(NOW + timedelta(hours=23), {})  # not yet a day
+    again.refresh_from_db()
+    assert again.reply_email == "again@example.com"
+    scheduler.tick(NOW + timedelta(days=1), {})
+    again.refresh_from_db()
+    assert again.reply_email == ""
+
+
+def test_feedback_purge_failure_never_stops_tick(cats, fresh_cleanup, monkeypatch, caplog):
+    import feedback.cleanup
+
+    def boom(now):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(feedback.cleanup, "purge_reply_emails", boom)
+    assert scheduler.tick(NOW, {}) == []
+    assert "feedback email purge failed: RuntimeError" in caplog.text
+    assert scheduler.purge_feedback_emails(NOW + timedelta(hours=1)) is False

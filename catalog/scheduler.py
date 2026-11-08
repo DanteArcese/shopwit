@@ -27,6 +27,7 @@ logger = logging.getLogger(__name__)
 SESSION_CLEANUP_INTERVAL = timedelta(days=1)
 # Per-process marker: a restarted worker clears once more, which is harmless.
 _sessions_cleared_at: datetime | None = None
+_feedback_purged_at: datetime | None = None
 
 
 def due(now: datetime, connectors: Mapping[str, Connector]) -> list[tuple[str, str]]:
@@ -106,6 +107,7 @@ def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> li
         if open_prices_due:
             runs.extend(_open_prices(now))
     clear_expired_sessions(now)
+    purge_feedback_emails(now)
     return runs
 
 
@@ -125,6 +127,26 @@ def clear_expired_sessions(now: datetime) -> bool:
         logger.error("clearsessions failed: %s", type(exc).__name__)
         return False
     logger.info("clearsessions done")
+    return True
+
+
+def purge_feedback_emails(now: datetime) -> bool:
+    """Blank stale feedback reply emails at most once per SESSION_CLEANUP_INTERVAL.
+
+    Never raises; a failure waits for the next interval.
+    """
+    global _feedback_purged_at
+    if _feedback_purged_at is not None and now - _feedback_purged_at < SESSION_CLEANUP_INTERVAL:
+        return False
+    _feedback_purged_at = now
+    try:
+        from feedback.cleanup import purge_reply_emails
+
+        purged = purge_reply_emails(now)
+    except Exception as exc:
+        logger.error("feedback email purge failed: %s", type(exc).__name__)
+        return False
+    logger.info("feedback email purge done purged=%s", purged)
     return True
 
 

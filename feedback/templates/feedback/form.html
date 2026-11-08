@@ -1,0 +1,42 @@
+{% extends "web/base.html" %}
+{% block title %}Feedback - UnitPricer{% endblock %}
+{% block main %}
+<h1>Feedback</h1>
+<p>Ask for a store, report a wrong price or size, a bug, or share an idea. We read everything before anything is published.</p>
+<form method="post" action="{% url 'feedback' %}" class="feedback-form" novalidate>
+  {% csrf_token %}
+  {% if form.non_field_errors %}<p class="error" role="alert">{{ form.non_field_errors|join:" " }}</p>{% endif %}
+  <fieldset>
+    <legend>What is it about?</legend>
+    {% if form.kind.errors %}<p class="error" id="kind-error" role="alert">Choose a type.</p>{% endif %}
+    {% for choice in form.kind %}
+    <label class="choice"><input type="radio" name="kind" value="{{ choice.data.value }}" id="{{ choice.id_for_label }}"{% if choice.data.selected %} checked{% endif %} required> {{ choice.choice_label }}</label>
+    {% endfor %}
+  </fieldset>
+  {% if offer %}
+  <p class="note">About: {{ offer.title }} ({{ offer.retailer }}{% if offer.store %}, {{ offer.store.display }}{% endif %})</p>
+  <input type="hidden" name="offer" value="{{ offer.pk }}">
+  {% endif %}
+  <fieldset>
+    <legend>Store request</legend>
+    <p class="hint">Only for the "Store request" type.</p>
+    {% if form.store_name.errors %}<p class="error" id="store-name-error" role="alert">{{ form.store_name.errors|join:" " }}</p>{% endif %}
+    <label for="store-name">Store name</label>
+    <input type="text" id="store-name" name="store_name" maxlength="120" value="{{ form.store_name.value|default:'' }}"{% if form.store_name.errors %} aria-invalid="true" aria-describedby="store-name-error"{% endif %}>
+    {% if form.website.errors %}<p class="error" id="website-error" role="alert">{{ form.website.errors|join:" " }}</p>{% endif %}
+    <label for="website">Store website (optional)</label>
+    <input type="text" id="website" name="website" maxlength="200" inputmode="url" value="{{ form.website.value|default:'' }}"{% if form.website.errors %} aria-invalid="true" aria-describedby="website-error"{% endif %}>
+  </fieldset>
+  {% if form.message.errors %}<p class="error" id="message-error" role="alert">{{ form.message.errors|join:" " }}</p>{% endif %}
+  <label for="message">Message <span class="hint">(optional for store requests, up to 2000 characters)</span></label>
+  <textarea id="message" name="message" rows="6" maxlength="2000"{% if form.message.errors %} aria-invalid="true" aria-describedby="message-error"{% endif %}>{{ form.message.value|default:'' }}</textarea>
+  {% if form.reply_email.errors %}<p class="error" id="reply-email-error" role="alert">{{ form.reply_email.errors|join:" " }}</p>{% endif %}
+  <label for="reply-email">Email for a reply (optional)</label>
+  <input type="email" id="reply-email" name="reply_email" maxlength="254" autocomplete="email" value="{{ form.reply_email.value|default:'' }}"{% if form.reply_email.errors %} aria-invalid="true" aria-describedby="reply-email-error"{% endif %}>
+  <p class="hint">Never published. Deleted when we close your item, or after 90 days. See <a href="{% url 'privacy' %}">Privacy</a>.</p>
+  <div class="hp" aria-hidden="true">
+    <label>Leave this empty <input name="hp_field_x" tabindex="-1" autocomplete="off"></label>
+  </div>
+  <button type="submit">Send</button>
+</form>
+{% endblock %}

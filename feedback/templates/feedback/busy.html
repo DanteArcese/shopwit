@@ -1,0 +1,11 @@
+{% extends "web/base.html" %}
+{% block title %}Try again later - UnitPricer{% endblock %}
+{% block main %}
+<h1>Try again later</h1>
+{% if rate_limited %}
+<p>Too many messages from you in a short time. Try again in an hour.</p>
+{% else %}
+<p>We've had a lot of feedback today. Please try again tomorrow.</p>
+{% endif %}
+<p><a href="{% url 'home' %}">Back to UnitPricer</a></p>
+{% endblock %}
