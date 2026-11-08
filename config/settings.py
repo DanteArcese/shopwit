@@ -97,3 +97,74 @@ CATEGORIES_DIR = BASE_DIR / "categories"
 STORE_BRANDS_FILE = BASE_DIR / "data/store_brands.yaml"
 
 SESSION_COOKIE_SAMESITE = "Lax"
+
+# Hosts and origins. Empty PUBLIC_HOST/APP_HOST means no host routing (dev).
+PUBLIC_HOST = env("UNITPRICER_PUBLIC_HOST", "")
+APP_HOST = env("UNITPRICER_APP_HOST", "")
+PUBLIC_URL = env("UNITPRICER_PUBLIC_URL", "")
+SITE_URL = env("UNITPRICER_SITE_URL", "")
+TRUST_CF_IP = env("UNITPRICER_TRUST_CF_IP", "0") == "1"
+
+# Security (production sits behind Cloudflare Tunnel, which terminates TLS).
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+SECURE_SSL_REDIRECT = not DEBUG
+SECURE_REDIRECT_EXEMPT = [r"^healthz$"]
+SECURE_HSTS_SECONDS = int(env("DJANGO_HSTS_SECONDS", 0 if DEBUG else 3600))
+SECURE_HSTS_INCLUDE_SUBDOMAINS = not DEBUG
+# Preload is a separate, later decision.
+SECURE_HSTS_PRELOAD = False
+SILENCED_SYSTEM_CHECKS = ["security.W021"]
+SESSION_COOKIE_SECURE = not DEBUG
+CSRF_COOKIE_SECURE = not DEBUG
+SESSION_COOKIE_HTTPONLY = True
+SECURE_REFERRER_POLICY = "same-origin"
+X_FRAME_OPTIONS = "DENY"
+CSRF_TRUSTED_ORIGINS = [
+    o.strip()
+    for o in env(
+        "DJANGO_CSRF_TRUSTED_ORIGINS", ",".join(f"https://{h}" for h in ALLOWED_HOSTS)
+    ).split(",")
+    if o.strip()
+]
+
+# Email (production: Resend over STARTTLS on port 2587; DigitalOcean blocks 25/465/587).
+EMAIL_BACKEND = env(
+    "DJANGO_EMAIL_BACKEND",
+    "django.core.mail.backends.console.EmailBackend"
+    if DEBUG
+    else "django.core.mail.backends.smtp.EmailBackend",
+)
+EMAIL_HOST = env("DJANGO_EMAIL_HOST", "localhost")
+EMAIL_PORT = int(env("DJANGO_EMAIL_PORT", 587))
+EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", "")
+EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD") or env("RESEND_API_KEY", "")
+EMAIL_USE_TLS = env("DJANGO_EMAIL_USE_TLS", "1") == "1"
+EMAIL_TIMEOUT = 20
+DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", "UnitPricer <hello@unitpricer.com>")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+CACHES = {
+    "default": {
+        "BACKEND": "django.core.cache.backends.db.DatabaseCache",
+        "LOCATION": "unitpricer_cache",
+    }
+}
+
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
+    "handlers": {
+        "stdout": {
+            "class": "logging.StreamHandler",
+            "stream": "ext://sys.stdout",
+            "formatter": "plain",
+        }
+    },
+    "root": {"handlers": ["stdout"], "level": env("DJANGO_LOG_LEVEL", "INFO")},
+    "loggers": {
+        "django.request": {"level": "ERROR", "propagate": True},
+        # Bots probing the tunnel with odd Host headers.
+        "django.security.DisallowedHost": {"level": "CRITICAL", "propagate": True},
+    },
+}

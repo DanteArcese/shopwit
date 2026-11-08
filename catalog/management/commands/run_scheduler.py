@@ -16,15 +16,19 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         # Logging is scoped to this run: handler and level are put back afterwards.
         log = scheduler.logger
-        handler = logging.StreamHandler()
-        handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+        # Production logging (settings.LOGGING) already prints; attach our own only if nothing would.
+        handler = None
+        if not log.hasHandlers():
+            handler = logging.StreamHandler()
+            handler.setFormatter(logging.Formatter("%(asctime)s %(message)s"))
+            log.addHandler(handler)
         old_level = log.level
-        log.addHandler(handler)
         log.setLevel(logging.INFO)
         stop = threading.Event()
         try:
             with scheduler.sigterm_stops(stop):
                 scheduler.run_loop(options["poll_seconds"], once=options["once"], stop=stop)
         finally:
-            log.removeHandler(handler)
+            if handler:
+                log.removeHandler(handler)
             log.setLevel(old_level)
