@@ -20,7 +20,7 @@
     </label>
     {% endif %}
   {% endfor %}
-  <label>Brand
+  <label>Brand type
     <select name="brand_tier">
       <option value="any">Any</option>
       {% for t in brand_tiers %}<option value="{{ t }}"{% if t == brand_tier %} selected{% endif %}>{% if t == "name_brand" %}Name brand{% else %}Store brand{% endif %}</option>{% endfor %}
@@ -28,8 +28,8 @@
   </label>
   <fieldset class="size-range">
     <legend>Size{% if size_unit %} ({{ size_unit }}){% endif %}</legend>
-    <input type="number" step="any" min="0" name="size_min" value="{{ size_min }}" aria-label="Minimum size" placeholder="Min">
-    <input type="number" step="any" min="0" name="size_max" value="{{ size_max }}" aria-label="Maximum size" placeholder="Max">
+    <input type="number" step="any" min="0" name="size_min" value="{{ size_min }}" aria-label="Min{% if size_unit %} {{ size_unit }}{% endif %}" placeholder="Min{% if size_unit %} {{ size_unit }}{% endif %}">
+    <input type="number" step="any" min="0" name="size_max" value="{{ size_max }}" aria-label="Max{% if size_unit %} {{ size_unit }}{% endif %}" placeholder="Max{% if size_unit %} {{ size_unit }}{% endif %}">
   </fieldset>
   <label>Compare by
     <select name="comparison">
@@ -37,7 +37,7 @@
     </select>
   </label>
   {% if stores %}
-  <label>Stores
+  <label>Stores{% if not selected_stores %} <span class="hint">(All stores)</span>{% endif %}
     <select name="store" multiple size="{{ stores|length }}">
       {% for s in stores %}<option value="{{ s.code }}"{% if s.code in selected_stores %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
     </select>

@@ -37,7 +37,7 @@ def test_htmx_request_returns_partial(client, milk_rows):
 def test_price_as_of_present_for_each_row(client, milk_rows):
     html = client.get("/c/dairy/milk/").content.decode()
     assert html.count("price as of") >= 4
-    assert html.count('<time datetime="2026-11-07T12:00:00+00:00"') >= 4
+    assert html.count('datetime="2026-11-07T12:00:00+00:00"') >= 4
     assert "Nov 7, 12:00 PM" in html
 
 

@@ -159,9 +159,15 @@ a { color: var(--accent); }
 
 .filters-drawer { margin: 1rem 0; }
 .filters-drawer summary { display: flex; align-items: center; min-height: 44px; font-weight: 600; cursor: pointer; }
+.filters-drawer summary::before { content: "\25B8"; margin-right: 0.5rem; }
+.filters-drawer[open] summary::before { content: "\25BE"; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.hint { color: var(--muted); font-size: 0.875rem; }
+.size-range { min-width: 0; }
 .filters-drawer .filters { margin-top: 0.5rem; }
 .result-price { display: inline-flex; gap: 0.5rem; }
 @media (min-width: 48rem) {
   .filters-drawer summary { display: none; }
+  .filters-drawer:not([open])::details-content { content-visibility: visible; display: block; }
   .filters { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
 }
