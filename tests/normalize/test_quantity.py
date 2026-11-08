@@ -222,3 +222,20 @@ def test_dozen_after_word_punctuation():
     assert parse_measures(["Grade A Large Eggs, Dozen"], "count")["count"] == 12
     assert parse_measures(["Eggs. Dozen"], "count")["count"] == 12
     assert parse_measures(["Eggs 1,5 Dozen"], "count") == {}
+
+
+def test_hyphen_before_fraction_is_unparsable():
+    assert parse_measures(["Milk 1-\u00bd gal"], "volume") == {}
+    assert parse_measures(["Milk 1-1/2 gal"], "volume") == {}
+
+
+def test_double_prime_inch_sheet_size():
+    out = parse_measures(
+        ["Paper Towels, 6 Rolls, 100 sheets per roll, 11 x 10.4\u2033"], "paper"
+    )
+    assert out["rolls"] == 6 and out["sheets"] == 600
+    assert out["area_m2"] == pytest.approx(600 * 11 * 10.4 * 0.00064516, rel=1e-3)
+
+
+def test_paren_before_dozen_is_unresolved():
+    assert parse_measures(["Eggs (12) Dozen"], "count") == {}
