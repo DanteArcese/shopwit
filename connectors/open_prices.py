@@ -241,6 +241,18 @@ def to_raw_offer(obs: Observation, fetched_at: datetime) -> RawOffer:
     )
 
 
+def _retry_after(resp: httpx.Response) -> float | None:
+    """A Retry-After given in seconds; anything else (an HTTP date, garbage) is None."""
+    value = resp.headers.get("Retry-After")
+    if value is None:
+        return None
+    try:
+        seconds = float(value.strip())
+    except ValueError:
+        return None
+    return seconds if math.isfinite(seconds) and seconds >= 0 else None
+
+
 class OpenPricesClient:
     def __init__(
         self,
@@ -248,10 +260,14 @@ class OpenPricesClient:
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
         budget_wait: Callable[[str], None] | None = None,
+        budget_report: Callable[..., None] | None = None,
     ) -> None:
         # With budget_wait (a DbBudget's wait), requests draw from the shared "openprices"
         # bucket instead of this client's own 1 req/s pacing.
         self._budget_wait = budget_wait
+        # With budget_report (a DbBudget's report), every response status (None for a
+        # transport error) feeds the shared row's backoff, which then paces the retry.
+        self._budget_report = budget_report
         self._client = client or httpx.Client(
             timeout=30, headers={"User-Agent": USER_AGENT}
         )
@@ -282,12 +298,16 @@ class OpenPricesClient:
                 resp = self._client.get(PRICES_URL, params={**params, "page": str(page)})
                 status = resp.status_code
             except httpx.HTTPError as exc:
+                if self._budget_report is not None:
+                    self._budget_report("openprices", None, None)
                 raise ConnectorError(
                     f"Open Prices request failed ({type(exc).__name__}) on page {page}"
                 ) from None
+            if self._budget_report is not None:
+                self._budget_report("openprices", status, _retry_after(resp))
             if status == 429 or status >= 500:
-                if attempt < ATTEMPTS - 1:
-                    self._sleep(BACKOFF[attempt])
+                if attempt < ATTEMPTS - 1 and self._budget_report is None:
+                    self._sleep(BACKOFF[attempt])  # with a budget, its backoff paces the retry
                 continue
             break
         if status != 200:

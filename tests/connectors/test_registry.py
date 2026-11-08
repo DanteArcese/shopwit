@@ -142,3 +142,28 @@ def test_live_sources_and_info(monkeypatch):
     assert "offstub" not in registry.live_source_info({})
     assert set(registry.live_source_info({}, live_off=True)) == {"offstub"}
     assert set(registry.live_sources({}, live_off=True)) == {"offstub"}
+
+
+class BrokenLive:
+    name = "broken"
+    budget_keys = ("broken",)
+    refresh_after = __import__("datetime").timedelta(hours=1)
+
+    def __init__(self, *args, **kwargs):
+        raise RuntimeError("secret-token-in-message")
+
+    def live_search(self, phrase, limit, budget): ...
+
+
+class NoAttrsLive:
+    def live_search(self, phrase, limit, budget): ...
+
+
+def test_raising_live_source_is_skipped(monkeypatch, caplog):
+    monkeypatch.setitem(registry.LIVE_OFF_SPECS, "broken", f"{__name__}:BrokenLive")
+    monkeypatch.setitem(registry.LIVE_OFF_SPECS, "noattrs", f"{__name__}:NoAttrsLive")
+    monkeypatch.setitem(registry.LIVE_OFF_SPECS, "missing", "connectors.nope:Gone")
+    monkeypatch.setitem(registry.LIVE_OFF_SPECS, "offstub", f"{__name__}:LiveStub")
+    assert set(registry.live_source_info({}, live_off=True)) == {"broken", "offstub"}
+    assert set(registry.live_sources({}, live_off=True)) == {"offstub"}
+    assert "secret" not in caplog.text and "broken" in caplog.text

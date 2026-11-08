@@ -525,3 +525,102 @@ def test_scheduled_ingest_takes_a_token_per_search(milk):
         FakeConnector({}, name="fake"), milk, NOW, off_lookup=no_off, budget=DbBudget()
     )
     assert other.status == "succeeded"
+
+
+# --- fix round 1 -------------------------------------------------------------
+
+
+def test_heartbeat_keeps_a_slow_job_alive(budgets):
+    sync_categories(settings.CATEGORIES_DIR)
+    j = job()
+    claimed = claim(NOW)
+    clock = [NOW]
+    seen = {}
+
+    def slow_requests():
+        budget = seen["budget"]
+        clock[0] = NOW + timedelta(minutes=6)
+        budget.acquire("walmart")  # a budgeted request, six minutes in
+        seen["housekeeping"] = housekeeping(NOW + timedelta(minutes=10))
+
+    source = FakeSource(result=LiveSearchResult(offers=[raw(retailer="walmart", item="W1")]))
+    source.before = slow_requests
+    original = source.live_search
+
+    def live_search(phrase, limit, budget):
+        seen["budget"] = budget
+        return original(phrase, limit, budget)
+
+    source.live_search = live_search
+    run_job(claimed, {"walmart": source}, DbBudget(now=lambda: clock[0]), NOW, clock=lambda: clock[0])
+    j.refresh_from_db()
+    assert seen["housekeeping"]["requeued"] == 0 and seen["housekeeping"]["stuck"] == 0
+    assert j.heartbeat_at == NOW + timedelta(minutes=6)
+    assert (j.status, j.result_count) == ("succeeded", 1)
+
+
+def test_reclaimed_job_skips_ingest(budgets):
+    sync_categories(settings.CATEGORIES_DIR)
+    j = job()
+    claimed = claim(NOW)
+
+    def reclaimed():  # housekeeping reset it and another worker claimed it meanwhile
+        FetchJob.objects.filter(pk=j.pk).update(started_at=NOW + timedelta(minutes=6))
+
+    source = FakeSource(
+        result=LiveSearchResult(offers=[raw(retailer="walmart", item="W1")]), before=reclaimed
+    )
+    run_job(claimed, {"walmart": source}, DbBudget(), NOW)
+    assert Offer.objects.count() == 0
+    j.refresh_from_db()
+    assert j.status == "running"
+
+
+def test_housekeeping_uses_heartbeat(budgets):
+    alive = job("a", status="running", started_at=NOW - timedelta(minutes=30),
+                heartbeat_at=NOW - timedelta(minutes=1), attempts=1)
+    dead = job("b", status="running", started_at=NOW - timedelta(minutes=30),
+               heartbeat_at=NOW - timedelta(minutes=6), attempts=1)
+    housekeeping(NOW)
+    alive.refresh_from_db()
+    dead.refresh_from_db()
+    assert alive.status == "running" and dead.status == "queued"
+
+
+def test_reused_warm_job_is_promoted_to_visitor(budgets):
+    warm = job(origin="warm", created=NOW - timedelta(minutes=10))
+    jobs = enqueue("oat milk", "search", NOW, SOURCES, client_key="1.2.3.4")
+    assert [j.pk for j in jobs] == [warm.pk]
+    warm.refresh_from_db()
+    assert warm.origin == "search" and warm.created_at == NOW
+    housekeeping(NOW + timedelta(seconds=60))
+    warm.refresh_from_db()
+    assert warm.status == "queued"  # the visitor TTL counts from the visit
+    other = job("rice", origin="search", created=NOW)
+    enqueue("rice", "warm", NOW + timedelta(seconds=5), SOURCES, client_key=None)
+    other.refresh_from_db()
+    assert other.origin == "search" and other.created_at == NOW  # never demoted
+
+
+def test_stopping_requeues_the_job(budgets):
+    stop = threading.Event()
+    stop.set()
+    j = job()
+    claimed = claim(NOW)
+
+    def calls_budget():
+        DbBudget(stop=stop).acquire("walmart")
+
+    run_job(claimed, {"walmart": FakeSource(before=calls_budget)}, DbBudget(stop=stop), NOW)
+    j.refresh_from_db()
+    assert (j.status, j.attempts, j.error) == ("queued", 0, "")
+
+
+def test_scheduled_ingest_interrupted_on_stop(milk):
+    budget_row("walmart")
+    stop = threading.Event()
+    stop.set()
+    conn = FakeConnector({}, name="walmart", records_price_history=False)
+    run = ingest(conn, milk, NOW, off_lookup=no_off, budget=DbBudget(stop=stop))
+    assert (run.status, run.error) == ("failed", "interrupted")
+    assert conn.queries == []

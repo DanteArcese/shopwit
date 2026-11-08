@@ -182,7 +182,11 @@ def fetch_housekeeping(now: datetime) -> dict[str, int] | None:
 def _open_prices(now: datetime, budget: DbBudget | None = None) -> list[IngestionRun]:
     client = None
     try:
-        client = OpenPricesClient(budget_wait=budget.wait) if budget else OpenPricesClient()
+        client = (
+            OpenPricesClient(budget_wait=budget.wait, budget_report=budget.report)
+            if budget
+            else OpenPricesClient()
+        )
         run = observed.sync_open_prices(client, now)
     except Exception as exc:
         logger.error("ingest connector=%s failed: %s", observed.CONNECTOR, type(exc).__name__)
@@ -212,7 +216,7 @@ def run_loop(
     With ``fetch`` (and not ``once``), ``settings.FETCH_THREADS`` daemon threads run
     the fetch loop alongside, sharing ``stop``; they are stopped and joined on exit.
     """
-    stop = stop or threading.Event()
+    stop = stop or StopEvent()
     wait = wait or stop.wait
     try:
         seed_budgets()
@@ -222,11 +226,10 @@ def run_loop(
     owned = connectors is None
     if owned:
         connectors = registry.available()  # built once, so HTTP clients are reused, not leaked
-    sources: Mapping[str, object] = {}
     threads: list[threading.Thread] = []
     try:
         if fetch and not once:
-            sources, threads = start_fetch_threads(stop, budget)
+            threads = start_fetch_threads(stop, budget)
         while not stop.is_set():
             tick(now(), connectors, budget=budget)
             if once:
@@ -234,41 +237,70 @@ def run_loop(
             wait(poll_seconds)
     finally:
         if threads:
-            stop.set()
-            stop_fetch_threads(threads, sources)
+            stop.set()  # a no-op after SIGTERM: the join deadline keeps the signal's time
+            stop_fetch_threads(threads, stop)
         if owned:
             close_connectors(connectors)
 
 
-FETCH_JOIN_TIMEOUT = 30.0  # well inside compose's 60 s stop_grace_period
+# Counted from the stop request (SIGTERM), so main-loop wind-down plus this join stays
+# well inside compose's 60 s stop_grace_period.
+FETCH_JOIN_TIMEOUT = 20.0
 
 
-def start_fetch_threads(
-    stop: threading.Event, budget: DbBudget
-) -> tuple[Mapping[str, object], list[threading.Thread]]:
-    sources = registry.live_sources(live_off=settings.LIVE_OFF_ENABLED)
+class StopEvent(threading.Event):
+    """An Event that remembers when it was first set (monotonic seconds)."""
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.set_at: float | None = None
+
+    def set(self) -> None:
+        if self.set_at is None:
+            self.set_at = time.monotonic()
+        super().set()
+
+
+def fetch_thread(stop: threading.Event, budget: DbBudget) -> None:
+    """One fetch thread: builds its own live sources (no client is shared between threads),
+    runs the fetch loop and closes them on exit."""
+    sources: Mapping[str, object] = {}
+    try:
+        sources = registry.live_sources(live_off=settings.LIVE_OFF_ENABLED)
+        logger.info(
+            "fetch thread %s sources=%s",
+            threading.current_thread().name,
+            ",".join(sorted(sources)) or "none",
+        )
+        fetch_loop(stop, sources=sources, budget=budget)
+    except Exception as exc:  # fetch_loop never raises; this guards the source factory
+        logger.error("fetch thread failed: %s", type(exc).__name__)
+    finally:
+        close_connectors(sources)
+
+
+def start_fetch_threads(stop: threading.Event, budget: DbBudget) -> list[threading.Thread]:
     threads = []
     for index in range(settings.FETCH_THREADS):
         thread = threading.Thread(
-            target=fetch_loop,
-            args=(stop,),
-            kwargs={"sources": sources, "budget": budget},
+            target=fetch_thread,
+            args=(stop, budget),
             name=f"fetch-{index}",
             daemon=True,  # never keeps the process alive past the join timeout
         )
         thread.start()
         threads.append(thread)
-    logger.info("fetch threads=%s sources=%s", len(threads), ",".join(sorted(sources)) or "none")
-    return sources, threads
+    return threads
 
 
-def stop_fetch_threads(threads: list[threading.Thread], sources: Mapping[str, object]) -> None:
-    deadline = time.monotonic() + FETCH_JOIN_TIMEOUT  # one budget for all threads together
+def stop_fetch_threads(threads: list[threading.Thread], stop: threading.Event) -> None:
+    """Join the fetch threads by FETCH_JOIN_TIMEOUT after the stop request (one deadline)."""
+    set_at = getattr(stop, "set_at", None)
+    deadline = (set_at if set_at is not None else time.monotonic()) + FETCH_JOIN_TIMEOUT
     for thread in threads:
         thread.join(max(0.0, deadline - time.monotonic()))
         if thread.is_alive():
             logger.warning("fetch thread %s did not stop in time", thread.name)
-    close_connectors(sources)
 
 
 @contextmanager

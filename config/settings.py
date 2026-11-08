@@ -132,8 +132,17 @@ def _budget(key, capacity, refill, daily):
             raise ImproperlyConfigured(
                 f"{prefix}_DAILY_LIMIT must be a positive integer or 'unlimited', got {raw_daily!r}"
             ) from None
+    raw_capacity = env(prefix + "_CAPACITY", capacity) or capacity
+    try:
+        capacity = float(raw_capacity)
+        if not capacity >= 1:  # also rejects nan: a bucket below 1 token never grants one
+            raise ValueError
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"{prefix}_CAPACITY must be a number of at least 1, got {raw_capacity!r}"
+        ) from None
     return {
-        "capacity": float(env(prefix + "_CAPACITY", capacity) or capacity),
+        "capacity": capacity,
         "refill_per_second": float(env(prefix + "_REFILL_PER_SECOND", refill) or refill),
         "daily_limit": daily_limit,
     }
@@ -141,7 +150,8 @@ def _budget(key, capacity, refill, daily):
 
 SOURCE_BUDGETS = {
     "off-search": _budget("off-search", 10, 10 / 60, None),
-    "openprices": _budget("openprices", 5, 1.0, None),
+    # Capacity 1: no burst, a steady 1 req/s, the etiquette the daily sync always kept.
+    "openprices": _budget("openprices", 1, 1.0, None),
     "walmart": _budget("walmart", 5, 1.0, 5000),
 }
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"

@@ -330,8 +330,13 @@ def test_run_loop_runs_fetch_threads_and_stops_them(settings, monkeypatch):
     from catalog.models import FetchJob, SourceBudget
 
     settings.FETCH_THREADS = 2
-    source = LiveFake()
-    monkeypatch.setattr(scheduler.registry, "live_sources", lambda **k: {"walmart": source})
+    built = []
+
+    def factory(**kwargs):  # each fetch thread builds (and closes) its own sources
+        built.append(LiveFake())
+        return {"walmart": built[-1]}
+
+    monkeypatch.setattr(scheduler.registry, "live_sources", factory)
     job = FetchJob.objects.create(source="walmart", phrase="oat milk", not_before=NOW)
     stop = threading.Event()
 
@@ -345,8 +350,10 @@ def test_run_loop_runs_fetch_threads_and_stops_them(settings, monkeypatch):
 
     scheduler.run_loop(poll_seconds=1, wait=wait, stop=stop, connectors={})
     job.refresh_from_db()
-    assert job.status == "succeeded" and source.calls == ["oat milk"]
-    assert source.closed
+    assert job.status == "succeeded"
+    assert len(built) == 2 and len({id(s) for s in built}) == 2
+    assert sorted(len(s.calls) for s in built) == [0, 1]
+    assert all(s.closed for s in built)
     assert not [t for t in threading.enumerate() if t.name.startswith("fetch-")]
     assert set(SourceBudget.objects.values_list("source", flat=True)) == set(settings.SOURCE_BUDGETS)
     assert SourceBudget.objects.get(pk="walmart").daily_used == 1
@@ -392,8 +399,9 @@ def test_open_prices_sync_draws_from_budget(cats, settings, monkeypatch):
     class FakeOP:
         unparsed = 0
 
-        def __init__(self, budget_wait=None):
+        def __init__(self, budget_wait=None, budget_report=None):
             seen["budget_wait"] = budget_wait
+            seen["budget_report"] = budget_report
 
         def fetch_window(self, since, currency):
             seen["budget_wait"]("openprices")
@@ -413,6 +421,7 @@ def test_open_prices_sync_draws_from_budget(cats, settings, monkeypatch):
     )
     runs = scheduler.tick(NOW, {}, budget=budget)
     assert [(r.connector, r.status, r.error) for r in runs] == [("openprices", "failed", "budget exhausted")]
+    assert seen["budget_report"] == budget.report
 
 
 def test_tick_stops_starting_work_once_stopping(cats):
@@ -423,3 +432,42 @@ def test_tick_stops_starting_work_once_stopping(cats):
     conn = FakeConnector()
     assert scheduler.tick(NOW, {"fake": conn}, budget=DbBudget(stop=stop)) == []
     assert conn.queries == [] and IngestionRun.objects.count() == 0
+
+
+
+def test_fetch_join_deadline_counts_from_stop():
+    assert scheduler.FETCH_JOIN_TIMEOUT <= 20
+    stop = scheduler.StopEvent()
+    assert stop.set_at is None
+    stop.set()
+    assert stop.set_at is not None
+    stop.set_at -= scheduler.FETCH_JOIN_TIMEOUT - 0.2  # SIGTERM came almost 20 s ago
+    hang = threading.Event()
+    thread = threading.Thread(target=hang.wait, args=(10,), name="fetch-test", daemon=True)
+    thread.start()
+    started = time.monotonic()
+    scheduler.stop_fetch_threads([thread], stop)
+    assert time.monotonic() - started < 1.5
+    hang.set()
+    thread.join()
+
+
+def test_fetch_thread_builds_and_closes_its_own_sources(db, monkeypatch):
+    built = []
+
+    def factory(**kwargs):
+        built.append(LiveFake())
+        return {"walmart": built[-1]}
+
+    monkeypatch.setattr(scheduler.registry, "live_sources", factory)
+    stop = threading.Event()
+    stop.set()
+    scheduler.fetch_thread(stop, scheduler.DbBudget(stop=stop))
+    assert len(built) == 1 and built[0].closed
+
+
+def test_command_stop_event_records_sigterm_time():
+    stop = scheduler.StopEvent()
+    with scheduler.sigterm_stops(stop):
+        signal.raise_signal(signal.SIGTERM)
+    assert stop.is_set() and stop.set_at is not None

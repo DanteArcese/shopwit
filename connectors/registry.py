@@ -98,6 +98,19 @@ def _class(path: str):
     return getattr(import_module(module_name), cls_name)
 
 
+def _live_class(name: str, path: str):
+    """The live source class, or None (logged by name only) when it cannot be read."""
+    try:
+        cls = _class(path)
+        if not hasattr(cls, "live_search"):
+            return None
+        _info(name, cls)  # the attributes the web process reads must be present
+        return cls
+    except Exception:
+        logger.warning("live source %s could not be loaded; skipping", name)
+        return None
+
+
 def _info(name: str, cls) -> SourceInfo:
     return SourceInfo(name=name, budget_keys=tuple(cls.budget_keys), refresh_after=cls.refresh_after)
 
@@ -105,35 +118,45 @@ def _info(name: str, cls) -> SourceInfo:
 def live_source_info(
     environ: Mapping[str, str] = os.environ, *, live_off: bool = False
 ) -> dict[str, SourceInfo]:
-    """What ``live_sources`` would build, read from class attributes; builds no HTTP client."""
+    """What ``live_sources`` would build, read from class attributes; builds no HTTP client.
+
+    Never raises: a source that cannot be imported or lacks its attributes is skipped.
+    """
     found: dict[str, SourceInfo] = {}
     for name, spec in SPECS.items():
         if _missing(spec, environ):
             continue
-        try:
-            cls = _class(spec.path)
-        except Exception:
-            logger.warning("connector %s could not be imported; skipping", name)
-            continue
-        if hasattr(cls, "live_search"):
+        cls = _live_class(name, spec.path)
+        if cls is not None:
             found[name] = _info(name, cls)
     if live_off:
         for name, path in LIVE_OFF_SPECS.items():
-            found[name] = _info(name, _class(path))
+            cls = _live_class(name, path)
+            if cls is not None:
+                found[name] = _info(name, cls)
     return found
 
 
 def live_sources(
     environ: Mapping[str, str] = os.environ, *, live_off: bool = False
 ) -> dict[str, LiveSearchSource]:
-    """Built live sources (worker only). Callers close them."""
+    """Built live sources (worker only). Callers close them.
+
+    Never raises: a source whose constructor fails is logged by name only and skipped.
+    """
     found: dict[str, LiveSearchSource] = {}
     for name in live_source_info(environ):
         try:
             found[name] = get(name, environ)
-        except ConnectorError:
+        except Exception:  # get() already strips messages; never log one here
             logger.warning("connector %s is configured but could not be built; skipping", name)
     if live_off:
         for name, path in LIVE_OFF_SPECS.items():
-            found[name] = _class(path)()
+            cls = _live_class(name, path)
+            if cls is None:
+                continue
+            try:
+                found[name] = cls()
+            except Exception:
+                logger.warning("live source %s could not be built; skipping", name)
     return found

@@ -254,6 +254,7 @@ class FetchJob(models.Model):
     created_at = models.DateTimeField(auto_now_add=True)
     not_before = models.DateTimeField()
     started_at = models.DateTimeField(null=True, blank=True)
+    heartbeat_at = models.DateTimeField(null=True, blank=True)  # bumped per budgeted request
     finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
     attempts = models.PositiveSmallIntegerField(default=0)
     result_count = models.IntegerField(default=0)

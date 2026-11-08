@@ -17,12 +17,14 @@ from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
-from connectors.live import BudgetExhausted
+from connectors.live import BudgetExhausted, Stopping
 
 from .models import SourceBudget
 
 BACKOFF_BASE = 5.0  # seconds
 BACKOFF_MAX = 900.0  # 15 minutes
+BACKOFF_MAX_EXPONENT = 8  # 5 s * 2**8 already exceeds BACKOFF_MAX; never overflows
+MAX_FAILURES = 1000  # the counter saturates (the column is a small integer)
 NO_REFILL_WAIT = (
     3600.0  # a bucket that never refills is retried hourly, never "forever"
 )
@@ -89,13 +91,12 @@ def backoff(
     b: Bucket, now: datetime, status: int | None, retry_after: float | None
 ) -> Bucket:
     if status is None or status in (429, 503):
-        delay = max(
-            min(BACKOFF_BASE * 2**b.consecutive_failures, BACKOFF_MAX), retry_after or 0
-        )
+        exponent = min(b.consecutive_failures, BACKOFF_MAX_EXPONENT)
+        delay = max(min(BACKOFF_BASE * 2**exponent, BACKOFF_MAX), retry_after or 0)
         return replace(
             b,
             blocked_until=now + timedelta(seconds=delay),
-            consecutive_failures=b.consecutive_failures + 1,
+            consecutive_failures=min(b.consecutive_failures + 1, MAX_FAILURES),
         )
     if 200 <= status < 300:
         return replace(b, blocked_until=None, consecutive_failures=0)
@@ -150,6 +151,8 @@ class DbBudget:
         return outcome
 
     def acquire(self, key: str) -> None:
+        if self.stopping:
+            raise Stopping()
         now = self._now()
         wait = self._apply(key, lambda b: take(b, now))
         if wait > 0:
@@ -171,23 +174,26 @@ class DbBudget:
     ) -> None:
         """Block until a token is taken; ``BudgetExhausted`` once ``max_wait`` would be passed.
 
-        A set ``stop`` event raises at once, so a shutting-down worker makes no more requests.
+        A set ``stop`` event raises ``Stopping`` at once, so a shutting-down worker makes no
+        more requests.
         """
         sleep = sleep or self._sleep
         stop = stop or self._stop
         waited = 0.0
         while True:
             if stop is not None and stop.is_set():
-                raise BudgetExhausted(0.0)
+                raise Stopping()
             try:
                 self.acquire(key)
                 return
+            except Stopping:
+                raise
             except BudgetExhausted as exc:
                 if waited + exc.wait > max_wait:
                     raise
                 if stop is not None:
                     if stop.wait(exc.wait):
-                        raise BudgetExhausted(0.0) from None
+                        raise Stopping() from None
                 else:
                     sleep(exc.wait)
                 waited += exc.wait

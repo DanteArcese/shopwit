@@ -1,5 +1,4 @@
 import logging
-import threading
 
 from django.core.management.base import BaseCommand
 
@@ -24,7 +23,7 @@ class Command(BaseCommand):
             log.addHandler(handler)
         old_level = log.level
         log.setLevel(logging.INFO)
-        stop = threading.Event()
+        stop = scheduler.StopEvent()  # remembers the SIGTERM time for the join deadline
         try:
             with scheduler.sigterm_stops(stop):
                 scheduler.run_loop(options["poll_seconds"], once=options["once"], stop=stop)

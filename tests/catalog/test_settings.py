@@ -93,3 +93,25 @@ def test_budget_daily_limit_rejects_zero_and_negative(monkeypatch, value):
     monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", value)
     with pytest.raises(ImproperlyConfigured):
         _budget("walmart", 5, 1.0, 5000)
+
+
+@pytest.mark.parametrize("value", ["0.5", "0", "-1", "nan", "lots"])
+def test_budget_capacity_must_be_at_least_one(monkeypatch, value):
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings import _budget
+
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_CAPACITY", value)
+    with pytest.raises(ImproperlyConfigured):
+        _budget("walmart", 5, 1.0, 5000)
+
+
+def test_openprices_budget_has_no_burst(monkeypatch):
+    from config.settings import _budget
+
+    monkeypatch.delenv("UNITPRICER_BUDGET_OPENPRICES_CAPACITY", raising=False)
+    from django.conf import settings
+
+    assert settings.SOURCE_BUDGETS["openprices"]["capacity"] == 1.0
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_CAPACITY", "1")
+    assert _budget("walmart", 5, 1.0, 5000)["capacity"] == 1.0

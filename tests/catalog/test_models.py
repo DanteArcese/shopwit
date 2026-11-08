@@ -120,7 +120,7 @@ def test_finished_job_does_not_block_a_new_one():
 def test_settings_budget_defaults():
     b = settings.SOURCE_BUDGETS
     assert b["off-search"] == {"capacity": 10.0, "refill_per_second": pytest.approx(1 / 6), "daily_limit": None}
-    assert b["openprices"] == {"capacity": 5.0, "refill_per_second": 1.0, "daily_limit": None}
+    assert b["openprices"] == {"capacity": 1.0, "refill_per_second": 1.0, "daily_limit": None}  # no burst
     assert b["walmart"]["daily_limit"] == 5000
     assert settings.FETCH_THREADS == 1
     assert settings.LIVE_OFF_ENABLED is False

@@ -438,3 +438,24 @@ def test_observed_categories_feed_path_and_are_stored():
     sync(obs(title="Oatly Oat Drink", upc="7394376616228", categories=("en:plant-based-milks",)))
     assert OpenPriceObservation.objects.get().categories == ["en:plant-based-milks"]
     assert Offer.objects.get().category_path == "Open Food Facts/Plant based milks"
+
+
+def test_stop_mid_sync_is_interrupted_and_still_due():
+    import threading
+
+    from catalog.budget import DbBudget, seed_budgets
+
+    seed_budgets()
+    stop = threading.Event()
+    budget = DbBudget(stop=stop)
+
+    class StoppingClient(FakeClient):
+        def fetch_window(self, since, currency):
+            budget.wait("openprices")  # page 1
+            stop.set()  # SIGTERM arrives
+            budget.wait("openprices")  # page 2
+            return []
+
+    run = sync_open_prices(StoppingClient(), NOW, off_lookup=no_off)
+    assert (run.status, run.error) == ("failed", "interrupted")
+    assert due(NOW + timedelta(minutes=1))  # an interrupted run is no upstream failure

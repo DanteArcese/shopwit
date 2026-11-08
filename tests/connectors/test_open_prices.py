@@ -315,3 +315,47 @@ def test_budget_wait_replaces_own_pacing():
     client.fetch_window(date(2026, 8, 10), "USD")
     assert waits == ["openprices", "openprices"]  # one token per request
     assert ft.sleeps == []  # the shared bucket paces; no local 1 req/s sleep
+
+
+def test_budget_report_gets_every_status_and_skips_local_backoff():
+
+    calls = []
+    pages = iter(
+        [
+            httpx.Response(429, headers={"Retry-After": "7"}),
+            httpx.Response(200, json={"items": [], "pages": 1}),
+        ]
+    )
+    ft = FakeTime()
+    http = httpx.Client(transport=httpx.MockTransport(lambda r: next(pages)))
+    client = OpenPricesClient(
+        http,
+        sleep=ft.sleep,
+        clock=ft.clock,
+        budget_wait=lambda key: calls.append(("wait", key)),
+        budget_report=lambda key, status, retry_after=None: calls.append(("report", key, status, retry_after)),
+    )
+    assert client.fetch_window(date(2026, 8, 10), "USD") == []
+    assert calls == [
+        ("wait", "openprices"),
+        ("report", "openprices", 429, 7.0),
+        ("wait", "openprices"),
+        ("report", "openprices", 200, None),
+    ]
+    assert ft.sleeps == []  # the shared row's backoff paces the retry
+
+
+def test_budget_report_on_transport_error():
+    calls = []
+
+    def boom(request):
+        raise httpx.ConnectError("down")
+
+    client = OpenPricesClient(
+        httpx.Client(transport=httpx.MockTransport(boom)),
+        budget_wait=lambda key: None,
+        budget_report=lambda key, status, retry_after=None: calls.append((key, status)),
+    )
+    with pytest.raises(ConnectorError):
+        client.fetch_window(date(2026, 8, 10), "USD")
+    assert calls == [("openprices", None)]

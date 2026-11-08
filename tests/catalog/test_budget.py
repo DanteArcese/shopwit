@@ -201,3 +201,28 @@ def test_seed_budgets_creates_missing_rows_only():
     SourceBudget.objects.filter(pk="walmart").update(capacity=99)  # an admin edit
     seed_budgets()
     assert SourceBudget.objects.get(pk="walmart").capacity == 99
+
+
+def test_backoff_never_overflows():
+    b = backoff(bucket(consecutive_failures=5000), T0, 503, None)
+    assert b.blocked_until == T0 + timedelta(seconds=900)
+    assert b.consecutive_failures == 1000
+    assert backoff(b, T0, None, None).consecutive_failures == 1000
+    assert backoff(bucket(consecutive_failures=5000), T0, 429, 3600).blocked_until == T0 + timedelta(hours=1)
+
+
+@pytest.mark.django_db
+def test_acquire_and_wait_raise_stopping_when_stopping():
+    from connectors.live import Stopping
+
+    make_row(tokens=5.0)
+    stop = threading.Event()
+    stop.set()
+    budget = DbBudget(stop=stop)
+    assert budget.stopping
+    with pytest.raises(Stopping):
+        budget.acquire("walmart")
+    with pytest.raises(Stopping):
+        budget.wait("walmart")
+    assert SourceBudget.objects.get(pk="walmart").tokens == 5.0  # no token spent
+    assert issubclass(Stopping, BudgetExhausted)

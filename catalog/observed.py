@@ -15,7 +15,7 @@ from django.utils import timezone
 
 import enrichment.off
 from connectors.base import ConnectorError
-from connectors.live import BudgetExhausted
+from connectors.live import BudgetExhausted, Stopping
 from connectors.open_prices import (
     Observation,
     OpenPricesClient,
@@ -27,7 +27,7 @@ from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.types import OffProduct
 
-from .ingest import _upsert
+from .ingest import INTERRUPTED, _upsert
 from .merge import merge_product
 from .models import IngestionRun, Offer, OpenPriceObservation, Product, Store
 
@@ -42,7 +42,11 @@ logger = logging.getLogger(__name__)
 
 def due(now: datetime) -> bool:
     runs = IngestionRun.objects.filter(connector=CONNECTOR)
-    if runs.filter(started_at__gte=now - RETRY_BACKOFF).exists():
+    # A run interrupted by a shutdown says nothing about upstream, so it never delays a retry.
+    recent = runs.filter(started_at__gte=now - RETRY_BACKOFF).exclude(
+        status=IngestionRun.Status.FAILED, error=INTERRUPTED
+    )
+    if recent.exists():
         return False  # any run, so a failing upstream is retried hourly at most
     return not runs.filter(
         status=IngestionRun.Status.SUCCEEDED,
@@ -94,6 +98,8 @@ def sync_open_prices(
         fetched = client.fetch_window(since, settings.SITE_CURRENCY)
     except ConnectorError as exc:
         return _fail(run, str(exc))
+    except Stopping:  # the worker is shutting down; due() retries at once on the next start
+        return _fail(run, INTERRUPTED)
     except BudgetExhausted:  # no token within the wait (or shutting down); the next due check retries
         return _fail(run, "budget exhausted")
     except Exception as exc:  # never leave a RUNNING row; type name only

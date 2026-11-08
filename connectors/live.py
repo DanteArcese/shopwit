@@ -22,6 +22,13 @@ class BudgetExhausted(Exception):
         self.wait = float(wait)
 
 
+class Stopping(BudgetExhausted):
+    """The worker is shutting down: make no new request. Runs record it as "interrupted"."""
+
+    def __init__(self) -> None:
+        super().__init__(0.0)
+
+
 class Budget(Protocol):
     def acquire(self, key: str) -> None:
         """Take one token for ``key`` or raise ``BudgetExhausted``."""

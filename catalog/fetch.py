@@ -11,7 +11,7 @@ from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 
 from django.db import IntegrityError, close_old_connections, connection, transaction
-from django.db.models import Case, F, IntegerField, Value, When
+from django.db.models import Case, F, IntegerField, Q, Value, When
 from django.utils import timezone
 
 from connectors.live import Budget, BudgetExhausted, LiveSearchSource, SourceInfo
@@ -57,6 +57,13 @@ def enqueue(
         for name, info in sources.items():
             existing = _active(name, phrase)
             if existing is not None:
+                if existing.origin == "warm" and origin in VISITOR_ORIGINS:
+                    # A visitor is now waiting on it: claim it first, and expire it on the
+                    # visitor clock (VISITOR_TTL from now), like any visitor job.
+                    FetchJob.objects.filter(pk=existing.pk, origin="warm").update(
+                        origin=origin, created_at=now
+                    )
+                    existing.origin, existing.created_at = origin, now
                 jobs.append(existing)
                 continue
             if FetchJob.objects.filter(
@@ -119,8 +126,9 @@ def claim(now: datetime) -> FetchJob | None:
             return None
         job.status = FetchJob.Status.RUNNING
         job.started_at = now
+        job.heartbeat_at = now
         job.attempts += 1
-        job.save(update_fields=["status", "started_at", "attempts"])
+        job.save(update_fields=["status", "started_at", "heartbeat_at", "attempts"])
     return job
 
 
@@ -135,45 +143,60 @@ def _finish(job: FetchJob, status: str, now: datetime, **fields) -> None:
     _mine(job).update(status=status, finished_at=now, **fields)
 
 
+class _Heartbeat:
+    """Wraps the budget for one job: each granted token also bumps the job's heartbeat,
+    so housekeeping reclaims only jobs that stopped making requests, not slow ones."""
+
+    def __init__(self, job: FetchJob, budget: Budget, clock: Callable[[], datetime]) -> None:
+        self._job = job
+        self._budget = budget
+        self._clock = clock
+
+    def acquire(self, key: str) -> None:
+        self._budget.acquire(key)
+        _mine(self._job).update(heartbeat_at=self._clock())
+
+    def report(self, key: str, status: int | None, retry_after: float | None = None) -> None:
+        self._budget.report(key, status, retry_after)
+        _mine(self._job).update(heartbeat_at=self._clock())  # a response arrived: still alive
+
+
 def run_job(
     job: FetchJob,
     sources: Mapping[str, LiveSearchSource],
     budget: Budget,
     now: datetime,
+    *,
+    clock: Callable[[], datetime] = timezone.now,
 ) -> None:
     source = sources.get(job.source)
     if source is None:
         _finish(job, FetchJob.Status.SKIPPED, now)
         return
     try:
-        result = source.live_search(job.phrase, LIVE_LIMIT, budget)
+        result = source.live_search(job.phrase, LIVE_LIMIT, _Heartbeat(job, budget, clock))
+        # Still ours? (bumps the heartbeat for the ingest.) If reclaimed meanwhile, the new
+        # owner writes its own result.
+        if not _mine(job).update(heartbeat_at=clock()):
+            logger.warning("fetch job=%s source=%s reclaimed; result dropped", job.pk, job.source)
+            return
         count = ingest_live(result, source.name, now)
-    except BudgetExhausted as exc:
+    except BudgetExhausted as exc:  # includes Stopping (wait 0): back to the queue
         _mine(job).update(
             status=FetchJob.Status.QUEUED,
             not_before=now + min(timedelta(seconds=max(exc.wait, 0.0)), MAX_REQUEUE),
             started_at=None,
+            heartbeat_at=None,
             attempts=F("attempts") - 1,
         )
-        logger.info(
-            "fetch job=%s source=%s waiting %.1fs for budget",
-            job.pk,
-            job.source,
-            exc.wait,
-        )
+        logger.info("fetch job=%s source=%s waiting %.1fs for budget", job.pk, job.source, exc.wait)
         return
-    except (
-        Exception
-    ) as exc:  # the type name only: messages can carry the phrase or URLs
-        logger.error(
-            "fetch job=%s source=%s failed: %s", job.pk, job.source, type(exc).__name__
-        )
+    except Exception as exc:  # the type name only: messages can carry the phrase or URLs
+        logger.error("fetch job=%s source=%s failed: %s", job.pk, job.source, type(exc).__name__)
         _finish(job, FetchJob.Status.FAILED, now, error=type(exc).__name__[:200])
         return
     _finish(job, FetchJob.Status.SUCCEEDED, now, result_count=count)
-    logger.info(
-        "fetch job=%s source=%s succeeded products=%s", job.pk, job.source, count
-    )
+    logger.info("fetch job=%s source=%s succeeded products=%s", job.pk, job.source, count)
 
 
 def housekeeping(now: datetime) -> dict[str, int]:
@@ -182,14 +205,15 @@ def housekeeping(now: datetime) -> dict[str, int]:
         origin__in=VISITOR_ORIGINS,
         created_at__lte=now - VISITOR_TTL,
     ).update(status=FetchJob.Status.EXPIRED, finished_at=now)
-    stuck = FetchJob.objects.filter(
-        status=FetchJob.Status.RUNNING, started_at__lte=now - STUCK_AFTER
+    cutoff = now - STUCK_AFTER
+    stuck = FetchJob.objects.filter(status=FetchJob.Status.RUNNING).filter(
+        Q(heartbeat_at__lte=cutoff) | Q(heartbeat_at__isnull=True, started_at__lte=cutoff)
     )
     failed = stuck.filter(attempts__gte=2).update(
         status=FetchJob.Status.FAILED, error="stuck", finished_at=now
     )
     requeued = stuck.filter(attempts__lt=2).update(
-        status=FetchJob.Status.QUEUED, not_before=now, started_at=None
+        status=FetchJob.Status.QUEUED, not_before=now, started_at=None, heartbeat_at=None
     )
     deleted, _ = FetchJob.objects.filter(
         status__in=FetchJob.TERMINAL, finished_at__lt=now - RETENTION
@@ -219,7 +243,7 @@ def fetch_loop(
                 if job is None:
                     stop.wait(poll)  # idle: keep the connection; a dead one errors below
                     continue
-                run_job(job, sources, budget, now())
+                run_job(job, sources, budget, now(), clock=now)
                 close_old_connections()  # a job's connection is not reused past CONN_MAX_AGE
             except Exception as exc:
                 logger.error(

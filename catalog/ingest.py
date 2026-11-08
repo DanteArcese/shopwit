@@ -13,7 +13,7 @@ from django.utils import timezone
 
 import enrichment.off
 from connectors.base import Connector, ConnectorError
-from connectors.live import BudgetExhausted, LiveSearchResult
+from connectors.live import BudgetExhausted, LiveSearchResult, Stopping
 from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.generic import generic_measure, generic_unit_price, off_category_path
@@ -28,6 +28,8 @@ if TYPE_CHECKING:
     from .budget import DbBudget
 
 logger = logging.getLogger(__name__)
+
+INTERRUPTED = "interrupted"  # IngestionRun.error for a run cut short by a worker shutdown
 
 
 def _upsert(
@@ -154,6 +156,8 @@ def ingest(
                 unique.setdefault((raw.retailer, raw.retailer_item_id), raw)
     except ConnectorError as exc:
         return _fail(run, str(exc), len(unique), skipped)
+    except Stopping:  # the worker is shutting down; not a source or budget problem
+        return _fail(run, INTERRUPTED, len(unique), skipped)
     except BudgetExhausted:  # the next tick retries
         return _fail(run, "budget exhausted", len(unique), skipped)
     except Exception as exc:  # never leave a RUNNING row; the type name only, no message text
