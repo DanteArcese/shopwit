@@ -19,8 +19,14 @@ def _expand_vulgar(match: re.Match[str]) -> str:
     return f" {frac} "
 
 
+# U+2032/U+2033 (prime, double prime) NFKC-decompose to "'" / "''"; map them first so
+# a double prime stays one inch mark.
+_PRIMES = str.maketrans({"\u2032": "'", "\u2033": '"'})
+
+
 def fold(text: str) -> str:
     """NFKC, straight quotes, single spaces (NBSP included), stripped, casefolded."""
+    text = text.translate(_PRIMES)
     text = _VULGAR.sub(_expand_vulgar, _TRADEMARK.sub(" ", text))
     text = unicodedata.normalize("NFKC", text).replace("\u2044", "/").translate(_QUOTES)
     return _SPACE.sub(" ", text).strip().casefold()

@@ -81,3 +81,7 @@
 - title: "Carnation Nonfat Dry Milk, 9.6 oz"
   expect:
     category: null
+- title: "Peanut-Free Whole Milk, 1 gal"
+  expect:
+    category: dairy/milk
+    measures: {volume_ml: 3785.41}

@@ -222,3 +222,58 @@ def test_dozen_after_word_punctuation():
     assert parse_measures(["Grade A Large Eggs, Dozen"], "count")["count"] == 12
     assert parse_measures(["Eggs. Dozen"], "count")["count"] == 12
     assert parse_measures(["Eggs 1,5 Dozen"], "count") == {}
+
+
+def test_hyphen_before_fraction_is_unparsable():
+    assert parse_measures(["Milk 1-\u00bd gal"], "volume") == {}
+    assert parse_measures(["Milk 1-1/2 gal"], "volume") == {}
+
+
+def test_double_prime_inch_sheet_size():
+    out = parse_measures(
+        ["Paper Towels, 6 Rolls, 100 sheets per roll, 11 x 10.4\u2033"], "paper"
+    )
+    assert out["rolls"] == 6 and out["sheets"] == 600
+    assert out["area_m2"] == pytest.approx(600 * 11 * 10.4 * 0.00064516, rel=1e-3)
+
+
+def test_paren_before_dozen_is_unresolved():
+    assert parse_measures(["Eggs (12) Dozen"], "count") == {}
+
+
+@pytest.mark.parametrize(
+    "text,dim",
+    [
+        ("Milk 1-2 gal", "volume"),
+        ("Milk 1 - 2 gal", "volume"),
+        ("Milk 1–2 gal", "volume"),
+        ("Milk 1 to 2 gal", "volume"),
+        ("Chicken 1 - 2 lb", "mass"),
+        ("Chicken 1-2 lb", "mass"),
+        ("Chicken 1–2 lb", "mass"),
+        ("Eggs 12-18 ct", "count"),
+        ("Eggs 12 to 18 ct", "count"),
+        ("Eggs 1–2 dozen", "count"),
+    ],
+)
+def test_numeric_range_is_unparsable(text, dim):
+    assert parse_measures([text], dim) == {}
+
+
+def test_multipack_and_hyphenated_words_still_parse():
+    assert parse_measures(["Water 2-pack 64 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        2 * 64 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Water 64 fl oz, 2-Pack"], "volume")["volume_ml"] == pytest.approx(
+        2 * 64 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda 6 x 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        72 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda 2 pk 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        24 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda Pack of 2 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        24 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Ultra-Filtered Milk 1 gal"], "volume")["volume_ml"] == pytest.approx(3785.41, rel=1e-3)

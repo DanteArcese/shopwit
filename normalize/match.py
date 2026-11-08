@@ -17,6 +17,11 @@ def phrase_regex(phrase: str) -> re.Pattern:
     return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)")
 
 
+def exclude_regex(phrase: str) -> re.Pattern:
+    """Like phrase_regex, but "peanut-free" does not trigger an exclude of "peanut"."""
+    return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)(?!-free\b)")
+
+
 def _forms(phrase: str, plural: bool) -> list[str]:
     base = fold(phrase)
     if not plural:
@@ -39,7 +44,7 @@ def find_category(
     best_len = 0
     best: list[tuple[str, tuple[int, int]]] = []
     for slug, cat in categories.items():
-        if any(phrase_regex(p).search(text) for p in cat.exclude):
+        if any(exclude_regex(p).search(text) for p in cat.exclude):
             continue
         hits = [
             m.span()
