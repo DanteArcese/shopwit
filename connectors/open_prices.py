@@ -247,7 +247,11 @@ class OpenPricesClient:
         client: httpx.Client | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        budget_wait: Callable[[str], None] | None = None,
     ) -> None:
+        # With budget_wait (a DbBudget's wait), requests draw from the shared "openprices"
+        # bucket instead of this client's own 1 req/s pacing.
+        self._budget_wait = budget_wait
         self._client = client or httpx.Client(
             timeout=30, headers={"User-Agent": USER_AGENT}
         )
@@ -270,7 +274,10 @@ class OpenPricesClient:
     def _get_page(self, params: dict[str, str], page: int) -> dict:
         status = 0
         for attempt in range(ATTEMPTS):
-            self._pace()
+            if self._budget_wait is not None:
+                self._budget_wait("openprices")
+            else:
+                self._pace()
             try:
                 resp = self._client.get(PRICES_URL, params={**params, "page": str(page)})
                 status = resp.status_code

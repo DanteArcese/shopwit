@@ -59,7 +59,12 @@ docker compose up
 ```
 
 This runs Postgres, the web server on port 8000, and a worker (`run_scheduler`) that refreshes
-synced categories roughly every 12 hours.
+synced categories roughly every 12 hours. The worker also runs a fetch thread
+(`UNITPRICER_FETCH_THREADS`, 1 or 2) that takes queued live-search jobs. Every request to a
+source draws a token from that source's `SourceBudget` row, which the scheduled refresh shares.
+The worker creates missing budget rows from the `UNITPRICER_BUDGET_*` settings at startup and
+never overwrites an existing row: to apply a changed setting, edit the row in the admin or
+delete it and restart the worker.
 
 ## How it works
 

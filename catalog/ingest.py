@@ -2,8 +2,10 @@
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Mapping
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from django.conf import settings
 from django.db import transaction
@@ -11,6 +13,7 @@ from django.utils import timezone
 
 import enrichment.off
 from connectors.base import Connector, ConnectorError
+from connectors.live import BudgetExhausted, LiveSearchResult
 from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.generic import generic_measure, generic_unit_price, off_category_path
@@ -20,6 +23,11 @@ from normalize.types import NormalizedOffer, OffProduct
 from .identity import product_identity
 from .merge import merge_product
 from .models import Category, IngestionRun, Offer, PriceHistory, Product
+
+if TYPE_CHECKING:
+    from .budget import DbBudget
+
+logger = logging.getLogger(__name__)
 
 
 def _upsert(
@@ -124,7 +132,9 @@ def ingest(
     now: datetime,
     *,
     off_lookup=enrichment.off.lookup,
+    budget: DbBudget | None = None,
 ) -> IngestionRun:
+    """Refresh one category. With ``budget``, a budgeted connector waits for a token per search."""
     run = IngestionRun.objects.create(
         connector=connector.name, category_slug=category.slug, started_at=now
     )
@@ -133,14 +143,19 @@ def ingest(
 
     unique = {}
     skipped = 0
+    paced = budget is not None and connector.name in settings.SOURCE_BUDGETS
     try:
         for query in category.search:
+            if paced:
+                budget.wait(connector.name)
             result = connector.search(query)
             skipped += result.skipped
             for raw in result.offers:
                 unique.setdefault((raw.retailer, raw.retailer_item_id), raw)
     except ConnectorError as exc:
         return _fail(run, str(exc), len(unique), skipped)
+    except BudgetExhausted:  # the next tick retries
+        return _fail(run, "budget exhausted", len(unique), skipped)
     except Exception as exc:  # never leave a RUNNING row; the type name only, no message text
         return _fail(run, type(exc).__name__, len(unique), skipped)
 
@@ -189,3 +204,86 @@ def ingest(
     run.finished_at = timezone.now()
     run.save()
     return run
+
+
+def ingest_live(
+    result: LiveSearchResult,
+    source_name: str,
+    now: datetime,
+    *,
+    off_lookup=enrichment.off.lookup,
+) -> int:
+    """Write one live search result; returns the number of distinct products touched.
+
+    OFF records go to the ``OffEntry`` cache first (so the offers below see them),
+    live offers are written curated or generic and never to ``PriceHistory``, and
+    Open Prices observations are written exactly as the daily sync writes them.
+    One bad record is skipped, never fatal.
+    """
+    from connectors.open_prices import skip_reason
+
+    from .observed import upsert_observations  # observed imports this module
+
+    categories = load_categories(settings.CATEGORIES_DIR)
+    store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
+    skipped = 0
+    for record in result.off_records:
+        try:
+            enrichment.off._save(record)
+        except Exception:
+            skipped += 1
+
+    model_cache: dict[str, Category] = {}
+    touched: set[int] = set()
+    for raw in result.offers:
+        try:
+            off = off_lookup(raw.upc)
+            normalized = normalize(raw, categories, store_brands, off=off)
+            with transaction.atomic():
+                _upsert(
+                    raw,
+                    normalized,
+                    model_cache,
+                    now,
+                    touched,
+                    records_price_history=False,
+                    extra_defaults={"kind": Offer.Kind.LIVE},
+                    off=off,
+                    store_brands=store_brands,
+                )
+        except Exception:
+            skipped += 1
+
+    today = now.date()
+    kept = [
+        obs
+        for obs in result.observations
+        if skip_reason(
+            obs,
+            country=settings.OPEN_PRICES_COUNTRY,
+            currency=settings.SITE_CURRENCY,
+            include_assisted=settings.OPEN_PRICES_INCLUDE_ASSISTED,
+            today=today,
+        )
+        is None
+    ]
+    skipped += len(result.observations) - len(kept)
+    if kept:
+        try:
+            observed_touched, _, observed_skipped = upsert_observations(
+                kept, now, off_lookup=off_lookup, run=None
+            )
+            touched |= observed_touched
+            skipped += observed_skipped
+        except Exception as exc:  # the observation transaction rolled back; offers above stay
+            skipped += len(kept)
+            logger.warning("ingest_live source=%s observations failed: %s", source_name, type(exc).__name__)
+
+    for pk in sorted(touched):
+        try:
+            merge_product(Product.objects.get(pk=pk), now)
+        except Exception:
+            skipped += 1
+    if skipped:
+        logger.info("ingest_live source=%s skipped=%s", source_name, skipped + result.skipped)
+    return len(touched)

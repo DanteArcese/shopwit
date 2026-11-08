@@ -107,3 +107,38 @@ def test_available_warns_naming_connector_only(monkeypatch, caplog):
     text = " ".join(r.getMessage() for r in caplog.records)
     assert "boom" in text and "hunter2" not in text
     assert all(r.exc_info is None for r in caplog.records)
+
+
+class LiveStub:
+    name = "livestub"
+    budget_keys = ("livestub",)
+    refresh_after = __import__("datetime").timedelta(hours=3)
+    built = 0
+
+    def __init__(self, token=None, client=None):
+        type(self).built += 1
+
+    def live_search(self, phrase, limit, budget): ...
+
+
+def test_live_sources_and_info(monkeypatch):
+    from datetime import timedelta
+
+    from connectors.live import SourceInfo
+
+    assert registry.live_sources({}) == {} and registry.live_source_info({}) == {}
+    monkeypatch.setitem(registry.SPECS, "stub", registry.Spec(f"{__name__}:Stub", {"token": "STUB_TOKEN"}))
+    monkeypatch.setitem(registry.SPECS, "livestub", registry.Spec(f"{__name__}:LiveStub", {"token": "LIVE_TOKEN"}))
+    env = {"STUB_TOKEN": "t", "LIVE_TOKEN": "t"}
+    LiveStub.built = 0
+    info = registry.live_source_info(env)
+    assert info == {"livestub": SourceInfo("livestub", ("livestub",), timedelta(hours=3))}
+    assert LiveStub.built == 0  # the web process builds no client
+    built = registry.live_sources(env)
+    assert set(built) == {"livestub"} and LiveStub.built == 1  # no live_search: not a live source
+    assert registry.live_source_info({"STUB_TOKEN": "t"}) == {}
+
+    monkeypatch.setitem(registry.LIVE_OFF_SPECS, "offstub", f"{__name__}:LiveStub")
+    assert "offstub" not in registry.live_source_info({})
+    assert set(registry.live_source_info({}, live_off=True)) == {"offstub"}
+    assert set(registry.live_sources({}, live_off=True)) == {"offstub"}

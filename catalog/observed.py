@@ -15,6 +15,7 @@ from django.utils import timezone
 
 import enrichment.off
 from connectors.base import ConnectorError
+from connectors.live import BudgetExhausted
 from connectors.open_prices import (
     Observation,
     OpenPricesClient,
@@ -93,6 +94,8 @@ def sync_open_prices(
         fetched = client.fetch_window(since, settings.SITE_CURRENCY)
     except ConnectorError as exc:
         return _fail(run, str(exc))
+    except BudgetExhausted:  # no token within the wait (or shutting down); the next due check retries
+        return _fail(run, "budget exhausted")
     except Exception as exc:  # never leave a RUNNING row; type name only
         return _fail(run, type(exc).__name__)
 

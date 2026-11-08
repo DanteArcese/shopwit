@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import signal
 import threading
+import time
 from contextlib import contextmanager
 from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
@@ -19,6 +20,8 @@ from connectors.base import Connector
 from connectors.open_prices import OpenPricesClient
 
 from . import observed
+from .budget import DbBudget, seed_budgets
+from .fetch import fetch_loop, housekeeping
 from .ingest import ingest
 from .models import Category, IngestionRun
 
@@ -81,23 +84,33 @@ def close_connectors(connectors: Mapping[str, Connector]) -> None:
                 logger.warning("closing connector %s failed: %s", connector.name, type(exc).__name__)
 
 
-def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> list[IngestionRun]:
+def tick(
+    now: datetime,
+    connectors: Mapping[str, Connector] | None = None,
+    *,
+    budget: DbBudget | None = None,
+) -> list[IngestionRun]:
+    """One pass. With ``budget``, scheduled requests draw from the shared SourceBudget rows."""
     if connectors is None:
         connectors = registry.available()
         try:
-            return tick(now, connectors)
+            return tick(now, connectors, budget=budget)
         finally:
             close_connectors(connectors)
     runs = []
     for name, slug in due(now, connectors):
+        if budget is not None and budget.stopping:
+            return runs  # shutting down: leave the remaining pairs for the next start
         try:
-            run = ingest(connectors[name], Category.objects.get(slug=slug), now)
+            run = ingest(connectors[name], Category.objects.get(slug=slug), now, budget=budget)
         except Exception as exc:  # one bad pair must not stop the others
             logger.error("ingest connector=%s category=%s failed: %s", name, slug, type(exc).__name__)
             runs.append(_fail_run(name, slug, now, exc))
             continue
         log_run(run)
         runs.append(run)
+    if budget is not None and budget.stopping:
+        return runs
     if settings.OPEN_PRICES_ENABLED:
         try:
             open_prices_due = observed.due(now)
@@ -105,7 +118,8 @@ def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> li
             logger.error("open prices due check failed: %s", type(exc).__name__)
             open_prices_due = False
         if open_prices_due:
-            runs.extend(_open_prices(now))
+            runs.extend(_open_prices(now, budget))
+    fetch_housekeeping(now)
     clear_expired_sessions(now)
     purge_feedback_emails(now)
     return runs
@@ -150,10 +164,25 @@ def purge_feedback_emails(now: datetime) -> bool:
     return True
 
 
-def _open_prices(now: datetime) -> list[IngestionRun]:
+def fetch_housekeeping(now: datetime) -> dict[str, int] | None:
+    """Expire, reclaim and prune fetch jobs. Never raises."""
+    try:
+        counts = housekeeping(now)
+    except Exception as exc:
+        logger.error("fetch housekeeping failed: %s", type(exc).__name__)
+        return None
+    if any(counts.values()):
+        logger.info(
+            "fetch housekeeping expired=%s requeued=%s stuck=%s deleted=%s",
+            counts["expired"], counts["requeued"], counts["stuck"], counts["deleted"],
+        )
+    return counts
+
+
+def _open_prices(now: datetime, budget: DbBudget | None = None) -> list[IngestionRun]:
     client = None
     try:
-        client = OpenPricesClient()
+        client = OpenPricesClient(budget_wait=budget.wait) if budget else OpenPricesClient()
         run = observed.sync_open_prices(client, now)
     except Exception as exc:
         logger.error("ingest connector=%s failed: %s", observed.CONNECTOR, type(exc).__name__)
@@ -176,22 +205,70 @@ def run_loop(
     now: Callable[[], datetime] = timezone.now,
     stop: threading.Event | None = None,
     connectors: Mapping[str, Connector] | None = None,
+    fetch: bool = True,
 ) -> None:
-    """Tick, then wait; a stop request ends the wait at once and the loop exits."""
+    """Tick, then wait; a stop request ends the wait at once and the loop exits.
+
+    With ``fetch`` (and not ``once``), ``settings.FETCH_THREADS`` daemon threads run
+    the fetch loop alongside, sharing ``stop``; they are stopped and joined on exit.
+    """
     stop = stop or threading.Event()
     wait = wait or stop.wait
+    try:
+        seed_budgets()
+    except Exception as exc:  # budgeted calls fail (and retry) until the rows exist
+        logger.error("seeding source budgets failed: %s", type(exc).__name__)
+    budget = DbBudget(stop=stop)  # a stop request also ends any budget wait
     owned = connectors is None
     if owned:
         connectors = registry.available()  # built once, so HTTP clients are reused, not leaked
+    sources: Mapping[str, object] = {}
+    threads: list[threading.Thread] = []
     try:
+        if fetch and not once:
+            sources, threads = start_fetch_threads(stop, budget)
         while not stop.is_set():
-            tick(now(), connectors)
+            tick(now(), connectors, budget=budget)
             if once:
                 return
             wait(poll_seconds)
     finally:
+        if threads:
+            stop.set()
+            stop_fetch_threads(threads, sources)
         if owned:
             close_connectors(connectors)
+
+
+FETCH_JOIN_TIMEOUT = 30.0  # well inside compose's 60 s stop_grace_period
+
+
+def start_fetch_threads(
+    stop: threading.Event, budget: DbBudget
+) -> tuple[Mapping[str, object], list[threading.Thread]]:
+    sources = registry.live_sources(live_off=settings.LIVE_OFF_ENABLED)
+    threads = []
+    for index in range(settings.FETCH_THREADS):
+        thread = threading.Thread(
+            target=fetch_loop,
+            args=(stop,),
+            kwargs={"sources": sources, "budget": budget},
+            name=f"fetch-{index}",
+            daemon=True,  # never keeps the process alive past the join timeout
+        )
+        thread.start()
+        threads.append(thread)
+    logger.info("fetch threads=%s sources=%s", len(threads), ",".join(sorted(sources)) or "none")
+    return sources, threads
+
+
+def stop_fetch_threads(threads: list[threading.Thread], sources: Mapping[str, object]) -> None:
+    deadline = time.monotonic() + FETCH_JOIN_TIMEOUT  # one budget for all threads together
+    for thread in threads:
+        thread.join(max(0.0, deadline - time.monotonic()))
+        if thread.is_alive():
+            logger.warning("fetch thread %s did not stop in time", thread.name)
+    close_connectors(sources)
 
 
 @contextmanager
