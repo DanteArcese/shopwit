@@ -96,6 +96,45 @@ def parse_filters(category: Category, params: Mapping[str, str]) -> FilterSpec:
     )
 
 
+def spec_params(spec: FilterSpec) -> dict[str, str]:
+    """Canonical query params for a spec: the inverse of ``parse_filters``."""
+    params: dict[str, str] = {}
+    for name, value in spec.attributes.items():
+        params[name] = ("true" if value else "false") if isinstance(value, bool) else str(value)
+    if spec.size_min is not None:
+        params["size_min"] = repr(spec.size_min)
+    if spec.size_max is not None:
+        params["size_max"] = repr(spec.size_max)
+    if spec.brand_tier:
+        params["brand_tier"] = spec.brand_tier
+    return params
+
+
+def parse_filters_strict(
+    category: Category, params: Mapping[str, str]
+) -> tuple[FilterSpec, tuple[str, ...]]:
+    """Like ``parse_filters``, plus the sorted keys that were set (not "any") but did not parse."""
+    spec = parse_filters(category, params)
+    defs = {a.name: a for a in category.attribute_defs.all()}
+    invalid: list[str] = []
+    for key, raw in params.items():
+        if raw == "any":
+            continue
+        if key in defs:
+            ok = key in spec.attributes
+        elif key == "brand_tier":
+            ok = spec.brand_tier is not None
+        elif key == "size_min":
+            ok = spec.size_min is not None
+        elif key == "size_max":
+            ok = spec.size_max is not None
+        else:
+            ok = False
+        if not ok:
+            invalid.append(key)
+    return spec, tuple(sorted(invalid))
+
+
 def _unit_price(offer: Offer, comparison: str) -> Decimal | None:
     raw = offer.unit_prices.get(comparison)
     if raw is None:
@@ -188,6 +227,28 @@ def limit_to_radius(offers: list[Offer], near: Near | None) -> tuple[list[Offer]
     return kept, len(far - kept_products), len(unplaced - kept_products - far)
 
 
+def _filtered_qs(category: Category, spec: FilterSpec, stores: frozenset[str] | None, qs):
+    # Offers with no category (generic) never appear on a curated page, even when
+    # they share a product with a curated offer.
+    qs = qs.filter(product__category=category, category=category)
+    if stores is not None:
+        qs = qs.filter(retailer__in=stores)
+    for name, value in spec.attributes.items():
+        qs = qs.filter(product__attributes__contains={name: {"value": value}})
+    if spec.brand_tier:
+        qs = qs.filter(product__attributes__contains={"brand_tier": {"value": spec.brand_tier}})
+    return qs
+
+
+def matching_offers(
+    category: Category, spec: FilterSpec, stores: frozenset[str] | None, now: datetime
+) -> list[Offer]:
+    """Fresh live offers passing the spec (attributes, brand tier, size range) at the stores."""
+    qs = _filtered_qs(category, spec, stores, fresh_offers(now)).defer("search_vector")
+    key = SIZE_KEYS.get(category.dimension)
+    return [o for o in qs.select_related("product") if _size_ok(o.measures, key, spec)]
+
+
 def browse(
     category: Category,
     spec: FilterSpec,
@@ -211,17 +272,9 @@ def browse(
     if comparison not in allowed:
         comparison = category.comparison_default
 
-    # Offers with no category (generic) never appear on a curated page, even when
-    # they share a product with a curated offer.
-    qs = (fresh_observed(now) if observed else fresh_offers(now)).filter(
-        product__category=category, category=category
+    qs = _filtered_qs(
+        category, spec, stores, fresh_observed(now) if observed else fresh_offers(now)
     )
-    if stores is not None:
-        qs = qs.filter(retailer__in=stores)
-    for name, value in spec.attributes.items():
-        qs = qs.filter(product__attributes__contains={name: {"value": value}})
-    if spec.brand_tier:
-        qs = qs.filter(product__attributes__contains={"brand_tier": {"value": spec.brand_tier}})
 
     key = SIZE_KEYS.get(category.dimension)
     near = near if observed else None  # live offers are never filtered by distance
