@@ -84,3 +84,12 @@ def brand_tier(raw: RawOffer, store_brands: frozenset[str]) -> AttrValue | None:
         if title.startswith(b) and not title[len(b):len(b) + 1].isalnum():
             return AttrValue("store_brand", "rule")
     return None
+
+
+def brand_tier_from_field(brand: str | None, store_brands: frozenset[str]) -> AttrValue | None:
+    """Brand tier from the brand field only; no title-prefix fallback."""
+    name = fold(brand or "")
+    if not name:
+        return None
+    brands = {fold(b) for b in store_brands}
+    return AttrValue("store_brand" if name in brands else "name_brand", "rule")

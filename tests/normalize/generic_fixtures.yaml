@@ -1,0 +1,72 @@
+# Real-style titles. expected: {dimension, amount} (approx 1%) or {reason}.
+- texts: ["", "Great Value Whole Milk, 1 Gallon"]
+  expected: {dimension: volume, amount: 3785.41}
+- texts: ["", "Coca-Cola Classic, 12 fl oz, 12 Pack"]
+  expected: {dimension: volume, amount: 4260.8}
+- texts: ["", "Tropicana Orange Juice 52 fl oz"]
+  expected: {dimension: volume, amount: 1537.82}
+- texts: ["", "Dasani Water 24 x 500 mL"]
+  expected: {dimension: volume, amount: 12000}
+- texts: ["", "Heinz Ketchup, 32 oz"]
+  expected: {dimension: oz_labeled, amount: 32}
+- texts: ["", "Jif Creamy Peanut Butter, 40 oz Jar"]
+  expected: {dimension: oz_labeled, amount: 40}
+- texts: ["", "Kraft Mac and Cheese 7.25 oz"]
+  expected: {dimension: oz_labeled, amount: 7.25}
+- texts: ["", "Cheerios Cereal, 18 oz Box"]
+  expected: {dimension: oz_labeled, amount: 18}
+- texts: ["", "Campbell's Tomato Soup 10.75 oz, 4 Pack"]
+  expected: {dimension: oz_labeled, amount: 43}
+- texts: ["", "Kerrygold Butter 8 oz"]
+  expected: {dimension: oz_labeled, amount: 8}
+- texts: ["", "Kirkland Almonds 3 lb"]
+  expected: {dimension: mass, amount: 1360.78}
+- texts: ["", "King Arthur Flour, 5 lbs"]
+  expected: {dimension: mass, amount: 2267.96}
+- texts: ["", "Rice 2 kg"]
+  expected: {dimension: mass, amount: 2000}
+- texts: ["", "Sugar 907 g"]
+  expected: {dimension: mass, amount: 907}
+- texts: ["", "Optimum Nutrition Whey Protein Powder 907 g"]
+  expected: {dimension: mass, amount: 907}
+- texts: ["", "Quest Protein Bar 12 ct, 20g Protein"]
+  expected: {dimension: count, amount: 12}
+- texts: ["", "Oats 1 kg, 5 g Fiber per serving"]
+  expected: {dimension: mass, amount: 1000}
+- texts: ["", "Granola Bars 30 g Protein 6 Count"]
+  expected: {dimension: count, amount: 6}
+- texts: ["", "Large Eggs, 18 Count"]
+  expected: {dimension: count, amount: 18}
+- texts: ["", "Eggs 1 dozen"]
+  expected: {dimension: count, amount: 12}
+- texts: ["", "Tide Pods Laundry Detergent, 81 Count"]
+  expected: {dimension: count, amount: 81}
+- texts: ["", "Charmin Ultra Soft Toilet Paper, 12 Mega Rolls"]
+  expected: {reason: size unknown}
+- texts: ["", "Bounty Paper Towels, 6 Double Rolls, 12 Count"]
+  expected: {reason: size unknown}
+- texts: ["", "Scott Toilet Paper 24 Rolls, 231 Sheets per Roll"]
+  expected: {reason: size unknown}
+- texts: ["", "Chobani Greek Yogurt, 5.3 oz, 4 Count"]
+  expected: {reason: size unknown}
+- texts: ["", "Gatorade 20 oz (591 mL)"]
+  expected: {reason: more than one kind of size}
+- texts: ["", "Water 16.9 fl oz (500 g)"]
+  expected: {reason: more than one kind of size}
+- texts: ["", "Dawn Dish Soap 19.4 fl oz"]
+  expected: {dimension: volume, amount: 573.78}
+- texts: ["", "Mystery Snack Variety Box"]
+  expected: {reason: size unknown}
+- texts: ["", "Bread", "680 g"]
+  expected: {dimension: mass, amount: 680}
+- texts: ["", "Milk", "1 L"]
+  expected: {dimension: volume, amount: 1000}
+- texts: ["", "Soda 1-2 L"]
+  expected: {reason: size unknown}
+- texts: ["", "Flour", "2 lb 3 oz"]
+  expected: {dimension: mass, amount: 992.23}
+- texts: ["", "Cola", "330 ml"]
+  expected: {dimension: volume, amount: 330}
+- texts: ["", "Yogurt", "16 oz"]
+  structured_unit: g
+  expected: {dimension: mass, amount: 453.59}

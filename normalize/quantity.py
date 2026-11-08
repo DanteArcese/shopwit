@@ -182,7 +182,7 @@ _COUNT_RE = re.compile(
 _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 
 
-def _count(text: str) -> Measures:
+def _count(text: str, count_re: re.Pattern[str] = _COUNT_RE) -> Measures:
     m = _DOZEN_RE.search(text)
     if m:
         if _ambiguous_lead(text, m):
@@ -191,7 +191,7 @@ def _count(text: str) -> Measures:
             return {}  # an unparsable number precedes "dozen": never guess
         value = 12 * (_to_float(m.group(1)) if m.group(1) else 1.0)
         return {"count": value} if value > 0 else {}
-    m = _COUNT_RE.search(text)
+    m = count_re.search(text)
     if m:
         if _ambiguous_lead(text, m):
             return {}
@@ -281,3 +281,59 @@ def parse_measures(texts: Sequence[str], dimension: Dimension) -> Measures:
         if _REQUIRED[dimension] in result:
             return result
     return {}
+
+
+# --- generic (open-ended search) ----------------------------------------------
+# Generic mode reads only the size words themselves. A bare "oz" is its own kind
+# ("oz_labeled"), never volume or mass; only the closed set of count nouns counts.
+_G_VOLUME_UNITS = [u for u in _VOLUME_UNITS if u[1] != "fluid_ounce" or u[0] != "oz"]
+_G_MASS_UNITS = [u for u in _MASS_UNITS if u[1] != "ounce"]
+_G_OZ_UNITS = [(r"oz|ounces?", "ounce")]
+_G_VOLUME_RE = _unit_regex(_G_VOLUME_UNITS)
+_G_MASS_RE = _unit_regex(_G_MASS_UNITS)
+_G_OZ_RE = _unit_regex(_G_OZ_UNITS)
+_G_COUNT_RE = re.compile(
+    rf"{_NUM}\s*(?:ct|count|pieces?|pcs|eggs?)\b", re.IGNORECASE
+)
+_PAPER_WORDS = re.compile(r"\b(?:rolls?|sheets?)\b", re.IGNORECASE)
+
+
+def _generic_oz_text(text: str) -> str:
+    """Text for the labeled-oz parse: fl oz stripped, and the "2 oz" of a lb+oz
+    compound that mass consumed blanked out."""
+    text = _strip_fl_oz(text)
+    m = _G_MASS_RE.search(text)
+    if m and _unit_name(m, _G_MASS_UNITS) == "pound":
+        follow = _FOLLOWER.match(text, m.end())
+        if follow:
+            part = _MASS_RE.match(text, follow.start(1))
+            if part and _unit_name(part, _MASS_UNITS) == "ounce":
+                text = text[: follow.start()] + " " * (part.end() - follow.start()) + text[part.end():]
+    return text
+
+
+def parse_generic(text: str) -> dict[str, float]:
+    """Generic measures from one already-folded text.
+
+    Keys among volume_ml, mass_g, oz_labeled, count; has_size_unit (1.0) when any
+    volume, mass or oz token is present, even if it failed to parse.
+    """
+    out: dict[str, float] = {}
+    ml = _measure(text, _G_VOLUME_RE, _G_VOLUME_UNITS, "milliliter")
+    if ml is not None:
+        out["volume_ml"] = ml
+    stripped = _NUTRIENT_RE.sub(" ", text)
+    g = _measure(_strip_fl_oz(stripped), _G_MASS_RE, _G_MASS_UNITS, "gram")
+    if g is not None:
+        out["mass_g"] = g
+    oz_text = _generic_oz_text(stripped)
+    oz = _measure(oz_text, _G_OZ_RE, _G_OZ_UNITS, "ounce")
+    if oz is not None:
+        out["oz_labeled"] = oz
+    if _VOLUME_RE.search(stripped) or _MASS_RE.search(stripped):
+        out["has_size_unit"] = 1.0
+    if not _PAPER_WORDS.search(text):
+        count = _count(text, _G_COUNT_RE)
+        if "count" in count:
+            out["count"] = count["count"]
+    return out

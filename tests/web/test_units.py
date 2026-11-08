@@ -110,3 +110,14 @@ def test_size_to_canonical_round_trip():
 )
 def test_display_size_variants(measures, dimension, system, expected):
     assert display_size(measures, dimension, system) == expected
+
+
+def test_generic_display():
+    from catalog.units import display_generic_size
+
+    assert display_unit_price(Decimal("0.05"), "per_oz_labeled", "metric") == (
+        Decimal("0.05"),
+        "oz (as labeled)",
+    )
+    assert display_generic_size("oz_labeled", 64.0, "metric") == "64 oz"
+    assert display_generic_size("volume", 1892.70592, "imperial").startswith("64 fl oz")

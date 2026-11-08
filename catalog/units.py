@@ -38,6 +38,16 @@ DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
     ("per_100_sheets", "metric"): ("100 sheets", ONE),
     ("per_roll", "imperial"): ("roll", ONE),
     ("per_roll", "metric"): ("roll", ONE),
+    ("per_oz_labeled", "imperial"): ("oz (as labeled)", ONE),
+    ("per_oz_labeled", "metric"): ("oz (as labeled)", ONE),
+}
+
+# Generic dimension -> comparison key used by DISPLAY.
+GENERIC_COMPARISON: dict[str, str] = {
+    "volume": "per_volume",
+    "mass": "per_mass",
+    "count": "per_count",
+    "oz_labeled": "per_oz_labeled",
 }
 
 def display_unit_price(unit_price: Decimal, comparison: str, unit_system: str) -> tuple[Decimal, str]:
@@ -157,3 +167,11 @@ def display_size(measures: dict, dimension: str, unit_system: str) -> str:
     if dimension == "mass":
         return _mass(value, imperial)
     return f"{_num(value)} ct"
+
+
+def display_generic_size(dimension: str, amount: float, unit_system: str) -> str:
+    """Pack size for a generic measure; labeled oz stays "N oz", never converted."""
+    if dimension == "oz_labeled":
+        return f"{_num(_dec(amount))} oz"
+    key = {"volume": "volume_ml", "mass": "mass_g", "count": "count"}[dimension]
+    return display_size({key: amount}, dimension, unit_system)
