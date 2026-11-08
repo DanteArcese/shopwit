@@ -280,6 +280,10 @@ def search(request):
     q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH].strip()
     if not q:
         return redirect("home")
+    if request.headers.get("HX-Request") == "true" and "poll" in request.GET:
+        from .search import poll_results  # a poll answers before any category lookup
+
+        return poll_results(request, q)
     definitions = _active_definitions()
     resolution = resolve_query(q, definitions)
     if resolution.category is not None:

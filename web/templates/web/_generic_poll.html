@@ -1,0 +1,5 @@
+{% include "web/_poller.html" %}
+<div id="results" hx-swap-oob="innerHTML">{% include "web/_generic_results.html" with oob=False %}</div>
+{% include "web/_status.html" with oob=True %}
+<div id="facets" hx-swap-oob="true">{% include "web/_generic_facets.html" %}</div>
+<a id="settings-link" hx-swap-oob="true" href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>

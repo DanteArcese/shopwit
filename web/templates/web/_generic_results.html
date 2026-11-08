@@ -10,7 +10,9 @@
 <p class="note">{{ page_note }}</p>
 {% for group in live_groups %}{% include "web/_generic_group.html" %}{% endfor %}
 {% endif %}
-{% if empty %}
+{% if nothing_found %}
+<p class="empty">Nothing found. Try fewer words or <a href="{% url 'home' %}">browse a category</a>.</p>
+{% elif empty %}
 <p class="empty">No saved prices match &lsquo;{{ q }}&rsquo;. Try fewer words or <a href="{% url 'home' %}">browse a category</a>.</p>
 {% endif %}
 {% if observed_total > 0 or observed_hidden_far > 0 or observed_hidden_unplaced > 0 %}

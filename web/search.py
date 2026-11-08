@@ -2,10 +2,15 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Sequence
+from dataclasses import dataclass
+from datetime import UTC, datetime
 from types import SimpleNamespace
 from urllib.parse import urlencode
 
 from django.conf import settings
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
@@ -27,10 +32,15 @@ from catalog.generic import (
     near_misses,
     parse_generic_filters,
 )
+from catalog.fetch import enqueue
+from catalog.models import FetchJob
 from catalog.units import GENERIC_COMPARISON, display_generic_size
+from connectors.registry import live_source_info
 from normalize import load_store_brands
+from normalize.generic import is_personal, normalize_phrase
 from normalize.text import fold
 
+from .net import client_ip
 from .prefs import get_prefs, split_stores
 
 HEADINGS = {
@@ -67,7 +77,132 @@ FACET_PARAMS = {
     **{key: (f"{key}_min", f"{key}_max") for key in SIZE_PARAMS.values()},
 }
 # Never carried in a facet URL: they describe one request, not the search.
-TRANSIENT = ("q", "show", "sec", "poll")
+TRANSIENT = ("q", "show", "sec", "poll", "seen")
+
+
+POLL_WINDOW = 15  # seconds a page keeps polling for background results
+SOURCE_NAMES = {"walmart": "Walmart", "off-prices": "Open Food Facts"}
+# Obvious automated clients only. A missing User-Agent is not treated as a bot.
+BOT_UA = re.compile(
+    r"bot\b|bot/|crawl|spider|slurp|facebookexternalhit|curl/|wget|python-requests|httpx|"
+    r"headlesschrome|lighthouse|monitor|preview",
+    re.IGNORECASE,
+)
+
+
+@dataclass(frozen=True)
+class JobState:
+    source: str
+    status: str
+    finished_at: datetime | None
+    result_count: int
+
+
+@dataclass(frozen=True)
+class PollInfo:
+    states: Sequence[JobState]
+    polling: bool
+    start: int
+    seen: int
+
+
+def should_poll(jobs: Sequence[JobState], start: float, now: float) -> bool:
+    if start > now or now >= start + POLL_WINDOW:
+        return False
+    return any(j.status in FetchJob.ACTIVE for j in jobs)
+
+
+def _names(jobs: Sequence[JobState]) -> str:
+    return " and ".join(sorted({SOURCE_NAMES.get(j.source, j.source) for j in jobs}))
+
+
+def live_status(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) -> str | None:
+    parts: list[str] = []
+    active = [j for j in jobs if j.status in FetchJob.ACTIVE]
+    if active:
+        names = _names(active)
+        parts.append(
+            f"checking {names}\u2026" if polling else f"Still checking {names}. Reload in a minute for more."
+        )
+    new = sum(j.result_count for j in jobs if j.status == FetchJob.Status.SUCCEEDED)
+    if new > 0:
+        parts.append(f"updated with {new} new products")
+    parts += [
+        f"{SOURCE_NAMES.get(j.source, j.source)} didn't respond; showing saved prices."
+        for j in sorted(jobs, key=lambda j: j.source)
+        if j.status == FetchJob.Status.FAILED
+    ]
+    if enqueue_refused:
+        parts.append("Live search is busy; showing saved prices.")
+    return " \u00b7 ".join(parts) or None
+
+
+def _load_states(phrase: str, since: datetime) -> list[JobState]:
+    rows = (
+        FetchJob.objects.filter(phrase=phrase)
+        .filter(Q(status__in=FetchJob.ACTIVE) | Q(finished_at__gte=since))
+        .order_by("source", "id")
+        .values_list("source", "status", "finished_at", "result_count")
+    )
+    return [JobState(*row) for row in rows]
+
+
+def _refused(phrase: str, sources, jobs, when: datetime) -> bool:
+    """Some source neither has a job nor a fresh success: blocked, queue full or throttled."""
+    queued = {j.source for j in jobs}
+    for name, info in sources.items():
+        if name in queued:
+            continue
+        fresh = FetchJob.objects.filter(
+            source=name,
+            phrase=phrase,
+            status=FetchJob.Status.SUCCEEDED,
+            finished_at__gte=when - info.refresh_after,
+        ).exists()
+        if not fresh:
+            return True
+    return False
+
+
+def _as_state(job: FetchJob) -> JobState:
+    return JobState(job.source, job.status, job.finished_at, job.result_count)
+
+
+def _int(value: str | None) -> int | None:
+    try:
+        return int(value) if value is not None else None
+    except ValueError:
+        return None
+
+
+def _poller_url(q: str, start: int, seen: int) -> str:
+    """The poll URL: ``q`` is URL-encoded, so it can never add a parameter. Facet values are
+    read from the live form at poll time (``hx-include="#facets"``), so a filter change
+    mid-poll is honored."""
+    return f"{reverse('search')}?{urlencode([('q', q), ('poll', start), ('seen', seen)])}"
+
+
+def poll_results(request, q: str) -> HttpResponse:
+    """An HTMX poll: the cheap poller alone while nothing changed, else the refreshed page parts."""
+    from . import views
+
+    when = views.now()
+    now = when.timestamp()
+    start, seen = _int(request.GET.get("poll")), _int(request.GET.get("seen"))
+    valid = start is not None and seen is not None
+    since = datetime.fromtimestamp(start if valid else now - POLL_WINDOW, UTC)
+    states = _load_states(normalize_phrase(q), since)
+    polling = valid and should_poll(states, start, now)
+    if polling and not any(s.finished_at and s.finished_at.timestamp() > seen for s in states):
+        url = _poller_url(q, start, seen)
+        response = render(request, "web/_poller.html", {"poller_url": url})
+    else:
+        response = generic_results(
+            request, q, poll=PollInfo(states, polling, start if valid else 0, int(now))
+        )
+    response["Cache-Control"] = "no-store"
+    patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request", "Accept-Language"])
+    return response
 
 
 def _query_string(get, *, drop: tuple[str, ...] = (), add: tuple[tuple[str, str], ...] = ()) -> str:
@@ -189,7 +324,7 @@ def _groups(result: GenericResult, *, section: str, observed: bool, unit_system:
     return groups
 
 
-def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
+def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None = None) -> HttpResponse:
     from . import views
 
     if definitions is None:
@@ -244,8 +379,37 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
         {"name": m.name, "url": f"{reverse('category', args=[m.slug])}?q_rest={_quote(folded)}"}
         for m in near_misses(folded, [*live.offers, *seen.offers], definitions, names)
     ]
+    # Enqueue only on a full GET render by a non-bot: never HEAD, an HTMX request (facet change,
+    # "Show all", history restore) or a poll, so a crawler or a repeat click cannot burn budgets.
+    states: Sequence[JobState] = poll.states if poll else []
+    polling = poll.polling if poll else False
+    refused = False
+    poller_url = _poller_url(q, poll.start, poll.seen) if poll and poll.polling else None
+    if (
+        poll is None
+        and not htmx
+        and request.method == "GET"
+        and not BOT_UA.search(request.headers.get("User-Agent", ""))
+    ):
+        phrase = normalize_phrase(q)
+        sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+        if sources and phrase and not is_personal(phrase):
+            jobs = enqueue(phrase, "search", when, sources, client_key=client_ip(request))
+            states = [_as_state(j) for j in jobs]
+            refused = _refused(phrase, sources, jobs, when)
+            if any(j.status in FetchJob.ACTIVE for j in jobs):
+                polling = True
+                start = int(when.timestamp())
+                poller_url = _poller_url(q, start, start)
+    live_text = live_status(states, polling, refused)
+    finished = bool(states) and not any(s.status in FetchJob.ACTIVE for s in states)
     context = {
         "q": q,
+        "poller_url": poller_url,
+        "nothing_found": no_results
+        and not unfiltered_hits
+        and finished
+        and any(s.status == FetchJob.Status.SUCCEEDED for s in states),
         "has_outbound": True,
         "has_amazon": any(
             r["offer"].retailer == "amazon" for g in live_groups for r in g["rows"]
@@ -272,10 +436,13 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
         "keep_qs": f"&{keep}" if keep else "",
         "live_empty": not live_groups and seen_result.total_products > 0,
         "status_text": status_text(
-            held_total, fuzzy=live.fuzzy or seen.fuzzy, capped=live.capped or seen.capped, q=q, live=None
+            held_total, fuzzy=live.fuzzy or seen.fuzzy, capped=live.capped or seen.capped, q=q, live=live_text
         ),
     }
-    template = "web/_generic_results.html" if htmx and not restore else "web/generic.html"
+    if poll is not None:
+        template = "web/_generic_poll.html"
+    else:
+        template = "web/_generic_results.html" if htmx and not restore else "web/generic.html"
     context["oob"] = template == "web/_generic_results.html"
     response = render(request, template, context)
     patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request", "Accept-Language"])
