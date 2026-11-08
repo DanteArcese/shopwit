@@ -1,6 +1,7 @@
 from django.contrib.postgres.indexes import GinIndex
+from django.contrib.postgres.search import SearchVector, SearchVectorField
 from django.db import models
-from django.db.models import Q
+from django.db.models import F, Func, Q, Value
 
 
 class TimestampedModel(models.Model):
@@ -105,10 +106,37 @@ class Offer(TimestampedModel):
     observed_on = models.DateField(null=True, blank=True)
     is_sale = models.BooleanField(default=False)
     store = models.ForeignKey(Store, null=True, blank=True, on_delete=models.SET_NULL)
+    # Generic (category-free) mode: one measure per offer, see normalize/generic.py.
+    category_path = models.CharField(max_length=500, null=True, blank=True)
+    labels = models.JSONField(default=list)
+    measure_dim = models.CharField(max_length=10, null=True, blank=True)
+    measure_amount = models.FloatField(null=True, blank=True)
+    measure_reason = models.CharField(max_length=100, null=True, blank=True)
+    generic_unit_price = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
+    search_vector = models.GeneratedField(
+        expression=(
+            SearchVector("title", weight="A", config="english")
+            + SearchVector("brand", weight="B", config="english")
+            # "/" must become a space: the parser reads "Food/Dairy" as one file-path token.
+            + SearchVector(
+                Func(F("category_path"), Value("/"), Value(" "), function="replace"),
+                weight="C",
+                config="english",
+            )
+        ),
+        output_field=SearchVectorField(),
+        db_persist=True,
+    )
 
     class Meta:
         constraints = [
             models.UniqueConstraint(fields=["retailer", "retailer_item_id"], name="uniq_offer_retailer_item")
+        ]
+        indexes = [
+            GinIndex(fields=["search_vector"], name="offer_search_gin"),
+            GinIndex(fields=["title"], opclasses=["gin_trgm_ops"], name="offer_title_trgm"),
+            models.Index(fields=["measure_dim", "generic_unit_price"], name="offer_measure_price"),
+            models.Index(fields=["kind", "currency", "last_seen_at"], name="offer_fresh"),
         ]
 
 
@@ -179,6 +207,8 @@ class OffEntry(models.Model):
     source = models.CharField(max_length=3)
     labels = models.JSONField(default=list)
     quantity = models.CharField(max_length=200, null=True, blank=True)
+    quantity_unit = models.CharField(max_length=10, null=True, blank=True)
+    categories = models.JSONField(default=list)
     last_modified = models.DateTimeField(null=True, blank=True)
     fetched_at = models.DateTimeField(auto_now=True)
 
@@ -193,6 +223,7 @@ class OpenPriceObservation(models.Model):
     brands = models.CharField(max_length=200, null=True, blank=True)
     quantity = models.CharField(max_length=200, null=True, blank=True)
     labels = models.JSONField(default=list)
+    categories = models.JSONField(default=list)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3)
     is_sale = models.BooleanField(default=False)
@@ -200,3 +231,73 @@ class OpenPriceObservation(models.Model):
     proof_type = models.CharField(max_length=20, null=True, blank=True)
     source = models.CharField(max_length=200, null=True, blank=True)
     fetched_at = models.DateTimeField()
+
+
+class FetchJob(models.Model):
+    """A background live-fetch request for one phrase at one source."""
+
+    class Status(models.TextChoices):
+        QUEUED = "queued"
+        RUNNING = "running"
+        SUCCEEDED = "succeeded"
+        FAILED = "failed"
+        EXPIRED = "expired"
+        SKIPPED = "skipped"
+
+    ACTIVE = ("queued", "running")
+    TERMINAL = ("succeeded", "failed", "expired", "skipped")
+
+    source = models.CharField(max_length=30)
+    phrase = models.CharField(max_length=100)  # normalized phrase only
+    origin = models.CharField(max_length=10, default="search")  # search, list or warm
+    status = models.CharField(max_length=10, choices=Status.choices, default=Status.QUEUED)
+    created_at = models.DateTimeField(auto_now_add=True)
+    not_before = models.DateTimeField()
+    started_at = models.DateTimeField(null=True, blank=True)
+    finished_at = models.DateTimeField(null=True, blank=True, db_index=True)
+    attempts = models.PositiveSmallIntegerField(default=0)
+    result_count = models.IntegerField(default=0)
+    error = models.CharField(max_length=200, blank=True)  # exception type name only
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=["source", "phrase"],
+                condition=Q(status__in=["queued", "running"]),
+                name="uniq_active_fetchjob",
+            )
+        ]
+        indexes = [
+            models.Index(
+                fields=["not_before", "created_at"],
+                condition=Q(status="queued"),
+                name="fetchjob_due",
+            )
+        ]
+
+
+class SourceBudget(models.Model):
+    """A DB-backed token bucket plus daily cap for one budgeted host."""
+
+    source = models.CharField(max_length=30, primary_key=True)
+    capacity = models.FloatField()
+    refill_per_second = models.FloatField()
+    tokens = models.FloatField()
+    refilled_at = models.DateTimeField()
+    daily_limit = models.IntegerField(null=True, blank=True)
+    daily_used = models.IntegerField(default=0)
+    day = models.DateField()  # UTC day that daily_used counts
+    blocked_until = models.DateTimeField(null=True, blank=True)
+    consecutive_failures = models.PositiveSmallIntegerField(default=0)
+
+    def __str__(self):
+        return self.source
+
+
+class SearchDemand(models.Model):
+    """Anonymous count of uncurated search phrases. Holds no user data."""
+
+    phrase = models.CharField(max_length=100, unique=True)  # normalized phrase only
+    count = models.PositiveIntegerField(default=0)
+    days_seen = models.PositiveIntegerField(default=0)
+    last_seen = models.DateField(db_index=True)

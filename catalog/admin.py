@@ -4,7 +4,17 @@ from django.utils import timezone
 
 from .forms import ProductAdminForm
 from .merge import merge_product
-from .models import Category, IngestionRun, Offer, OpenPriceObservation, Product, ReviewItem, Store
+from .models import (
+    Category,
+    FetchJob,
+    IngestionRun,
+    Offer,
+    OpenPriceObservation,
+    Product,
+    ReviewItem,
+    SourceBudget,
+    Store,
+)
 
 
 class DetailPrefixFilter(admin.SimpleListFilter):
@@ -115,3 +125,27 @@ class OpenPriceObservationAdmin(ReadOnlyAdmin):
     list_display = ("price_id", "product_name", "store", "price", "observed_on")
     list_select_related = ("store",)
     search_fields = ("product_name", "upc")
+
+
+@admin.register(SourceBudget)
+class SourceBudgetAdmin(admin.ModelAdmin):
+    list_display = (
+        "source",
+        "capacity",
+        "refill_per_second",
+        "tokens",
+        "refilled_at",
+        "daily_limit",
+        "daily_used",
+        "day",
+        "blocked_until",
+        "consecutive_failures",
+    )
+
+
+@admin.register(FetchJob)
+class FetchJobAdmin(ReadOnlyAdmin):
+    # The phrase is deliberately neither listed nor searchable.
+    list_display = ("id", "source", "origin", "status", "created_at", "finished_at", "result_count", "error")
+    list_filter = ("source", "origin", "status")
+    exclude = ("phrase",)

@@ -109,6 +109,28 @@ OBSERVED_MAX_AGE = timedelta(days=float(env("UNITPRICER_OBSERVED_MAX_AGE_DAYS", 
 OPEN_PRICES_ENABLED = env("UNITPRICER_OPEN_PRICES", "0") == "1"
 OPEN_PRICES_COUNTRY = env("UNITPRICER_OPEN_PRICES_COUNTRY", "US")
 OPEN_PRICES_INTERVAL = timedelta(hours=float(env("UNITPRICER_OPEN_PRICES_HOURS", 24)))
+LIVE_OFF_ENABLED = env("UNITPRICER_LIVE_OFF", "0") == "1"
+FETCH_THREADS = max(1, min(2, int(env("UNITPRICER_FETCH_THREADS", 1) or 1)))
+WARM_INTERVAL = timedelta(hours=float(env("UNITPRICER_WARM_HOURS", 12)))
+LABELS_FILE = BASE_DIR / "data/labels.yaml"
+
+
+def _budget(key, capacity, refill, daily):
+    prefix = "UNITPRICER_BUDGET_" + key.upper().replace("-", "_")
+    # Unlike other settings, a set-but-empty _DAILY_LIMIT means "no cap".
+    raw_daily = os.environ.get(prefix + "_DAILY_LIMIT", daily)
+    return {
+        "capacity": float(env(prefix + "_CAPACITY", capacity) or capacity),
+        "refill_per_second": float(env(prefix + "_REFILL_PER_SECOND", refill) or refill),
+        "daily_limit": int(raw_daily) if raw_daily not in (None, "") else None,
+    }
+
+
+SOURCE_BUDGETS = {
+    "off-search": _budget("off-search", 10, 10 / 60, None),
+    "openprices": _budget("openprices", 5, 1.0, None),
+    "walmart": _budget("walmart", 5, 1.0, 5000),
+}
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
