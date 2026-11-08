@@ -157,7 +157,7 @@ def chain_key(location: Location) -> tuple[str, str]:
     chain_name = re.sub(r"\s+", " ", source).strip()
     slug = chain_name.casefold().replace("&", " and ")
     slug = re.sub(r"['’]", "", slug)
-    slug = re.sub(r"[^0-9a-zÀ-￿]+", "-", slug).strip("-")
+    slug = re.sub(r"[\W_]+", "-", slug).strip("-")
     return f"op-{slug}"[:50], chain_name
 
 
