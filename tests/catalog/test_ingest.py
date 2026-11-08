@@ -56,7 +56,8 @@ def test_ingest_creates_products_offers_and_stats(milk):
     assert o.url == "https://example.com/fake/A1"
     assert o.image_url is None
     assert o.last_seen_at == NOW
-    assert Product.objects.count() == 2
+    assert Product.objects.count() == 3  # the hose is kept as a generic product
+    assert Product.objects.get(identity="fake:J1").category is None
 
 
 @pytest.mark.django_db

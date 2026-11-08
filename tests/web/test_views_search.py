@@ -52,7 +52,7 @@ def test_search_fallback_full_text(client, db):
 
 def test_search_fallback_no_results(client, db):
     html = client.get("/search", {"q": "zzzqqq"}).content.decode()
-    assert "No fresh prices" in html
+    assert "No saved prices match" in html
 
 
 def test_search_empty_redirects_home(client, db):

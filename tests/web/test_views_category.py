@@ -11,7 +11,7 @@ def test_category_page_lists_ranked_rows(client, milk_rows):
     assert "$1.00" in html
     assert "Bravo" in html
     assert "1 L" in html
-    assert "/ 100 mL" in html or "/ fl oz" in html
+    assert "/ L" in html or "/ fl oz" in html
     assert "Fake" in html  # retailer display name
     assert 'hx-target="#results"' in html
     assert 'hx-push-url="true"' in html
@@ -72,7 +72,7 @@ def test_inactive_slug_404(client, milk, milk_rows):
 
 def test_metric_user_sees_metric_labels(client, milk_rows):
     html = client.get("/c/dairy/milk/", HTTP_ACCEPT_LANGUAGE="de-DE").content.decode()
-    assert "/ 100 mL" in html
+    assert "/ L" in html
     assert "fl oz" not in html
 
 

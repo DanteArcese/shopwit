@@ -10,16 +10,22 @@ import json
 import math
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
 import httpx
 
 from connectors.base import ConnectorError
+from connectors.live import retry_after
 from enrichment.off import normalize_upc
+from normalize.generic import off_category_path
 from normalize.types import RawOffer
+
+if TYPE_CHECKING:
+    from connectors.live import Budget
 
 PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
 PRICE_PAGE = "https://prices.openfoodfacts.org/prices/{id}"
@@ -28,6 +34,7 @@ PAGE_SIZE = 100
 MAX_PAGES = 500
 MIN_INTERVAL = 1.0
 ATTEMPTS = 3
+MAX_CODES = 50
 BACKOFF = (2.0, 4.0)
 
 
@@ -66,6 +73,7 @@ class Observation:
     proof_type: str | None
     source: str | None
     duplicate_of: int | None
+    categories: tuple[str, ...] = ()
 
 
 def _text(value: object) -> str | None:
@@ -148,6 +156,10 @@ def parse_item(item: object) -> Observation | None:
     product = product if isinstance(product, dict) else {}
     tags = product.get("labels_tags")
     labels = frozenset(t for t in tags if isinstance(t, str)) if isinstance(tags, list) else frozenset()
+    cat_tags = product.get("categories_tags")
+    categories = (
+        tuple(t for t in cat_tags if isinstance(t, str)) if isinstance(cat_tags, list) else ()
+    )
     proof = item.get("proof")
     code = item.get("product_code")
     return Observation(
@@ -166,6 +178,7 @@ def parse_item(item: object) -> Observation | None:
         proof_type=_text(proof.get("type")) if isinstance(proof, dict) else None,
         source=_text(item.get("source")),
         duplicate_of=_int(item.get("duplicate_of")),
+        categories=categories,
     )
 
 
@@ -230,6 +243,7 @@ def to_raw_offer(obs: Observation, fetched_at: datetime) -> RawOffer:
         upc=upc,
         brand=obs.brands,
         size_text=obs.quantity,
+        fields={"category_path": path} if (path := off_category_path(obs.categories)) else {},
     )
 
 
@@ -239,7 +253,15 @@ class OpenPricesClient:
         client: httpx.Client | None = None,
         sleep: Callable[[float], None] = time.sleep,
         clock: Callable[[], float] = time.monotonic,
+        budget_wait: Callable[[str], None] | None = None,
+        budget_report: Callable[..., None] | None = None,
     ) -> None:
+        # With budget_wait (a DbBudget's wait), requests draw from the shared "openprices"
+        # bucket instead of this client's own 1 req/s pacing.
+        self._budget_wait = budget_wait
+        # With budget_report (a DbBudget's report), every response status (None for a
+        # transport error) feeds the shared row's backoff, which then paces the retry.
+        self._budget_report = budget_report
         self._client = client or httpx.Client(
             timeout=30, headers={"User-Agent": USER_AGENT}
         )
@@ -262,17 +284,24 @@ class OpenPricesClient:
     def _get_page(self, params: dict[str, str], page: int) -> dict:
         status = 0
         for attempt in range(ATTEMPTS):
-            self._pace()
+            if self._budget_wait is not None:
+                self._budget_wait("openprices")
+            else:
+                self._pace()
             try:
                 resp = self._client.get(PRICES_URL, params={**params, "page": str(page)})
                 status = resp.status_code
             except httpx.HTTPError as exc:
+                if self._budget_report is not None:
+                    self._budget_report("openprices", None, None)
                 raise ConnectorError(
                     f"Open Prices request failed ({type(exc).__name__}) on page {page}"
                 ) from None
+            if self._budget_report is not None:
+                self._budget_report("openprices", status, retry_after(resp))
             if status == 429 or status >= 500:
-                if attempt < ATTEMPTS - 1:
-                    self._sleep(BACKOFF[attempt])
+                if attempt < ATTEMPTS - 1 and self._budget_report is None:
+                    self._sleep(BACKOFF[attempt])  # with a budget, its backoff paces the retry
                 continue
             break
         if status != 200:
@@ -320,3 +349,49 @@ class OpenPricesClient:
             if page >= pages:
                 return out
             page += 1
+
+    def fetch_codes(
+        self, codes: Sequence[str], since: date, currency: str, budget: Budget
+    ) -> list[Observation]:
+        """Prices for up to 50 barcodes in one request, drawn from the "openprices" bucket.
+
+        Exactly one request, no retry: a non-200 raises ``ConnectorError`` after reporting
+        its status, and the shared budget's backoff paces whatever runs next.
+        """
+        codes = list(codes)[:MAX_CODES]
+        params = {
+            "product_code__in": ",".join(codes),
+            "currency": currency,
+            "date__gte": since.isoformat(),
+            "type": "PRODUCT",
+            "location__type": "OSM",
+            "duplicate_of__isnull": "true",
+            "order_by": "-id",
+            "size": str(PAGE_SIZE),
+            "page": "1",
+        }
+        budget.acquire("openprices")
+        try:
+            resp = self._client.get(PRICES_URL, params=params)
+        except httpx.HTTPError as exc:
+            budget.report("openprices", None, None)
+            raise ConnectorError(f"Open Prices request failed ({type(exc).__name__})") from None
+        budget.report("openprices", resp.status_code, retry_after(resp))
+        if resp.status_code != 200:
+            raise ConnectorError(f"Open Prices request failed: HTTP {resp.status_code}")
+        try:
+            data = json.loads(resp.content, parse_float=Decimal)
+        except ValueError:
+            raise ConnectorError("Open Prices returned unreadable data") from None
+        if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+            raise ConnectorError("Open Prices returned an unexpected shape")
+        seen: set[int] = set()
+        out: list[Observation] = []
+        for item in data["items"]:
+            obs = parse_item(item)
+            if obs is None:
+                self.unparsed += 1
+            elif obs.price_id not in seen:
+                seen.add(obs.price_id)
+                out.append(obs)
+        return out

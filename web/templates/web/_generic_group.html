@@ -1,0 +1,8 @@
+<section class="measure-group" id="{{ group.dom_id }}">
+  <h2>{{ group.heading }}</h2>
+  {% if group.dimension == "oz_labeled" %}<p class="note">Sold by "oz" without saying weight or fluid ounces, so these are compared only with each other.</p>{% endif %}
+  <ol class="results">
+    {% for row in group.rows %}{% if group.observed %}{% include "web/_observed_row.html" %}{% else %}{% include "web/_row.html" %}{% endif %}{% endfor %}
+  </ol>
+  {% if group.more %}<a class="show-all" href="?q={{ q|urlencode }}{{ keep_qs }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-get="?q={{ q|urlencode }}{{ keep_qs }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-target="#{{ group.dom_id }}" hx-swap="outerHTML" hx-push-url="false">Show all {{ group.total }}</a>{% endif %}
+</section>

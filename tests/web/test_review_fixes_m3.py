@@ -54,7 +54,7 @@ def test_mass_16_oz_at_max_16(db):
     Offer.objects.create(
         product=p, retailer="fake", retailer_item_id="m16", price="1.00", currency="USD",
         url="https://example.com/m", title="Sixteen oz", last_seen_at=NOW,
-        measures={"mass_g": float(Decimal("16") * Decimal("28.349523125"))},
+        measures={"mass_g": float(Decimal("16") * Decimal("28.349523125"))}, category=cat,
     )
     spec = FilterSpec(attributes={}, size_max=size_to_canonical(Decimal(16), "mass", "imperial"))
     result = browse(cat, spec, None, None, NOW)
@@ -148,7 +148,7 @@ def test_unranked_capped(milk, frozen_now):
         Offer.objects.create(
             product=p, retailer="fake", retailer_item_id=f"u{i}", price="1.00", currency="USD",
             url="https://example.com/u", title=f"Unsized {i}", last_seen_at=NOW,
-            unresolved=["quantity"],
+            unresolved=["quantity"], category=milk,
         )
     result = browse(milk, FilterSpec(attributes={}), None, None, NOW, limit=3)
     assert len(result.unranked) == 3 and result.unranked_total == 7
@@ -165,7 +165,7 @@ def test_unranked_cap_note(client, milk, frozen_now, monkeypatch):
         Offer.objects.create(
             product=p, retailer="fake", retailer_item_id=f"u{i}", price="1.00", currency="USD",
             url="https://example.com/u", title=f"Unsized {i}", last_seen_at=NOW,
-            unresolved=["quantity"],
+            unresolved=["quantity"], category=milk,
         )
     html = client.get("/c/dairy/milk/").content.decode()
     assert "Showing 2 of 4 that can" in html
@@ -225,7 +225,8 @@ def test_search_banner(client, db):
 
     _product("Ginger Snaps Cookies", "3.00")
     assert "We may earn a commission" in client.get("/search", {"q": "ginger"}).content.decode()
-    assert "We may earn a commission" not in client.get("/search", {"q": "zzzqqq"}).content.decode()
+    # The generic page shows the banner on every full render, as category pages do.
+    assert "We may earn a commission" in client.get("/search", {"q": "zzzqqq"}).content.decode()
 
 
 def test_reason_prefers_quantity_over_attribute(milk, frozen_now):

@@ -8,7 +8,9 @@
 
 **Tech Stack:** Django 5.2 (`django.contrib.auth`, sessions, `DatabaseCache`, `django.core.mail`), HTMX already vendored (not needed for lists), Postgres, pytest-django. No new dependencies.
 
-**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md`: §3 Principles, §4 core items 5–6, §5.3 (`List`, `ListItem`, `Settings`), §7 Units, §8 Lists, §9 Accounts and settings, §10 terms. Roadmap tasks 4.1–4.6. Builds on M3 (`docs/superpowers/plans/2026-11-07-m3-browse-search.md`).
+**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md`: §3 Principles, §4 core items 5–6, §5.3 (`List`, `ListItem`, `Settings`), §7 Units, §8 Lists, §9 Accounts and settings, §10 terms. Open-ended search spec `docs/superpowers/specs/2026-11-08-open-search-design.md` (§14.1). Roadmap tasks 4.1–4.6. Builds on M3 (`docs/superpowers/plans/2026-11-07-m3-browse-search.md`).
+
+Lands after open search (#67); depends on `catalog/generic.py`, `Offer.measure_dim`/`measure_amount`, and `catalog.fetch.enqueue`.
 
 ## Global Constraints
 
@@ -24,6 +26,7 @@
 - **Security:** every state change is POST with CSRF. Magic-link tokens: 32 bytes from `secrets.token_urlsafe`, stored only as SHA-256, expire after **15 minutes**, single use, consumed only by POST. No response reveals whether an email has an account. `SESSION_COOKIE_SECURE` and `CSRF_COOKIE_SECURE` are on when `DEBUG` is off; `django.contrib.auth.login` rotates the session key.
 - **Email** goes through `django.core.mail` with settings from env; the console backend is the default when `DEBUG` is on. Credentials only in `.env`; names in `.env.example`. Never read `.env`.
 - Tests never touch the network. Each task ends with `uv run pytest -q` green and the pre-commit hooks passing. Commit subjects end with the M4 implementation issue number, as M3's did (`(#32)`).
+- Generic items never resolve on an attribute read from a title. They use only the open-search text match and structured facets, and only offers whose `measure_dim` equals the item's dimension.
 
 ## Review Focus
 
@@ -32,6 +35,7 @@
 3. **Session → account merge is idempotent.** Signing in twice, or replaying the merge, creates no duplicate lists or items, and lists already in the account are untouched. Owned by Task 7 (`test_merge_idempotent`, `test_merge_keeps_existing_account_lists`).
 4. **Magic links survive mail-scanner prefetch but nothing else.** A GET of the link (scanners, previews) does not consume it; the first POST does; a second POST, or one after 15 minutes, fails with the same "expired or already used" page. Owned by Task 6 (`test_get_does_not_consume`, `test_token_single_use`, `test_token_expires`).
 5. **List ids are not capabilities.** Another account's or another session's list id returns 404 for every list route, GET and POST. Owned by Task 5 (`test_other_owners_list_404`).
+6. **A generic item never resolves to an offer outside its dimension or to an offer matched only by an attribute read from the title.** Owned by Task 4 (`test_generic_item_stays_in_dimension`).
 
 ---
 
@@ -41,6 +45,7 @@
 config/settings.py, config/urls.py         # add "lists", "accounts"; email, cache, session, auth settings
 .env.example, CLAUDE.md                     # email + site URL vars; createcachetable in first-run steps
 catalog/
+  generic.py                                # + generic_matching_offers()
   browse.py                                 # + matching_offers(), spec_params(), parse_filters_strict()
   units.py                                  # + TARGET_UNITS, target_to_canonical(), default_target()
 lists/
@@ -108,6 +113,18 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 
 ---
 
+
+**Amendment (open search, spec §14.1):**
+- Add `generic_matching_offers(query: str, facets: Mapping[str, list[str]], dimension: str, stores: frozenset[str] | None, now: datetime) -> list[Offer]` in `catalog/generic.py`. It runs `match_offers(query, now, stores=stores)`, then `apply_filters(parse_generic_filters(QueryDict from facets, …))`, keeping `measure_dim == dimension`.
+- Add `GENERIC_TARGET_UNITS`, with entries of the form dimension → unit code → (label, canonical per unit):
+  - volume: `floz`, `gal`, `ml`, `l` (canonical mL)
+  - mass: `oz`, `lb`, `g`, `kg` (g)
+  - count: `ct`
+  - oz_labeled: `oz` ("oz (as labeled)", 1)
+- Add `generic_target_to_canonical(amount, unit_code, dimension) -> Decimal`, with the same rejections as `target_to_canonical`.
+- Make `target_units_for("oz_labeled", any) == ["oz"]`.
+- Add tests `test_generic_matching_equals_group_population` (the same product ids as the generic page's group for that dimension) and `test_generic_target_units`.
+
 ### Task 2: Package fit and basket optimizer (pure logic for 4.3)
 
 **Files:**
@@ -162,6 +179,9 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 
 ---
 
+
+**Amendment (open search, spec §14.1):** `fit_offer(offer, measure_key, target)` reads the package size from `offer.measure_amount` when `measure_key` is one of `volume`, `mass`, `oz_labeled` or `count` and `offer.measure_dim == measure_key`, and otherwise from `offer.measures[measure_key]` as before. The duck-typed `offer` gains `.measure_dim` and `.measure_amount`. Add `test_fit_generic_measure_amount`.
+
 ### Task 3: List specs, models and storage (roadmap 4.1, 4.4)
 
 **Files:**
@@ -206,6 +226,16 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 
 ---
 
+
+**Amendment (open search, spec §14.1):**
+- `ItemSpec` gains `kind: Literal["curated", "generic"] = "curated"`, `query: str = ""` (normalized phrase) and `facets: Mapping[str, tuple[str, ...]] = {}`. `category: str | None`. For generic items, `target_measure` is the dimension name.
+- `to_json`/`from_json` round-trip `kind`, and data without `kind` reads as curated.
+- `ListItem`:
+  - `category_slug` becomes `null=True, blank=True`.
+  - Add `kind = CharField(10, default="curated")`, `query = CharField(100, blank=True)` and `facets = JSONField(default=dict)`.
+  - Add `CheckConstraint(condition=Q(kind="curated", category_slug__isnull=False) | (Q(kind="generic") & ~Q(query="")), name="listitem_kind_fields")`.
+- Add tests `test_item_spec_generic_round_trip`, `test_legacy_json_reads_as_curated` and `test_listitem_kind_check_constraint`.
+
 ### Task 4: List resolution (roadmap 4.2, 4.3)
 
 **Files:**
@@ -247,6 +277,16 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 - [ ] **Step 5: Commit** `feat: resolve list specs to fresh offers with totals`
 
 ---
+
+
+**Amendment (open search, spec §14.1):**
+- `resolve_item` branches on `kind`:
+  - A generic item resolves over `generic_matching_offers`.
+  - An unknown facet key gives "Filter no longer valid: <key>".
+  - "This category is no longer available" and the curated filter reasons apply to curated items only.
+  - "No current prices match at your stores" and "Size unknown for every match" apply to both.
+- `resolve_list` calls `catalog.fetch.enqueue(item.query, "list", now, live_source_info(live_off=settings.LIVE_OFF_ENABLED), client_key=None)` once per distinct generic phrase, under normal dedup and budgets. There is no poll on the list page.
+- Add tests `test_generic_item_stays_in_dimension` (Review Focus 6), `test_generic_unknown_facet_unresolved` and `test_list_view_enqueues_list_jobs`.
 
 ### Task 5: List pages and add-to-list (roadmap 4.3–4.4 UI)
 
@@ -292,6 +332,12 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 - [ ] **Step 5: Commit** `feat: list pages and add-to-list from the category page`
 
 ---
+
+
+**Amendment (open search, spec §14.1):**
+- Each generic measure group gets an "Add to list" link: `GET /lists/add?kind=generic&q=<phrase>&dim=<dimension>&<facet params>`.
+- `lists:add` validates `dim` against the generic dimensions and the facets with `parse_generic_filters` (400 on an invalid key in the POST). It pre-fills the target from the group's top row `measure_amount` in the viewer's first unit, and summarizes the item as "'<phrase>' · <facet labels> · by <volume|weight|oz as labeled|count>".
+- Add test `test_add_generic_item_from_group`.
 
 ### Task 6: Accounts: email and password, magic link, security settings (roadmap 4.5)
 
@@ -414,4 +460,5 @@ tests/accounts/  test_magic.py  test_views_auth.py  test_ratelimit.py  test_sett
 - With `demo_data` loaded: from `/c/dairy/milk/?fat=2`, "Add to list" with 1 gal creates an anonymous list. Its page shows the whole-package fit, per-store totals, the cheapest single store and the cheapest split, each price with "price as of" and a direct link.
 - Requesting a magic link prints the email to the console. Opening it in the same browser and pressing "Sign in" moves the list and settings into the account, and a second browser signed in to the same account sees them.
 - Every Review Focus item has a named test. `uv run pytest` is green locally and in CI; `manage.py check` passes with `DEBUG=1`, and with `DEBUG=0` once `UNITPRICER_SITE_URL` is set.
+- From a generic results page, 'Add to list' on the volume group creates a generic item that resolves on the list page.
 - No new dependencies. Accounts store only email, password hash, Django's login timestamps, lists and settings.

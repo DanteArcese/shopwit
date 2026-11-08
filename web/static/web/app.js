@@ -50,3 +50,18 @@ document.addEventListener("htmx:configRequest", function (e) {
   var p = e.detail.parameters;
   if (p && !p["size_min"] && !p["size_max"]) delete p["size_unit"];
 });
+
+// Generic search: an out-of-band #facets swap keeps the drawer as the visitor left it, and a
+// background poll (data-poll) never replaces the facets while the visitor is typing in them.
+document.addEventListener("htmx:oobBeforeSwap", function (e) {
+  var target = e.detail.target;
+  var fragment = e.detail.fragment;
+  if (!target || target.id !== "facets" || !fragment || !fragment.querySelector) return;
+  if (fragment.querySelector("[data-poll]") && target.contains(document.activeElement)) {
+    e.detail.shouldSwap = false;
+    return;
+  }
+  var before = target.querySelector("details.filters-drawer");
+  var after = fragment.querySelector("details.filters-drawer");
+  if (before && after) after.open = before.open;
+});

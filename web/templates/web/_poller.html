@@ -1,0 +1,1 @@
+{% if poller_url %}<div id="poller" hx-get="{{ poller_url }}" hx-trigger="every 2s" hx-swap="outerHTML" hx-include="#facets"></div>{% else %}<div id="poller"></div>{% endif %}

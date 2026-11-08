@@ -13,6 +13,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from connectors.base import ConnectorError, SearchResult
+from connectors.live import Budget, LiveSearchResult, retry_after
 from normalize.types import RawOffer
 
 SEARCH_URL = (
@@ -59,6 +60,8 @@ class WalmartConnector:
     name = "walmart"
     max_cache_age = timedelta(hours=24)
     records_price_history = False
+    budget_keys = ("walmart",)
+    refresh_after = timedelta(hours=12)
 
     def __init__(
         self,
@@ -94,16 +97,21 @@ class WalmartConnector:
             "WM_SEC.AUTH_SIGNATURE": self._sign(ts),
         }
 
-    def search(self, query: str, limit: int = 25) -> SearchResult:
-        params = {"query": query, "numItems": str(limit), "responseGroup": "full"}
-        if self._publisher_id:
-            params["publisherId"] = self._publisher_id
+    def _request(self, params: dict[str, str]) -> httpx.Response:
         try:
-            resp = self._client.get(SEARCH_URL, params=params, headers=self._headers())
+            return self._client.get(SEARCH_URL, params=params, headers=self._headers())
         except httpx.HTTPError as exc:
             raise ConnectorError(
                 f"Walmart request failed ({type(exc).__name__})"
             ) from None
+
+    def _params(self, query: str, limit: int) -> dict[str, str]:
+        params = {"query": query, "numItems": str(limit), "responseGroup": "full"}
+        if self._publisher_id:
+            params["publisherId"] = self._publisher_id
+        return params
+
+    def _parse(self, resp: httpx.Response) -> SearchResult:
         if resp.status_code != 200:
             raise ConnectorError(f"Walmart search failed with HTTP {resp.status_code}")
         try:
@@ -126,6 +134,24 @@ class WalmartConnector:
             else:
                 offers.append(offer)
         return SearchResult(offers, skipped)
+
+    def search(self, query: str, limit: int = 25) -> SearchResult:
+        return self._parse(self._request(self._params(query, limit)))
+
+    def live_search(self, phrase: str, limit: int, budget: Budget) -> LiveSearchResult:
+        """One budgeted request; the client's 15 s timeout bounds the job far under STUCK_AFTER.
+
+        Keeps no per-request state on the instance, so one instance may serve any thread.
+        """
+        budget.acquire("walmart")
+        try:
+            resp = self._request(self._params(phrase, limit))
+        except ConnectorError:
+            budget.report("walmart", None, None)
+            raise
+        budget.report("walmart", resp.status_code, retry_after(resp))
+        result = self._parse(resp)
+        return LiveSearchResult(offers=result.offers, skipped=result.skipped)
 
     @staticmethod
     def _map(item: object, fetched_at: datetime) -> RawOffer | None:
@@ -156,4 +182,9 @@ class WalmartConnector:
             upc=item.get("upc"),
             brand=item.get("brandName"),
             size_text=item.get("size"),
+            fields=(
+                {"category_path": item["categoryPath"]}
+                if isinstance(item.get("categoryPath"), str) and item["categoryPath"].strip()
+                else {}
+            ),
         )

@@ -2,9 +2,23 @@ from django.contrib import admin, messages
 from django.db import models, transaction
 from django.utils import timezone
 
+from collections import Counter
+
+from .demand import curate_next
 from .forms import ProductAdminForm
 from .merge import merge_product
-from .models import Category, IngestionRun, Offer, OpenPriceObservation, Product, ReviewItem, Store
+from .models import (
+    Category,
+    CurateNext,
+    FetchJob,
+    IngestionRun,
+    Offer,
+    OpenPriceObservation,
+    Product,
+    ReviewItem,
+    SourceBudget,
+    Store,
+)
 
 
 class DetailPrefixFilter(admin.SimpleListFilter):
@@ -115,3 +129,68 @@ class OpenPriceObservationAdmin(ReadOnlyAdmin):
     list_display = ("price_id", "product_name", "store", "price", "observed_on")
     list_select_related = ("store",)
     search_fields = ("product_name", "upc")
+
+
+@admin.register(SourceBudget)
+class SourceBudgetAdmin(admin.ModelAdmin):
+    list_display = (
+        "source",
+        "capacity",
+        "refill_per_second",
+        "tokens",
+        "refilled_at",
+        "daily_limit",
+        "daily_used",
+        "day",
+        "blocked_until",
+        "consecutive_failures",
+    )
+
+
+@admin.register(FetchJob)
+class FetchJobAdmin(ReadOnlyAdmin):
+    # The phrase is deliberately neither listed nor searchable.
+    list_display = ("id", "source", "origin", "status", "created_at", "finished_at", "result_count", "error")
+    list_filter = ("source", "origin", "status")
+    exclude = ("phrase",)
+
+
+def _now():
+    return timezone.now()
+
+
+@admin.register(CurateNext)
+class CurateNextAdmin(ReadOnlyAdmin):
+    """Phrases searched on 3 or more distinct days that no category matched: curate these next.
+
+    The raw SearchDemand model is deliberately not registered, so rarer phrases never show.
+    """
+
+    list_display = ("phrase", "days_seen", "count", "last_seen", "held_results", "top_store_path")
+    list_per_page = 50
+    ordering = ()
+
+    def get_queryset(self, request):
+        return curate_next()
+
+    def get_ordering(self, request):
+        return ()
+
+    def _held(self, obj) -> tuple[int, str]:
+        cached = getattr(obj, "_held", None)
+        if cached is None:
+            from .generic import match_offers
+
+            offers = match_offers(obj.phrase, _now()).offers
+            paths = Counter(o.category_path for o in offers if o.category_path)
+            top = min(paths, key=lambda p: (-paths[p], p)) if paths else ""
+            cached = obj._held = (len({o.product_id for o in offers}), top)
+        return cached
+
+    @admin.display(description="held results")
+    def held_results(self, obj) -> int:
+        return self._held(obj)[0]
+
+    @admin.display(description="top store path")
+    def top_store_path(self, obj) -> str:
+        return self._held(obj)[1] or "-"

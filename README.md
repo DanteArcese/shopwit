@@ -37,6 +37,12 @@ uv run --env-file .env python manage.py demo_data      # categories + recorded W
 uv run --env-file .env python manage.py runserver
 ```
 
+Open-ended search needs one extra step on an existing database:
+`uv run --env-file .env python manage.py backfill_generic`, run once after migrating to catalog 0010.
+`manage.py bench_search` (DEBUG only) is a local p95 check. Set `UNITPRICER_LIVE_OFF=1` to turn on the
+Open Food Facts → Open Prices live source (off by default). Budgets live in the admin, and a changed
+`UNITPRICER_BUDGET_*` setting applies only to new rows.
+
 Then open <http://127.0.0.1:8000/c/dairy/milk/>. `demo_data` needs no retailer keys and refuses
 to run when `DJANGO_DEBUG` is off. Never commit `.env`.
 
@@ -59,7 +65,12 @@ docker compose up
 ```
 
 This runs Postgres, the web server on port 8000, and a worker (`run_scheduler`) that refreshes
-synced categories roughly every 12 hours.
+synced categories roughly every 12 hours. The worker also runs a fetch thread
+(`UNITPRICER_FETCH_THREADS`, 1 or 2) that takes queued live-search jobs. Every request to a
+source draws a token from that source's `SourceBudget` row, which the scheduled refresh shares.
+The worker creates missing budget rows from the `UNITPRICER_BUDGET_*` settings at startup and
+never overwrites an existing row: to apply a changed setting, edit the row in the admin or
+delete it and restart the worker.
 
 ## How it works
 

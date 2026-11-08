@@ -7,6 +7,7 @@ deleted only after the whole window was fetched successfully.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from django.conf import settings
@@ -15,6 +16,7 @@ from django.utils import timezone
 
 import enrichment.off
 from connectors.base import ConnectorError
+from connectors.live import BudgetExhausted, Stopping
 from connectors.open_prices import (
     Observation,
     OpenPricesClient,
@@ -26,7 +28,7 @@ from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.types import OffProduct
 
-from .ingest import _upsert
+from .ingest import INTERRUPTED, _upsert
 from .merge import merge_product
 from .models import IngestionRun, Offer, OpenPriceObservation, Product, Store
 
@@ -41,7 +43,11 @@ logger = logging.getLogger(__name__)
 
 def due(now: datetime) -> bool:
     runs = IngestionRun.objects.filter(connector=CONNECTOR)
-    if runs.filter(started_at__gte=now - RETRY_BACKOFF).exists():
+    # A run interrupted by a shutdown says nothing about upstream, so it never delays a retry.
+    recent = runs.filter(started_at__gte=now - RETRY_BACKOFF).exclude(
+        status=IngestionRun.Status.FAILED, error=INTERRUPTED
+    )
+    if recent.exists():
         return False  # any run, so a failing upstream is retried hourly at most
     return not runs.filter(
         status=IngestionRun.Status.SUCCEEDED,
@@ -86,13 +92,21 @@ def sync_open_prices(
     *,
     off_lookup=enrichment.off.lookup,
     allow_deletions: bool = False,
+    stopping: Callable[[], bool] | None = None,
 ) -> IngestionRun:
+    """Pull the window and write it. ``stopping`` (the worker's stop request) is checked
+    between offers in the write phase: a shutdown ends the run as "interrupted" with nothing
+    deleted, and ``due`` retries it on the next start."""
     run = IngestionRun.objects.create(connector=CONNECTOR, category_slug="all", started_at=now)
     since = (now - settings.OBSERVED_MAX_AGE).date()
     try:
         fetched = client.fetch_window(since, settings.SITE_CURRENCY)
     except ConnectorError as exc:
         return _fail(run, str(exc))
+    except Stopping:  # the worker is shutting down; due() retries at once on the next start
+        return _fail(run, INTERRUPTED)
+    except BudgetExhausted:  # no token within the wait (or shutting down); the next due check retries
+        return _fail(run, "budget exhausted")
     except Exception as exc:  # never leave a RUNNING row; type name only
         return _fail(run, type(exc).__name__)
 
@@ -131,8 +145,10 @@ def sync_open_prices(
 
     try:
         touched, keep_offers, skipped = _write(
-            run, kept, protected, safe_to_delete, now, off_lookup, skipped
+            run, kept, protected, safe_to_delete, now, off_lookup, skipped, stopping
         )
+    except Stopping:  # offers written so far stay; nothing was deleted or merged
+        return _fail(run, INTERRUPTED)
     except Exception as exc:  # the write transaction rolled back; prior state is intact
         return _fail(run, type(exc).__name__)
 
@@ -143,7 +159,23 @@ def sync_open_prices(
     return run
 
 
-def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
+def upsert_observations(
+    kept: list[Observation],
+    now: datetime,
+    *,
+    off_lookup,
+    run: IngestionRun | None,
+    prune=None,
+    stopping: Callable[[], bool] | None = None,
+) -> tuple[set[int], set[int], int]:
+    """Write stores, observations and the latest observed offer per (store, UPC).
+
+    Offers that match no category are kept as generic observed offers. Returns
+    (touched product ids, pks of the observed offers written or already present,
+    skipped count). Nothing is deleted and no product is merged here; ``prune``,
+    if given, runs inside the transaction that wrote the observations.
+    """
+    skipped = 0
     stores: dict[str, Store] = {}
     with transaction.atomic():
         for obs in kept:
@@ -161,6 +193,7 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                     "brands": obs.brands[:200] if obs.brands else None,
                     "quantity": obs.quantity[:200] if obs.quantity else None,
                     "labels": sorted(obs.labels),
+                    "categories": list(obs.categories),
                     "price": obs.price,
                     "currency": obs.currency,
                     "is_sale": obs.is_sale,
@@ -170,10 +203,8 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                     "fetched_at": now,
                 },
             )
-        if safe_to_delete:
-            keep_ids = [o.price_id for o in kept] + list(protected)
-            OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
-            Store.objects.filter(observations__isnull=True).delete()
+        if prune is not None:
+            prune()
 
     # Latest observation per (store, upc) becomes the offer.
     latest: dict[tuple[str, str], Observation] = {}
@@ -189,33 +220,18 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
     touched: set[int] = set()
     keep_offers: set[int] = set()  # pks of observed offers that must survive
 
-    def offer_pk(retailer, item_id):
-        return (
-            Offer.objects.filter(retailer=retailer, retailer_item_id=item_id)
-            .values_list("pk", flat=True)
-            .first()
-        )
-
-    # Offers behind observations that were seen upstream but unreadable stay.
-    for kept_obs in OpenPriceObservation.objects.filter(price_id__in=protected).select_related("store"):
-        pk = offer_pk(kept_obs.store.chain_code, f"{kept_obs.upc}@{kept_obs.store.code}")
-        if pk is not None:
-            keep_offers.add(pk)
-
     for (store_code, upc), obs in latest.items():
+        if stopping is not None and stopping():
+            raise Stopping()
         raw = to_raw_offer(obs, now)
-        existing = offer_pk(raw.retailer, raw.retailer_item_id)
+        existing = _offer_pk(raw.retailer, raw.retailer_item_id)
         if existing is not None:
             keep_offers.add(existing)  # an error below must not delete the existing offer
         try:
-            normalized = normalize(
-                raw,
-                categories,
-                store_brands,
-                off=off_lookup(upc) or OffProduct(labels=obs.labels, quantity=obs.quantity),
+            off = off_lookup(upc) or OffProduct(
+                labels=obs.labels, quantity=obs.quantity, categories=obs.categories
             )
-            if normalized.category is None:
-                continue
+            normalized = normalize(raw, categories, store_brands, off=off)
             with transaction.atomic():
                 normalized = _upsert(
                     raw,
@@ -230,18 +246,49 @@ def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
                         "is_sale": obs.is_sale,
                         "store": stores[store_code],
                     },
+                    off=off,
+                    store_brands=store_brands,
                 )
         except Exception as exc:  # one bad offer must not poison the run
             skipped += 1
-            if not run.error:
+            if run is not None and not run.error:
                 run.error = f"{type(exc).__name__} on {raw.retailer}:{raw.retailer_item_id}"[:500]
             continue
-        keep_offers.add(offer_pk(raw.retailer, raw.retailer_item_id))
-        run.matched += 1
-        if normalized.unresolved:
-            run.unresolved += 1
-        else:
-            run.fully_parsed += 1
+        keep_offers.add(_offer_pk(raw.retailer, raw.retailer_item_id))
+        if run is not None and normalized.category is not None:
+            run.matched += 1
+            if normalized.unresolved:
+                run.unresolved += 1
+            else:
+                run.fully_parsed += 1
+    return touched, keep_offers, skipped
+
+
+def _offer_pk(retailer, item_id):
+    return (
+        Offer.objects.filter(retailer=retailer, retailer_item_id=item_id)
+        .values_list("pk", flat=True)
+        .first()
+    )
+
+
+def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped, stopping=None):
+    def prune():
+        keep_ids = [o.price_id for o in kept] + list(protected)
+        OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
+        Store.objects.filter(observations__isnull=True).delete()
+
+    touched, keep_offers, more_skipped = upsert_observations(
+        kept, now, off_lookup=off_lookup, run=run, prune=prune if safe_to_delete else None,
+        stopping=stopping,
+    )
+    skipped += more_skipped
+
+    # Offers behind observations that were seen upstream but unreadable stay.
+    for kept_obs in OpenPriceObservation.objects.filter(price_id__in=protected).select_related("store"):
+        pk = _offer_pk(kept_obs.store.chain_code, f"{kept_obs.upc}@{kept_obs.store.code}")
+        if pk is not None:
+            keep_offers.add(pk)
 
     if safe_to_delete:
         with transaction.atomic():

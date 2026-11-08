@@ -77,7 +77,10 @@ def test_search_excludes_observed(client, milk_rows, observe):
     observe(title="Quokka Nectar")
     resp = client.get("/search?q=Quokka")
     assert resp.status_code == 200
-    assert "Quokka Nectar" not in resp.content.decode()
+    page = resp.content.decode()
+    # Search now shows observed prices, but only under "Seen in stores" (never as live rows).
+    assert "Seen in stores" in page
+    assert "Quokka Nectar" not in page[: page.index("Seen in stores")]
 
 
 def test_store_filter_chain_filters_only_observed(client, milk_rows, observe, stores):
@@ -292,3 +295,23 @@ def test_observed_row_has_report_link(client, milk_rows, observe):
     html = get(client).content.decode()
     section = html[html.index('<section class="observed">'):]
     assert f'href="/feedback?type=wrong-data&amp;offer={offer.pk}" rel="nofollow">Report a problem</a>' in section
+
+
+def test_observed_filtered_empty_ignores_generic_offers(client, milk, frozen_now):
+    """Only curated offers say the category has in-store prices the store filter hid."""
+    from decimal import Decimal
+
+    from catalog.models import Offer, Product, Store
+
+    product = Product.objects.create(identity="upc:9", title="Milk", category=milk)
+    store = Store.objects.create(
+        code="osm-g", name="G", chain_code="op-generic", chain_name="Generic", country_code="US",
+        osm_type="node", osm_id=99,
+    )
+    Offer.objects.create(
+        product=product, retailer="op-generic", retailer_item_id="9@osm-g", price=Decimal("3"),
+        currency="USD", url="https://example.com/", last_seen_at=frozen_now, kind="observed",
+        observed_on=frozen_now.date(), store=store, category=None,
+    )
+    body = client.get("/c/dairy/milk/", {"store": "op-other"}).content.decode()
+    assert "No in-store prices from the selected stores." not in body

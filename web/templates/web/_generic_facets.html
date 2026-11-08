@@ -1,0 +1,35 @@
+{% if path_param %}<input type="hidden" name="path" value="{{ path_param }}">{% endif %}
+{% if facets %}
+<details class="filters-drawer" open>
+<summary>Filters</summary>
+<div class="filters">
+{% for f in facets %}
+  {% if f.kind == "checks" %}
+  <fieldset class="facet facet-{{ f.name }}">
+    <legend>{{ f.title }}{% if f.clear_url %} <a class="clear" href="{{ f.clear_url }}" hx-get="{{ f.clear_url }}" hx-target="#results" hx-push-url="true">Clear</a>{% endif %}</legend>
+    {% for o in f.options %}<label class="check"><input type="checkbox" name="{{ f.param }}" value="{{ o.value }}"{% if o.checked %} checked{% endif %}> {{ o.label }} ({{ o.count }})</label>{% endfor %}
+  </fieldset>
+  {% elif f.kind == "select" %}
+  <label class="facet facet-{{ f.name }}">{{ f.title }}{% if f.clear_url %} <a class="clear" href="{{ f.clear_url }}" hx-get="{{ f.clear_url }}" hx-target="#results" hx-push-url="true">Clear</a>{% endif %}
+    <select name="brand_tier">
+      <option value="any">Any</option>
+      {% for o in f.options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }} ({{ o.count }})</option>{% endfor %}
+    </select>
+  </label>
+  {% elif f.kind == "links" %}
+  <nav class="facet facet-{{ f.name }}" aria-label="{{ f.title }}">
+    <strong>{{ f.title }}</strong>{% if f.clear_url %} <a class="clear" href="{{ f.clear_url }}" hx-get="{{ f.clear_url }}" hx-target="#results" hx-push-url="true">Clear</a>{% endif %}
+    <ul>{% for o in f.options %}<li><a href="{{ o.url }}" hx-get="{{ o.url }}" hx-target="#results" hx-push-url="true">{{ o.label }} ({{ o.count }})</a></li>{% endfor %}</ul>
+  </nav>
+  {% else %}
+  <fieldset class="facet size-range facet-{{ f.name }}">
+    <legend>{{ f.title }}{% if f.clear_url %} <a class="clear" href="{{ f.clear_url }}" hx-get="{{ f.clear_url }}" hx-target="#results" hx-push-url="true">Clear</a>{% endif %}</legend>
+    <input type="number" step="any" min="0" name="{{ f.min_name }}" value="{{ f.current_min }}" aria-label="Min {{ f.unit }}" placeholder="Min {{ f.range_min }}">
+    <input type="number" step="any" min="0" name="{{ f.max_name }}" value="{{ f.current_max }}" aria-label="Max {{ f.unit }}" placeholder="Max {{ f.range_max }}">
+  </fieldset>
+  {% endif %}
+{% endfor %}
+{% if filters_active %}<a class="clear-all" href="{{ clear_all_url }}" hx-get="{{ clear_all_url }}" hx-target="#results" hx-push-url="true">Clear all filters</a>{% endif %}
+</div>
+</details>
+{% endif %}

@@ -1,6 +1,7 @@
 import logging
 import signal
 import threading
+import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
@@ -301,3 +302,192 @@ def test_feedback_purge_failure_never_stops_tick(cats, fresh_cleanup, monkeypatc
     assert scheduler.tick(NOW, {}) == []
     assert "feedback email purge failed: RuntimeError" in caplog.text
     assert scheduler.purge_feedback_emails(NOW + timedelta(hours=1)) is False
+
+
+class LiveFake:
+    name = "walmart"
+    budget_keys = ("walmart",)
+    max_cache_age = timedelta(hours=24)
+    refresh_after = timedelta(hours=12)
+
+    def __init__(self):
+        self.calls = []
+        self.closed = False
+
+    def live_search(self, phrase, limit, budget):
+        from connectors.live import LiveSearchResult
+
+        budget.acquire("walmart")
+        self.calls.append(phrase)
+        return LiveSearchResult()
+
+    def close(self):
+        self.closed = True
+
+
+@pytest.mark.django_db(transaction=True)
+def test_run_loop_runs_fetch_threads_and_stops_them(settings, monkeypatch):
+    from catalog.models import FetchJob, SourceBudget
+
+    settings.FETCH_THREADS = 2
+    built = []
+
+    def factory(**kwargs):  # each fetch thread builds (and closes) its own sources
+        built.append(LiveFake())
+        return {"walmart": built[-1]}
+
+    monkeypatch.setattr(scheduler.registry, "live_sources", factory)
+    monkeypatch.setattr(scheduler, "live_source_info", lambda **kw: {"walmart": object()})
+    job = FetchJob.objects.create(source="walmart", phrase="oat milk", not_before=NOW)
+    stop = threading.Event()
+
+    def wait(seconds):  # the main loop's wait: return once the fetch thread finished the job
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            if FetchJob.objects.get(pk=job.pk).status in FetchJob.TERMINAL:
+                break
+            time.sleep(0.05)
+        stop.set()
+
+    scheduler.run_loop(poll_seconds=1, wait=wait, stop=stop, connectors={})
+    job.refresh_from_db()
+    assert job.status == "succeeded"
+    assert len(built) == 2 and len({id(s) for s in built}) == 2
+    assert sorted(len(s.calls) for s in built) == [0, 1]
+    assert all(s.closed for s in built)
+    assert not [t for t in threading.enumerate() if t.name.startswith("fetch-")]
+    assert set(SourceBudget.objects.values_list("source", flat=True)) == set(settings.SOURCE_BUDGETS)
+    assert SourceBudget.objects.get(pk="walmart").daily_used == 1
+
+
+def test_once_and_fetch_false_start_no_fetch_threads(cats, monkeypatch):
+    def boom(**kwargs):
+        raise AssertionError("no fetch threads expected")
+
+    monkeypatch.setattr(scheduler.registry, "live_sources", boom)
+    scheduler.run_loop(once=True, connectors={})
+    stop = threading.Event()
+    scheduler.run_loop(wait=lambda s: stop.set(), stop=stop, connectors={}, fetch=False)
+
+
+def test_no_fetch_threads_without_live_sources(cats, monkeypatch, caplog):
+    def boom(*args, **kwargs):
+        raise AssertionError("no fetch threads expected")
+
+    monkeypatch.setattr(scheduler, "live_source_info", lambda **kw: {})
+    monkeypatch.setattr(scheduler, "start_fetch_threads", boom)
+    stop = threading.Event()
+    waits = []
+
+    def wait(seconds):
+        waits.append(seconds)
+        if len(waits) == 3:
+            stop.set()
+
+    with caplog.at_level("INFO", logger="catalog.scheduler"):
+        scheduler.run_loop(wait=wait, stop=stop, connectors={})
+    assert caplog.text.count("no live search sources; fetch threads not started") == 1
+
+
+def test_tick_runs_fetch_housekeeping(cats):
+    from catalog.models import FetchJob
+
+    Category.objects.update(active=False)
+    job = FetchJob.objects.create(source="walmart", phrase="oat milk", not_before=NOW)
+    FetchJob.objects.filter(pk=job.pk).update(created_at=NOW - timedelta(minutes=3))
+    scheduler.tick(NOW, {})
+    assert FetchJob.objects.get(pk=job.pk).status == "expired"
+
+
+def test_tick_housekeeping_error_is_isolated(cats, monkeypatch, caplog):
+    Category.objects.update(active=False)
+
+    def boom(now):
+        raise RuntimeError("x")
+
+    monkeypatch.setattr(scheduler, "housekeeping", boom)
+    with caplog.at_level(logging.ERROR, logger="catalog.scheduler"):
+        assert scheduler.tick(NOW, {}) == []
+    assert "fetch housekeeping failed: RuntimeError" in caplog.text
+
+
+def test_open_prices_sync_draws_from_budget(cats, settings, monkeypatch):
+    from catalog.budget import DbBudget
+
+    seen = {}
+
+    class FakeOP:
+        unparsed = 0
+
+        def __init__(self, budget_wait=None, budget_report=None):
+            seen["budget_wait"] = budget_wait
+            seen["budget_report"] = budget_report
+
+        def fetch_window(self, since, currency):
+            seen["budget_wait"]("openprices")
+            return []
+
+        def close(self):
+            pass
+
+    settings.OPEN_PRICES_ENABLED = True
+    monkeypatch.setattr(scheduler, "OpenPricesClient", FakeOP)
+    budget = DbBudget(now=lambda: NOW, sleep=lambda s: None)
+    from catalog.models import SourceBudget
+
+    SourceBudget.objects.create(
+        source="openprices", capacity=1, refill_per_second=0, tokens=0,
+        refilled_at=NOW, day=NOW.date(),
+    )
+    runs = scheduler.tick(NOW, {}, budget=budget)
+    assert [(r.connector, r.status, r.error) for r in runs] == [("openprices", "failed", "budget exhausted")]
+    assert seen["budget_report"] == budget.report
+
+
+def test_tick_stops_starting_work_once_stopping(cats):
+    from catalog.budget import DbBudget
+
+    stop = threading.Event()
+    stop.set()
+    conn = FakeConnector()
+    assert scheduler.tick(NOW, {"fake": conn}, budget=DbBudget(stop=stop)) == []
+    assert conn.queries == [] and IngestionRun.objects.count() == 0
+
+
+
+def test_fetch_join_deadline_counts_from_stop():
+    assert scheduler.FETCH_JOIN_TIMEOUT <= 20
+    stop = scheduler.StopEvent()
+    assert stop.set_at is None
+    stop.set()
+    assert stop.set_at is not None
+    stop.set_at -= scheduler.FETCH_JOIN_TIMEOUT - 0.2  # SIGTERM came almost 20 s ago
+    hang = threading.Event()
+    thread = threading.Thread(target=hang.wait, args=(10,), name="fetch-test", daemon=True)
+    thread.start()
+    started = time.monotonic()
+    scheduler.stop_fetch_threads([thread], stop)
+    assert time.monotonic() - started < 1.5
+    hang.set()
+    thread.join()
+
+
+def test_fetch_thread_builds_and_closes_its_own_sources(db, monkeypatch):
+    built = []
+
+    def factory(**kwargs):
+        built.append(LiveFake())
+        return {"walmart": built[-1]}
+
+    monkeypatch.setattr(scheduler.registry, "live_sources", factory)
+    stop = threading.Event()
+    stop.set()
+    scheduler.fetch_thread(stop, scheduler.DbBudget(stop=stop))
+    assert len(built) == 1 and built[0].closed
+
+
+def test_command_stop_event_records_sigterm_time():
+    stop = scheduler.StopEvent()
+    with scheduler.sigterm_stops(stop):
+        signal.raise_signal(signal.SIGTERM)
+    assert stop.is_set() and stop.set_at is not None

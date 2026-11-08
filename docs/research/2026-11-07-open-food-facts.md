@@ -81,6 +81,17 @@ Misses to note: the search for Horizon, Folgers-by-name, Kirkland coffee, and Sc
 4. Is delta retention (about 2 weeks) acceptable, or do we also keep weekly full snapshots?
 5. Should we contribute corrections back to OFF (labels, quantity)?
 
+## Text search (measured 2026-11-08)
+
+Used by the `off-prices` live source (`connectors/off_search.py`, behind `UNITPRICER_LIVE_OFF`).
+
+- Endpoint: `GET https://world.openfoodfacts.org/cgi/search.pl` with `search_terms`, `json=1`, `page_size=50`, `fields=code,product_name,brands,quantity,product_quantity,product_quantity_unit,labels_tags,categories_tags`, and the US filter `tagtype_0=countries`, `tag_contains_0=contains`, `tag_0=united-states`. Free text is accepted; `/api/v2/search` was not needed.
+- One request each for "oat milk" (548 US matches, 50 returned, about 25 KB with those fields) and the Open Prices `product_code__in` lookup for five of its codes (6 prices). The empty-result and 503 recordings are synthetic.
+- No rate-limit headers (`X-RateLimit-*`, `Retry-After`) were present on either response, and no 429 or 503 was seen. The documented limit of about 10 requests per minute for search stays the `off-search` default.
+- Some products have `product_quantity` as `null` (for example "6 x 1 qt"); the parser keeps the `quantity` text and a `None` unit.
+- Retry policy: a 503 is retried twice, each retry drawing its own token; a 429 is reported and not retried.
+- Per-job deadline of 90 s, well under the fetch queue's stuck threshold.
+
 ## Sources
 
 - https://openfoodfacts.github.io/openfoodfacts-server/api/

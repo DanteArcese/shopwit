@@ -25,7 +25,7 @@ API_HOSTS = {
     "off": "https://world.openfoodfacts.org",
     "opf": "https://world.openproductsfacts.org",
 }
-FIELDS = "code,labels_tags,quantity,last_modified_t"
+FIELDS = "code,labels_tags,quantity,last_modified_t,categories_tags,product_quantity_unit"
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.0
 MIN_INTERVAL_SECONDS = 1.0
@@ -41,6 +41,8 @@ class OffRecord:
     labels: frozenset[str]
     quantity: str | None
     last_modified: datetime | None
+    categories: tuple[str, ...] = ()
+    quantity_unit: str | None = None
 
 
 def normalize_upc(code: str | None) -> str | None:
@@ -72,7 +74,11 @@ def _record_from_dict(data: object, source: str) -> OffRecord | None:
             last_modified = datetime.fromtimestamp(modified, tz=UTC)
         except (OverflowError, OSError, ValueError):
             last_modified = None
-    return OffRecord(upc, source, labels, quantity, last_modified)
+    raw_cats = data.get("categories_tags")
+    categories = tuple(t for t in raw_cats if isinstance(t, str)) if isinstance(raw_cats, list) else ()
+    unit = data.get("product_quantity_unit")
+    unit = unit.strip() or None if isinstance(unit, str) else None
+    return OffRecord(upc, source, labels, quantity, last_modified, categories, unit)
 
 
 def parse_off_line(line: str, source: Source) -> OffRecord | None:
@@ -113,7 +119,12 @@ def lookup(upc: str | None) -> OffProduct | None:
     entry = OffEntry.objects.filter(pk=normalized).first()
     if entry is None:
         return None
-    return OffProduct(labels=frozenset(entry.labels), quantity=entry.quantity)
+    return OffProduct(
+        labels=frozenset(entry.labels),
+        quantity=entry.quantity,
+        categories=tuple(entry.categories),
+        quantity_unit=entry.quantity_unit,
+    )
 
 
 def _save(record: OffRecord) -> bool:
@@ -129,6 +140,8 @@ def _save(record: OffRecord) -> bool:
             "source": record.source,
             "labels": sorted(record.labels),
             "quantity": record.quantity,
+            "quantity_unit": record.quantity_unit[:10] if record.quantity_unit else None,
+            "categories": list(record.categories),
             "last_modified": record.last_modified,
         },
     )

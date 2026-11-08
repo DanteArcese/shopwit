@@ -227,3 +227,14 @@ def test_unranked_reason_names_the_alternate_comparison(tp):
     reason = res.unranked[0].reason
     assert reason != "ply unknown"
     assert "100 sheets" in reason, reason
+
+
+def test_generic_offer_on_curated_product_stays_off_category_page(milk):
+    upc = "0093966010015"
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "2.00", "a", upc=upc, retailer="r1")])
+    load(milk, [milk_offer("Oatly Oat Milk, 64 fl oz", "1.00", "g", upc=upc, retailer="r2", brand=None)])
+    res = browse(milk, NONE, None, None, NOW)
+    from catalog.models import Offer
+
+    assert Offer.objects.get(retailer="r2").category is None
+    assert [r.offer.retailer for r in [*res.ranked, *res.unranked]] == ["r1"]

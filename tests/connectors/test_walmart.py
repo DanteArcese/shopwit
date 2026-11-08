@@ -231,3 +231,80 @@ def test_absent_or_null_items_is_empty(key, body):
 def test_twenty_digit_item_id_accepted(key):
     (o,) = _search_items(key, [{"itemId": "1" * 20, "name": "A", "salePrice": 1}]).offers
     assert o.retailer_item_id == "1" * 20
+
+
+class SpyBudget:
+    def __init__(self):
+        self.calls = []
+
+    def acquire(self, key):
+        self.calls.append(("acquire", key))
+
+    def report(self, key, status, retry_after=None):
+        self.calls.append(("report", key, status, retry_after))
+
+
+def test_live_search_maps_category_path(key):
+    c, seen = _connector(key)
+    budget = SpyBudget()
+    result = c.live_search("oat milk", 25, budget)
+    assert len(result.offers) == 2 and result.skipped == 0
+    assert all(o.fields["category_path"].endswith("Plant-Based Milk") for o in result.offers)
+    assert budget.calls == [("acquire", "walmart"), ("report", "walmart", 200, None)]
+    assert len(seen) == 1
+
+
+def test_live_search_429_reports_retry_after(key):
+    c, _ = _connector(key)
+    budget = SpyBudget()
+    with pytest.raises(ConnectorError, match="429"):
+        c.live_search("throttled", 25, budget)
+    assert budget.calls == [("acquire", "walmart"), ("report", "walmart", 429, 30.0)]
+
+
+def test_live_search_transport_error_reports_none(key):
+    def boom(request):
+        raise httpx.ConnectError("down")
+
+    c = WalmartConnector(CONSUMER, _der_b64(key), "7", client=httpx.Client(transport=httpx.MockTransport(boom)))
+    budget = SpyBudget()
+    with pytest.raises(ConnectorError, match="ConnectError"):
+        c.live_search("milk", 25, budget)
+    assert budget.calls == [("acquire", "walmart"), ("report", "walmart", None, None)]
+
+
+def test_live_search_error_status_reports_status(key):
+    c, _ = _connector(key)
+    budget = SpyBudget()
+    with pytest.raises(ConnectorError, match="401"):
+        c.live_search("unauthorized", 25, budget)
+    assert budget.calls[-1] == ("report", "walmart", 401, None)
+
+
+def test_live_search_keeps_no_request_state(key):
+    c, _ = _connector(key)
+    before = dict(vars(c))
+    c.live_search("oat milk", 25, SpyBudget())
+    assert vars(c) == before
+    assert c.budget_keys == ("walmart",) and c.refresh_after.total_seconds() == 12 * 3600
+
+
+def test_walmart_absent_without_credentials(key, monkeypatch):
+    assert "walmart" not in registry.live_sources({}) and "walmart" not in registry.live_source_info({})
+    assert "walmart" not in registry.live_source_info({"WALMART_CONSUMER_ID": "c"})
+    env = {
+        "WALMART_CONSUMER_ID": CONSUMER,
+        "WALMART_PRIVATE_KEY": _der_b64(key),
+        "WALMART_KEY_VERSION": "7",
+    }
+
+    def fail(self, *a, **k):
+        raise AssertionError("constructed")
+
+    monkeypatch.setattr(WalmartConnector, "__init__", fail)
+    info = registry.live_source_info(env)
+    assert info["walmart"].budget_keys == ("walmart",)
+    monkeypatch.undo()
+    built = registry.live_sources(env)
+    assert set(built) == {"walmart"}
+    built["walmart"].close()

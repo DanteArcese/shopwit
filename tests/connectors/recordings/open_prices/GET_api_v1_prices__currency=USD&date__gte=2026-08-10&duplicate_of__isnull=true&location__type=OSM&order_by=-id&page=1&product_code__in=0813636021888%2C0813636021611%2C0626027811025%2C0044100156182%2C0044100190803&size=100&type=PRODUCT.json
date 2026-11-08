@@ -1,0 +1,391 @@
+{
+ "status": 200,
+ "json": {
+  "items": [
+   {
+    "id": 349877,
+    "type": "PRODUCT",
+    "product_code": "0044100156182",
+    "product": {
+     "product_name": "Oatmilk",
+     "brands": "Planet Oat",
+     "quantity": "52 fl oz (1.54 l)",
+     "product_quantity": 1537,
+     "product_quantity_unit": "ml",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:kosher",
+      "en:no-artificial-flavors",
+      "en:no-artificial-preservatives",
+      "en:no-gmos",
+      "en:no-milk",
+      "en:pasteurized",
+      "en:vegan",
+      "en:calcium-source",
+      "en:no-artificial-colors",
+      "en:no-lactose",
+      "en:no-nuts",
+      "en:no-peanuts",
+      "en:no-soy",
+      "en:non-gmo-project",
+      "en:orthodox-union-kosher",
+      "en:vegan-action",
+      "en:vitamin-a-source",
+      "en:vitamin-d-source"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:specific-products",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:products-for-specific-diets",
+      "en:plant-based-milk-alternatives",
+      "en:products-without-gluten",
+      "en:cereal-based-drinks",
+      "en:pasteurised-products",
+      "en:oat-based-drinks",
+      "en:unsweetened-beverages",
+      "en:plain-oat-based-drinks",
+      "en:unsweetened-plain-oat-based-drinks"
+     ]
+    },
+    "price": 3.99,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-10-17",
+    "location": {
+     "type": "OSM",
+     "osm_id": 2600782845,
+     "osm_type": "NODE",
+     "osm_name": "Smart & Final extra!",
+     "osm_brand": "Smart & Final",
+     "osm_address_city": "Mountain View",
+     "osm_address_postcode": "94040",
+     "osm_address_country_code": "US",
+     "osm_lat": 37.378767,
+     "osm_lon": -122.0715874
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Dobinator - Smartandfinal",
+    "duplicate_of": null
+   },
+   {
+    "id": 349876,
+    "type": "PRODUCT",
+    "product_code": "0044100190803",
+    "product": {
+     "product_name": "Oatmilk",
+     "brands": "Planet Oat",
+     "quantity": "1.44 L",
+     "product_quantity": 1440,
+     "product_quantity_unit": "ml",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:no-gmos",
+      "en:vegan",
+      "en:no-lactose",
+      "en:non-gmo-project",
+      "en:vegan-action"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:plant-based-milk-alternatives",
+      "en:cereal-based-drinks",
+      "en:oat-based-drinks"
+     ]
+    },
+    "price": 3.99,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-10-17",
+    "location": {
+     "type": "OSM",
+     "osm_id": 2600782845,
+     "osm_type": "NODE",
+     "osm_name": "Smart & Final extra!",
+     "osm_brand": "Smart & Final",
+     "osm_address_city": "Mountain View",
+     "osm_address_postcode": "94040",
+     "osm_address_country_code": "US",
+     "osm_lat": 37.378767,
+     "osm_lon": -122.0715874
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Dobinator - Smartandfinal",
+    "duplicate_of": null
+   },
+   {
+    "id": 338096,
+    "type": "PRODUCT",
+    "product_code": "0044100190803",
+    "product": {
+     "product_name": "Oatmilk",
+     "brands": "Planet Oat",
+     "quantity": "1.44 L",
+     "product_quantity": 1440,
+     "product_quantity_unit": "ml",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:no-gmos",
+      "en:vegan",
+      "en:no-lactose",
+      "en:non-gmo-project",
+      "en:vegan-action"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:plant-based-milk-alternatives",
+      "en:cereal-based-drinks",
+      "en:oat-based-drinks"
+     ]
+    },
+    "price": 4.99,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-09-12",
+    "location": {
+     "type": "OSM",
+     "osm_id": 6605093307,
+     "osm_type": "NODE",
+     "osm_name": "Dumbo Market",
+     "osm_brand": null,
+     "osm_address_city": "New York",
+     "osm_address_postcode": "11201",
+     "osm_address_country_code": "US",
+     "osm_lat": 40.7024275,
+     "osm_lon": -73.9902714
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Open Prices Web App - /experiments/proof-price-tag-assistant",
+    "duplicate_of": null
+   },
+   {
+    "id": 332750,
+    "type": "PRODUCT",
+    "product_code": "0813636021611",
+    "product": {
+     "product_name": "Oat Barista Blend",
+     "brands": "Califia Farms",
+     "quantity": "32 oz",
+     "product_quantity": 907,
+     "product_quantity_unit": "g",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:kosher",
+      "en:no-gmos",
+      "en:vegan",
+      "en:no-soy",
+      "en:non-gmo-project",
+      "en:orthodox-union-kosher"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:plant-based-milk-alternatives",
+      "en:cereal-based-drinks",
+      "en:oat-based-drinks"
+     ]
+    },
+    "price": 5.99,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-09-12",
+    "location": {
+     "type": "OSM",
+     "osm_id": 6605093307,
+     "osm_type": "NODE",
+     "osm_name": "Dumbo Market",
+     "osm_brand": null,
+     "osm_address_city": "New York",
+     "osm_address_postcode": "11201",
+     "osm_address_country_code": "US",
+     "osm_lat": 40.7024275,
+     "osm_lon": -73.9902714
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Open Prices Web App - /experiments/proof-price-tag-assistant",
+    "duplicate_of": null
+   },
+   {
+    "id": 332072,
+    "type": "PRODUCT",
+    "product_code": "0044100156182",
+    "product": {
+     "product_name": "Oatmilk",
+     "brands": "Planet Oat",
+     "quantity": "52 fl oz (1.54 l)",
+     "product_quantity": 1537,
+     "product_quantity_unit": "ml",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:kosher",
+      "en:no-artificial-flavors",
+      "en:no-artificial-preservatives",
+      "en:no-gmos",
+      "en:no-milk",
+      "en:pasteurized",
+      "en:vegan",
+      "en:calcium-source",
+      "en:no-artificial-colors",
+      "en:no-lactose",
+      "en:no-nuts",
+      "en:no-peanuts",
+      "en:no-soy",
+      "en:non-gmo-project",
+      "en:orthodox-union-kosher",
+      "en:vegan-action",
+      "en:vitamin-a-source",
+      "en:vitamin-d-source"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:specific-products",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:products-for-specific-diets",
+      "en:plant-based-milk-alternatives",
+      "en:products-without-gluten",
+      "en:cereal-based-drinks",
+      "en:pasteurised-products",
+      "en:oat-based-drinks",
+      "en:unsweetened-beverages",
+      "en:plain-oat-based-drinks",
+      "en:unsweetened-plain-oat-based-drinks"
+     ]
+    },
+    "price": 5.39,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-09-14",
+    "location": {
+     "type": "OSM",
+     "osm_id": 13746155619,
+     "osm_type": "NODE",
+     "osm_name": "Metro Acres Market",
+     "osm_brand": null,
+     "osm_address_city": "New York",
+     "osm_address_postcode": "10002",
+     "osm_address_country_code": "US",
+     "osm_lat": 40.7157459,
+     "osm_lon": -73.9871127
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Open Prices Web App - /experiments/proof-price-tag-assistant",
+    "duplicate_of": null
+   },
+   {
+    "id": 331698,
+    "type": "PRODUCT",
+    "product_code": "0813636021888",
+    "product": {
+     "product_name": "Oatmilk",
+     "brands": "Califia Farms",
+     "quantity": "48 fl oz",
+     "product_quantity": 1419,
+     "product_quantity_unit": "ml",
+     "labels_tags": [
+      "en:vegetarian",
+      "en:no-gluten",
+      "en:no-gmos",
+      "en:kosher",
+      "en:vegan",
+      "en:no-bisphenol-a",
+      "en:no-soy",
+      "en:non-gmo-project",
+      "en:orthodox-union-kosher",
+      "en:Carrageenan-free"
+     ],
+     "categories_tags": [
+      "en:beverages-and-beverages-preparations",
+      "en:plant-based-foods-and-beverages",
+      "en:beverages",
+      "en:plant-based-foods",
+      "en:cereals-and-potatoes",
+      "en:dairy-substitutes",
+      "en:cereals-and-their-products",
+      "en:milk-substitutes",
+      "en:plant-based-beverages",
+      "en:plant-based-milk-alternatives",
+      "en:cereal-based-drinks",
+      "en:oat-based-drinks"
+     ]
+    },
+    "price": 6.49,
+    "currency": "USD",
+    "price_is_discounted": false,
+    "date": "2026-09-16",
+    "location": {
+     "type": "OSM",
+     "osm_id": 8233635087,
+     "osm_type": "NODE",
+     "osm_name": "Morton Williams",
+     "osm_brand": "Morton Williams",
+     "osm_address_city": "New York",
+     "osm_address_postcode": "10028",
+     "osm_address_country_code": "US",
+     "osm_lat": 40.7816171,
+     "osm_lon": -73.9580323
+    },
+    "proof": {
+     "type": "PRICE_TAG"
+    },
+    "source": "Open Prices Web App - /experiments/proof-price-tag-assistant",
+    "duplicate_of": null
+   }
+  ],
+  "total": 6,
+  "page": 1,
+  "size": 100,
+  "pages": 1
+ }
+}

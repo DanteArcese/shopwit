@@ -47,6 +47,12 @@ _MULT_PREFIX_ANY = re.compile(
     r'(?<![\w.])\d+\s*x\s*(?!\d+(?:\.\d+)?\s*(?:in\b|"))\d', re.IGNORECASE
 )
 _PACK_OF = re.compile(r"\bpack\s+of\s+(\d+)\b", re.IGNORECASE)
+# "40 Count Bottles", "24 Cans": containers multiply, but only when no pack wording does.
+_CONTAINERS_RE = re.compile(r"\b(\d+)\s*(?:(?:count|ct)\s+)?(?:cans|bottles)\b", re.IGNORECASE)
+# A bare "4 Count" beside a size: per-pack or total is ambiguous.
+_BARE_COUNT_RE = re.compile(
+    r"(?<![\w./])(?<!\d,)(\d+)\s*(?:ct|count)\b(?!\s+(?:cans|bottles)\b)", re.IGNORECASE
+)
 
 # --- volume / mass -----------------------------------------------------------
 # (regex alternation, pint unit) pairs; longer spellings first.
@@ -91,7 +97,7 @@ def _multiplier(text: str, start: int) -> int:
     m = _MULT_PREFIX.search(text[:start])
     if m:
         return int(m.group(1))
-    m = _PACK_OF.search(text) or _PACK_N.search(text)
+    m = _PACK_OF.search(text) or _PACK_N.search(text) or _CONTAINERS_RE.search(text)
     return int(m.group(1)) if m else 1
 
 
@@ -131,7 +137,12 @@ def _measure(
         if (unit, second) not in _COMPOUNDS:
             return None
         value = value + _to_float(part.group(1)) * _ureg(second)
-    value = value * _multiplier(text, m.start())
+    mult = _multiplier(text, m.start())
+    if mult == 1:
+        bare = _BARE_COUNT_RE.search(text)
+        if bare and int(bare.group(1)) > 1:
+            return None  # "5.3 oz, 4 Count": per-pack or total, never guess
+    value = value * mult
     if value.magnitude <= 0:
         return None
     return float(value.to(target).magnitude)
@@ -142,7 +153,20 @@ def _volume(text: str) -> Measures:
     return {} if ml is None else {"volume_ml": ml}
 
 
+# Nutrient amounts ("30g Protein") are not the pack size. The words allowed between the
+# grams and the nutrient are a closed set, so "907 g Whey Protein" is still a pack mass.
+_NUTRIENT_RE = re.compile(
+    rf"{_NUM}\s*g(?:rams?)?\s+(?:of\s+|plant[- ]based\s+|added\s+|total\s+)?"
+    r"(?:protein|sugars?|fib(?:er|re)|carbs?|carbohydrates?|fat)\b"
+    # ...unless the nutrient word is part of a product descriptor ("500 g Fat Free",
+    # "907 g Protein Powder"). Keep this list small.
+    r"(?!\s+(?:free|powder|bar|shake|isolate|blend)\b)",
+    re.IGNORECASE,
+)
+
+
 def _mass(text: str) -> Measures:
+    text = _NUTRIENT_RE.sub(" ", text)
     g = _measure(_strip_fl_oz(text), _MASS_RE, _MASS_UNITS, "gram")
     return {} if g is None else {"mass_g": g}
 
@@ -153,12 +177,12 @@ def _strip_fl_oz(text: str) -> str:
 
 # --- count -------------------------------------------------------------------
 _COUNT_RE = re.compile(
-    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs)\b", re.IGNORECASE
+    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs|bags|pacs|pods|tabs|tablets)\b", re.IGNORECASE
 )
 _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 
 
-def _count(text: str) -> Measures:
+def _count(text: str, count_re: re.Pattern[str] = _COUNT_RE) -> Measures:
     m = _DOZEN_RE.search(text)
     if m:
         if _ambiguous_lead(text, m):
@@ -167,7 +191,7 @@ def _count(text: str) -> Measures:
             return {}  # an unparsable number precedes "dozen": never guess
         value = 12 * (_to_float(m.group(1)) if m.group(1) else 1.0)
         return {"count": value} if value > 0 else {}
-    m = _COUNT_RE.search(text)
+    m = count_re.search(text)
     if m:
         if _ambiguous_lead(text, m):
             return {}
@@ -257,3 +281,67 @@ def parse_measures(texts: Sequence[str], dimension: Dimension) -> Measures:
         if _REQUIRED[dimension] in result:
             return result
     return {}
+
+
+# --- generic (open-ended search) ----------------------------------------------
+# Generic mode reads only the size words themselves. A bare "oz" is its own kind
+# ("oz_labeled"), never volume or mass; only the closed set of count nouns counts.
+_G_VOLUME_UNITS = [u for u in _VOLUME_UNITS if u[1] != "fluid_ounce" or u[0] != "oz"]
+_G_MASS_UNITS = [u for u in _MASS_UNITS if u[1] != "ounce"]
+_G_OZ_UNITS = [(r"oz|ounces?", "ounce")]
+_G_VOLUME_RE = _unit_regex(_G_VOLUME_UNITS)
+_G_MASS_RE = _unit_regex(_G_MASS_UNITS)
+_G_OZ_RE = _unit_regex(_G_OZ_UNITS)
+_G_COUNT_RE = re.compile(
+    rf"{_NUM}\s*(?:ct|count|pieces?|pcs|eggs?)\b", re.IGNORECASE
+)
+_PAPER_WORDS = re.compile(r"\b(?:rolls?|sheets?)\b", re.IGNORECASE)
+
+
+def _generic_oz_text(text: str) -> str:
+    """Text for the labeled-oz parse: fl oz stripped, and the "2 oz" of a lb+oz
+    compound that mass consumed blanked out."""
+    text = _strip_fl_oz(text)
+    m = _G_MASS_RE.search(text)
+    if m and _unit_name(m, _G_MASS_UNITS) == "pound":
+        follow = _FOLLOWER.match(text, m.end())
+        if follow:
+            part = _MASS_RE.match(text, follow.start(1))
+            if part and _unit_name(part, _MASS_UNITS) == "ounce":
+                text = text[: follow.start()] + " " * (part.end() - follow.start()) + text[part.end():]
+    return text
+
+
+def parse_generic(text: str) -> dict[str, float]:
+    """Generic measures from one already-folded text.
+
+    Keys among volume_ml, mass_g, oz_labeled, count; has_size_unit (1.0) when any
+    volume, mass or oz token is present, even if it failed to parse.
+    """
+    out: dict[str, float] = {}
+    ml = _measure(text, _G_VOLUME_RE, _G_VOLUME_UNITS, "milliliter")
+    if ml is not None:
+        out["volume_ml"] = ml
+    stripped = _NUTRIENT_RE.sub(" ", text)
+    g = _measure(_strip_fl_oz(stripped), _G_MASS_RE, _G_MASS_UNITS, "gram")
+    if g is not None:
+        out["mass_g"] = g
+    oz_text = _generic_oz_text(stripped)
+    oz = _measure(oz_text, _G_OZ_RE, _G_OZ_UNITS, "ounce")
+    if oz is not None:
+        out["oz_labeled"] = oz
+    if _VOLUME_RE.search(stripped) or _MASS_RE.search(stripped):
+        out["has_size_unit"] = 1.0
+    # Tokens of two kinds, even if one failed to parse ("10 fl oz 2 oz"): never pick one.
+    tokens = (
+        _G_VOLUME_RE.search(stripped) is not None,
+        _G_MASS_RE.search(_strip_fl_oz(stripped)) is not None,
+        _G_OZ_RE.search(oz_text) is not None,
+    )
+    if sum(tokens) >= 2:
+        out["mixed"] = 1.0
+    if not _PAPER_WORDS.search(text):
+        count = _count(text, _G_COUNT_RE)
+        if "count" in count:
+            out["count"] = count["count"]
+    return out

@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Grow the curated catalog from 5 to 25 categories, each with ≥ 8 real-title fixtures, after closing the quantity-parser and comparison gaps the new categories expose.
+**Goal:** Grow the curated catalog with the household categories that need special units, then with top-demand categories chosen from 'curate next', each with ≥ 8 real-title fixtures.
 
 **Architecture:** The first three tasks change `normalize/` and the display layer: they add guards to the mass/volume/count parsers, a `laundry` dimension with a `per_load` comparison, and a `tissue` dimension with a `sheets_x_ply` comparison. Each one ships with its tests before any category relies on it. The next six tasks are data only: they add category YAML files and fixture files in batches of related categories. Each batch also adds search-resolution tests and must leave every existing fixture green. Matching stays as it is: the longest include phrase wins, any exclude vetoes, and offer titles get no plural folding.
 
 **Tech Stack:** Python 3.13, `uv`, `pytest`, `pyyaml`, `pint`; Django only for the display plumbing in `catalog/units.py`, `catalog/browse.py` and `web/views.py`.
 
-**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md` (§3 Principles, §5.2 Normalizer, §6 Category definitions, §7 Units). Roadmap task 5.2 in `docs/roadmap.md`, issue #38.
+**Spec:** `docs/superpowers/specs/2026-11-07-unitpricer-design.md` (§3 Principles, §5.2 Normalizer, §6 Category definitions, §7 Units). Open-ended search spec `docs/superpowers/specs/2026-11-08-open-search-design.md` §14.2. Roadmap task 5.2 in `docs/roadmap.md`, issue #38.
 
 ## Global Constraints
 
@@ -17,7 +17,7 @@
 - `normalize/` stays pure: no Django, network or filesystem access beyond `load_categories`/`load_store_brands`.
 - Money is `Decimal`; unit prices are quantized to 6 places (`Decimal("0.000001")`).
 - Every file under `categories/` has `tests/categories/<same path>.yaml` with **≥ 8 cases** (`test_every_category_has_fixtures`).
-- The 5 existing categories' fixtures stay green and unedited. The only existing test that may change is the hard-coded `created=5` in `tests/catalog/test_categories_sync.py` (Task 4).
+- The 5 existing categories' fixtures stay green and unedited. The only existing test that may change is the hard-coded `created=5` in `tests/catalog/test_categories_sync.py` (the first category batch that runs, now Task 8).
 - Category YAML keys stay within `_TOP_KEYS`/`_ATTR_KEYS` in `normalize/categories.py`. No new keys.
 - Marketing equivalences ("= 72 Regular Rolls") stay ignored (spec §6).
 - Each task ends with `uv run pytest` green. The pre-commit hooks (gitleaks, pytest) must pass. Commit messages reference `#38`.
@@ -56,6 +56,10 @@ tests/
 docs/roadmap.md      # 7.3 wording (Task 6)
 ```
 
+## Order of work
+
+Task 1 → Task 2 (`laundry`) → Task 3 (`tissue`) → Task 8 (facial tissue, trash bags) → Task 9 (laundry detergent, dish soap, dishwasher detergent). Tasks 4–7 (food batches) are gated; see each task.
+
 ## The category list and why
 
 Five exist already: milk, eggs, coffee, toilet paper and paper towels. Twenty are new, for 25 in total, the "about 25" in spec §6. All 14 categories spec §6 names are covered. The others were chosen because they are bought often, come in many pack sizes, and are sold by a size printed in the title, so a unit price changes the choice. Each needed no data beyond the title. Personal care (toothpaste, shampoo, body wash) is deferred: titles mix "oz" for weight and for volume within the same category, and it is not on the §6 list.
@@ -74,6 +78,8 @@ Five exist already: milk, eggs, coffee, toilet paper and paper towels. Twenty ar
 ---
 
 ### Task 1: Quantity guards for mass, volume and count
+
+Executed first, as the open-search prerequisite (#67). Skip if already merged.
 
 **Files:**
 - Modify: `normalize/quantity.py`
@@ -219,6 +225,8 @@ Tissue rules (in `_tissue(text)`), where `T = (?:facial\s+)?(?:tissues?|sheets?)
 
 ### Task 4: Dairy extras: butter, yogurt, cheese
 
+Gated. Proceed per category only after `SearchDemand` has ≥ 4 weeks of data, when the category's phrases rank in the top 10 of 'curate next' **and** it needs a precise attribute (fat %, roast, grain …) or a special unit. Mass- and volume-priced foods with no such need stay generic.
+
 **Files:**
 - Create: `categories/dairy/{butter,yogurt,cheese}.yaml`, `tests/categories/dairy/{butter,yogurt,cheese}.yaml`
 - Modify: `tests/catalog/test_categories_sync.py` (`test_sync_categories_command_prints_counts`), `tests/web/test_query.py`
@@ -324,7 +332,7 @@ search: [shredded cheese, cheddar cheese, mozzarella cheese]
 - {title: 'Farm Rich Breaded Mozzarella Sticks, 22 oz', expect: {category: null}}
 ```
 
-- [ ] **Step 2: Make the sync-count test derive its number.** In `test_sync_categories_command_prints_counts`, assert `f"created={len(load_categories(settings.CATEGORIES_DIR))} updated=0 deactivated=0"`. That is the root the command reads. Add `tests/web/test_query.py::test_dairy_extras`, parametrized:
+- [ ] **Step 2: Add query tests.** (The sync-count test change moved to Task 8 Step 2b.) Add `tests/web/test_query.py::test_dairy_extras`, parametrized:
   - `"unsalted butter"` → `("dairy/butter", {"salted": "unsalted"})`
   - `"greek yogurt"` → `("dairy/yogurt", {"greek": True})`
   - `"shredded cheddar"` → `("dairy/cheese", {"form": "shredded", "variety": "cheddar"})`
@@ -336,6 +344,8 @@ search: [shredded cheese, cheddar cheese, mozzarella cheese]
 ---
 
 ### Task 5: Grains and bakery: bread, rice, pasta, flour
+
+Gated. Proceed per category only after `SearchDemand` has ≥ 4 weeks of data, when the category's phrases rank in the top 10 of 'curate next' **and** it needs a precise attribute (fat %, roast, grain …) or a special unit. Mass- and volume-priced foods with no such need stay generic.
 
 **Files:**
 - Create: `categories/pantry/{bread,rice,pasta,flour}.yaml`, `tests/categories/pantry/{bread,rice,pasta,flour}.yaml`
@@ -492,6 +502,8 @@ search: [all purpose flour, bread flour]
 
 ### Task 6: Pantry staples: peanut butter, cooking oil, sugar, protein powder
 
+Gated. Proceed per category only after `SearchDemand` has ≥ 4 weeks of data, when the category's phrases rank in the top 10 of 'curate next' **and** it needs a precise attribute (fat %, roast, grain …) or a special unit. Mass- and volume-priced foods with no such need stay generic.
+
 **Files:**
 - Create: `categories/pantry/{peanut-butter,cooking-oil,sugar,protein-powder}.yaml` and their fixture files
 - Modify: `tests/web/test_query.py`, `docs/roadmap.md` (task 7.3)
@@ -635,6 +647,8 @@ search: [whey protein powder, plant protein powder]
 ---
 
 ### Task 7: Beverages: bottled water, sparkling water, orange juice, soda
+
+Gated. Proceed per category only after `SearchDemand` has ≥ 4 weeks of data, when the category's phrases rank in the top 10 of 'curate next' **and** it needs a precise attribute (fat %, roast, grain …) or a special unit. Mass- and volume-priced foods with no such need stay generic.
 
 **Files:**
 - Create: `categories/beverages/{bottled-water,sparkling-water,orange-juice,soda}.yaml` and their fixture files
@@ -858,6 +872,8 @@ search: [13 gallon trash bags, 30 gallon trash bags]
 
 ---
 
+- [ ] **Step 2b (moved from Task 4): Make the sync-count test derive its number.** In `test_sync_categories_command_prints_counts`, assert `f"created={len(load_categories(settings.CATEGORIES_DIR))} updated=0 deactivated=0"`. That is the root the command reads. Task 8 is now the first category batch to run.
+
 ### Task 9: Cleaning and laundry: laundry detergent, dish soap, dishwasher detergent
 
 **Files:**
@@ -968,9 +984,13 @@ search: [dishwasher pods, dishwasher detergent]
 
 ---
 
+## D12 display note
+
+Tasks 2–3 add `per_load` and `sheets_x_ply` `DISPLAY` entries, which are unaffected by open search. Any test in those tasks that pins "/ 100 mL" or "/ 100 g" uses "/ L" or "/ kg" instead.
+
 ## Exit criteria (roadmap 5.2)
 
-- `uv run pytest` is green, with 25 categories, each with ≥ 8 fixtures, and every Review Focus item pinned by the named test or fixture ID.
+- `uv run pytest` is green, with the household categories above (facial tissue, trash bags, laundry detergent, dish soap, dishwasher detergent) plus any top-demand categories chosen at review, each with ≥ 8 fixtures, and every Review Focus item pinned by the named test or fixture ID.
 - The original 5 categories' fixture files are byte-identical to `main`.
-- `uv run --env-file .env python manage.py sync_categories` reports `created=20` on an existing database (25 on an empty one).
+- `uv run --env-file .env python manage.py sync_categories` reports `created=<number of new category files>`.
 - `normalize/` still imports no Django, network or AI libraries.

@@ -158,3 +158,27 @@ def test_within_file_duplicates_keep_newest(tmp_path):
         _line("0093966010015", 1000, "stale"),
     )
     assert OffEntry.objects.get().quantity == "newest"
+
+
+def test_record_reads_categories_and_unit():
+    line = json.dumps(
+        {
+            "code": "0093966010015",
+            "quantity": "1 L",
+            "categories_tags": ["en:dairies", 3, "fr:laits"],
+            "product_quantity_unit": "ml",
+        }
+    )
+    record = parse_off_line(line, "off")
+    assert record.categories == ("en:dairies", "fr:laits")
+    assert record.quantity_unit == "ml"
+    bare = parse_off_line(json.dumps({"code": "0093966010015"}), "off")
+    assert bare.categories == () and bare.quantity_unit is None
+    assert "categories_tags" in off.FIELDS and "product_quantity_unit" in off.FIELDS
+
+
+@pytest.mark.django_db
+def test_save_and_lookup_carry_categories_and_unit():
+    off._save(OffRecord("0093966010015", "off", frozenset(), "1 L", None, ("en:milks",), "ml"))
+    got = off.lookup("0093966010015")
+    assert got.categories == ("en:milks",) and got.quantity_unit == "ml"

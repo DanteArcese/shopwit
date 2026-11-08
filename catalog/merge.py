@@ -65,10 +65,15 @@ def merged_view(offers: list) -> dict:
     }
     unresolved.update(attr_conflicts)
     unresolved.update(qty_conflicts)
+    # The product takes the first curated offer's category; a generic offer
+    # (no category) sharing the product never hides it nor asks for review.
+    category = next((o.category for o in offers if o.category is not None), None)
+    if category is not None:
+        unresolved.discard("category")
     return {
         "title": first.title,
         "brand": first.brand,
-        "category": first.category,
+        "category": category,
         "attributes": attributes,
         "measures": measures,
         "unresolved": sorted(unresolved),
@@ -111,6 +116,10 @@ def merge_product(product: Product, now: datetime | None = None) -> None:
         locked.save(
             update_fields=["title", "brand", "category", "attributes", "measures", "updated_at"]
         )
+        if locked.category is None:
+            unresolved = []  # a generic product has nothing to curate
+        else:
+            unresolved = [u for u in unresolved if u != "category"]
         _sync_review_items(locked, unresolved, now)
     for field in ("title", "brand", "category", "attributes", "measures", "manual_attributes", "updated_at"):
         setattr(product, field, getattr(locked, field))

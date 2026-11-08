@@ -53,7 +53,7 @@ def test_backfill_uses_opf_for_household(monkeypatch, sleeps):
         "0093966010015": "world.openfoodfacts.org",
         "0811620020169": "world.openfoodfacts.org",
     }
-    assert all(f == "code,labels_tags,quantity,last_modified_t" for *_, f in seen)
+    assert all(f == off.FIELDS for *_, f in seen)
     assert OffEntry.objects.get(pk="0037000792468").source == "opf"
     assert OffEntry.objects.get(pk="0093966010015").source == "off"
     assert sleeps == [1.0, 1.0]  # at most 1 request per second

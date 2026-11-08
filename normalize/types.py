@@ -32,6 +32,8 @@ class OffProduct:
 
     labels: frozenset[str]
     quantity: str | None = None
+    categories: tuple[str, ...] = ()
+    quantity_unit: str | None = None
 
 
 @dataclass(frozen=True)

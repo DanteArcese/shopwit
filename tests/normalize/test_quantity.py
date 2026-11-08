@@ -313,7 +313,8 @@ def test_other_adjacent_pairs_are_absent(text, dim):
 
 def test_separated_second_quantity_is_not_compound():
     assert parse_measures(["Cereal 12 oz (340 g)"], "mass")["mass_g"] == pytest.approx(340.19, abs=0.01)
-    assert parse_measures(["Cereal 12 oz, 6 ct"], "mass")["mass_g"] == pytest.approx(340.19, abs=0.01)
+    # A bare count beside a size is ambiguous (quantity guards): unresolved, not 340.19.
+    assert parse_measures(["Cereal 12 oz, 6 ct"], "mass") == {}
 
 
 @pytest.mark.parametrize(
@@ -335,3 +336,80 @@ def test_hyphenated_unit_forms(text, dim, expected):
 def test_hyphenated_ranges_stay_unknown(text):
     dim = "mass" if "Coffee" in text else "volume"
     assert parse_measures([text], dim) == {}
+
+
+# --- quantity guards (open-search prerequisite) -------------------------------
+def _mass(t):
+    return parse_measures([t], "mass")
+
+
+def _vol(t):
+    return parse_measures([t], "volume")
+
+
+def test_nutrient_grams_not_pack_mass():
+    t = "Premier Protein 100% Whey Protein Powder, Chocolate Milkshake, 30g Protein, 24.5 oz"
+    assert _mass(t)["mass_g"] == _r(694.56)
+    t = "Jif Creamy Peanut Butter, 7g Protein per Serving, 40 oz"
+    assert _mass(t)["mass_g"] == _r(1133.98)
+
+
+def test_nutrient_grams_with_words_between():
+    t = "Orgain Organic Vegan Protein Powder, 21g Plant Based Protein, 2.03 lb"
+    assert _mass(t)["mass_g"] == _r(920.79)
+
+
+def test_nutrient_grams_only_is_unresolved():
+    assert _mass("Whey Protein, 25g Protein, 0g Sugar") == {}
+
+
+def test_plain_grams_still_mass():
+    assert _mass("Kerrygold Pure Irish Butter, 227 g")["mass_g"] == _r(227)
+    assert _mass("Myprotein Impact Whey, 907 g Whey Protein")["mass_g"] == _r(907)
+
+
+def test_bare_count_beside_size_is_unresolved():
+    assert _mass("Chobani Vanilla Greek Yogurt, 5.3 oz, 4 Count") == {}
+    assert _vol("Horizon Organic Whole Milk, 8 fl oz, 12 ct") == {}
+
+
+def test_one_count_is_harmless():
+    t = "Folgers Classic Roast Ground Coffee, 12 oz, 1 Count"
+    assert _mass(t)["mass_g"] == _r(340.19)
+
+
+def test_pack_wins_over_bare_count():
+    assert _mass("Yoplait Original Yogurt, 6 oz, 8 Pack, 8 Count")["mass_g"] == _r(1360.78)
+
+
+def test_container_count_multiplies():
+    assert _vol("16.9 fl oz, 40 Count Bottles")["volume_ml"] == _r(19991.7)
+    assert _vol("12 fl oz, 12 Count Cans")["volume_ml"] == _r(4258.59)
+    assert _vol("12 fl oz, 24 Cans")["volume_ml"] == _r(8517.18)
+
+
+def test_pack_beats_container():
+    assert _vol("12 fl oz, 12 Pack Cans")["volume_ml"] == _r(4258.59)
+
+
+@pytest.mark.parametrize(
+    "text,n", [("26 Bags", 26), ("94 Tabs", 94), ("60 Pods", 60), ("81 Pacs", 81), ("82 Tablets", 82)]
+)
+def test_count_nouns(text, n):
+    assert parse_measures([text], "count") == {"count": n}
+
+
+def test_compound_weight_and_hyphenated_units_unchanged():
+    assert _mass("Roast Beef, 1 lb 2 oz")["mass_g"] == _r(510.29)
+    assert _mass("Jar 12-oz")["mass_g"] == _r(340.19)
+
+
+def test_nutrient_guard_exempts_descriptors():
+    assert _mass("Cottage Cheese 500 g Fat Free")["mass_g"] == _r(500)
+    assert _mass("Syrup 250 g Sugar Free")["mass_g"] == _r(250)
+    assert _mass("Whey 907 g Protein Powder")["mass_g"] == _r(907)
+
+
+def test_count_before_size_still_unresolved_and_one_count_ok():
+    assert _mass("Yogurt 12 ct, 8 oz") == {}
+    assert _mass("Coffee 12 oz, 1 Count")["mass_g"] == _r(340.19)
