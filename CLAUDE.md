@@ -15,6 +15,7 @@ uv run pytest        # Run tests
 uv run --env-file .env <command>   # Run with local secrets
 uv run --env-file .env python manage.py runserver   # Run the app (needs DJANGO_SECRET_KEY, DATABASE_URL)
 docker compose up    # Or run db + web + worker in containers
+UNITPRICER_DEPLOY_HOST=deploy@<ip> deploy/deploy.sh [ref]   # Deploy a CI-green commit (see docs/deploy.md)
 ```
 
 First run (empty database): `cp .env.example .env`, then in `.env` set `DJANGO_DEBUG=1` (local dev, so no `DJANGO_SECRET_KEY` is needed) and `DATABASE_URL` (entries in the file, not shell prefixes). Then `uv run --env-file .env python manage.py migrate` and `uv run --env-file .env python manage.py sync_categories`, before starting the worker (`run_scheduler`) or `runserver`. With no categories loaded the scheduler has nothing to refresh. `uv run --env-file .env python manage.py refresh --connector walmart --recordings tests/connectors/recordings/walmart` runs offline; categories without recordings are reported `failed`.

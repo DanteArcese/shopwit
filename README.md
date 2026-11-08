@@ -84,6 +84,10 @@ connectors  ->  normalizer  ->  catalog (Postgres)  ->  web
 - **Affiliate disclosure:** UnitPricer may earn a commission on purchases made through its links.
   Commission never affects ranking or which products are shown. See `/disclosure` on the site.
 
+## Deploying
+
+Production runs on a DigitalOcean droplet with Docker Compose and a Cloudflare Tunnel. See [docs/deploy.md](docs/deploy.md).
+
 ## Contributing
 
 The most common contribution is a new category. See [CONTRIBUTING.md](CONTRIBUTING.md).

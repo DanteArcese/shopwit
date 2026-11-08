@@ -1,0 +1,12 @@
+{% extends "waitlist/base_public.html" %}
+{% block title %}{% if rate_limited %}Too many requests{% else %}Try again tomorrow{% endif %} | UnitPricer{% endblock %}
+{% block main %}
+{% if rate_limited %}
+<h1>Too many requests</h1>
+<p>Too many requests. Try again later.</p>
+{% else %}
+<h1>Try again tomorrow</h1>
+<p>We can't send confirmation emails right now. Please try again tomorrow.</p>
+{% endif %}
+<p><a class="back" href="/">Back to UnitPricer</a></p>
+{% endblock %}
