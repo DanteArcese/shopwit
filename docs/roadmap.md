@@ -127,7 +127,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 | # | Task |
 |---|---|
 | 5.1 | Second and third connectors (Walmart, Amazon or Sovrn, whichever weren't done in M2) |
-| 5.2 | Expand to about 25 categories (§6 list), each with fixtures |
+| 5.2 | Expand to about 25 categories (§6 list), each with fixtures. **Plan:** [`plans/2026-11-08-category-expansion.md`](superpowers/plans/2026-11-08-category-expansion.md) |
 | 5.3 | Parse-rate monitoring: alert when a connector's or category's resolved rate drops |
 | 5.4 | "Report a wrong attribute" link, feeding the review queue |
 | 5.5 | Performance pass: query plans for filtered category pages; indexes on JSONB attributes |
