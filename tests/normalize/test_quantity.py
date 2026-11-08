@@ -239,3 +239,41 @@ def test_double_prime_inch_sheet_size():
 
 def test_paren_before_dozen_is_unresolved():
     assert parse_measures(["Eggs (12) Dozen"], "count") == {}
+
+
+@pytest.mark.parametrize(
+    "text,dim",
+    [
+        ("Milk 1-2 gal", "volume"),
+        ("Milk 1 - 2 gal", "volume"),
+        ("Milk 1–2 gal", "volume"),
+        ("Milk 1 to 2 gal", "volume"),
+        ("Chicken 1 - 2 lb", "mass"),
+        ("Chicken 1-2 lb", "mass"),
+        ("Chicken 1–2 lb", "mass"),
+        ("Eggs 12-18 ct", "count"),
+        ("Eggs 12 to 18 ct", "count"),
+        ("Eggs 1–2 dozen", "count"),
+    ],
+)
+def test_numeric_range_is_unparsable(text, dim):
+    assert parse_measures([text], dim) == {}
+
+
+def test_multipack_and_hyphenated_words_still_parse():
+    assert parse_measures(["Water 2-pack 64 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        2 * 64 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Water 64 fl oz, 2-Pack"], "volume")["volume_ml"] == pytest.approx(
+        2 * 64 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda 6 x 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        72 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda 2 pk 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        24 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Soda Pack of 2 12 fl oz"], "volume")["volume_ml"] == pytest.approx(
+        24 * 29.5735, rel=1e-3
+    )
+    assert parse_measures(["Ultra-Filtered Milk 1 gal"], "volume")["volume_ml"] == pytest.approx(3785.41, rel=1e-3)

@@ -70,10 +70,15 @@ _VOLUME_RE = _unit_regex(_VOLUME_UNITS)
 _MASS_RE = _unit_regex(_MASS_UNITS)
 
 
-def _hyphen_fraction(text: str, m: re.Match[str]) -> bool:
-    """True for "1-1/2" / "1- 1/2": a digit, a hyphen, then a fraction. Ambiguous
-    (mixed number, range, or part number), so callers must not guess."""
-    return "/" in m.group(1) and re.search(r"\d\s*-\s*$", text[: m.start(1)]) is not None
+_RANGE_BEFORE = re.compile(r"\d\s*(?:[-\u2013]|\bto\b)\s*$", re.IGNORECASE)
+
+
+def _ambiguous_lead(text: str, m: re.Match[str]) -> bool:
+    """True when the number is the tail of a range ("1-2", "1 - 2", "1\u20132", "1 to 2")
+    or a hyphenated fraction ("1-1/2"). Ambiguous, so callers must not guess."""
+    if m.group(1) is None:
+        return False
+    return _RANGE_BEFORE.search(text[: m.start(1)]) is not None
 
 
 def _multiplier(text: str, start: int) -> int:
@@ -88,7 +93,7 @@ def _measure(
     text: str, rx: re.Pattern[str], units: list[tuple[str, str]], target: str
 ) -> float | None:
     m = rx.search(text)
-    if not m or _hyphen_fraction(text, m):
+    if not m or _ambiguous_lead(text, m):
         return None
     unit = next(units[i][1] for i in range(len(units)) if m.group(f"u{i}"))
     value = _to_float(m.group(1)) * _multiplier(text, m.start())
@@ -121,13 +126,15 @@ _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 def _count(text: str) -> Measures:
     m = _DOZEN_RE.search(text)
     if m:
+        if _ambiguous_lead(text, m):
+            return {}
         if m.group(1) is None and re.search(r"(?:\d[,./]?|\))\s*$", text[: m.start()]):
             return {}  # an unparsable number precedes "dozen": never guess
         value = 12 * (_to_float(m.group(1)) if m.group(1) else 1.0)
         return {"count": value} if value > 0 else {}
     m = _COUNT_RE.search(text)
     if m:
-        if _hyphen_fraction(text, m):
+        if _ambiguous_lead(text, m):
             return {}
         value = _to_float(m.group(1)) * _multiplier(text, m.start())
         return {"count": value} if value > 0 else {}
