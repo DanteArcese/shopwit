@@ -33,6 +33,7 @@ INSTALLED_APPS = [
     "django.contrib.staticfiles",
     "catalog",
     "web",
+    "waitlist",
 ]
 
 MIDDLEWARE = [
@@ -147,6 +148,11 @@ EMAIL_USE_TLS = env("DJANGO_EMAIL_USE_TLS", "1") == "1"
 EMAIL_TIMEOUT = 20
 DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", "UnitPricer <hello@unitpricer.com>")
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
+# Send budget: rolling 24 h cap across all kinds (Resend free tier); announcements
+# leave WAITLIST_CONFIRM_RESERVE of it for confirmations.
+DAILY_EMAIL_CAP = int(env("UNITPRICER_DAILY_EMAIL_CAP", 100))
+WAITLIST_CONFIRM_RESERVE = 20
+WAITLIST_CONFIRM_MAX_AGE = timedelta(days=7)
 
 CACHES = {
     "default": {

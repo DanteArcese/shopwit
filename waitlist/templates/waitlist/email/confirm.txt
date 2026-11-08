@@ -1,0 +1,13 @@
+{% autoescape off %}Hi,
+
+Someone (hopefully you) asked to join the UnitPricer waitlist with this address. Confirm it here:
+
+{{ confirm_url }}
+
+The link expires in 7 days.
+
+If you didn't sign up, ignore this email and you won't hear from us again.
+
+--
+Unsubscribe: {{ unsubscribe_url }}
+{% endautoescape %}
