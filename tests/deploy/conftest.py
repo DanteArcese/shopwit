@@ -24,6 +24,8 @@ def prod_env():
         "UNITPRICER_APP_HOST": "beta.unitpricer.com",
         "UNITPRICER_PUBLIC_URL": "https://unitpricer.com",
         "UNITPRICER_SITE_URL": "https://beta.unitpricer.com",
+        "CF_ACCESS_TEAM_DOMAIN": "unitpricer.cloudflareaccess.com",
+        "CF_ACCESS_AUD": "test-aud",
         "DATABASE_URL": "postgres://x:y@localhost:5432/z",
     }
 

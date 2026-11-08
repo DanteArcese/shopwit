@@ -137,3 +137,10 @@ def test_run_scheduler_attaches_handler_when_none(capsys, monkeypatch):
     captured = capsys.readouterr()
     assert (captured.out + captured.err).count("marker") == 1
     assert seen == [1]
+
+
+def test_check_deploy_flags_missing_access_aud(prod_env, run_prod):
+    del prod_env["CF_ACCESS_AUD"]
+    out = run_prod(prod_env, "manage.py", "check", "--deploy", "--fail-level", "WARNING")
+    assert out.returncode != 0
+    assert "unitpricer.E022" in out.stdout + out.stderr

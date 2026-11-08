@@ -25,3 +25,18 @@ def check_hosts(app_configs, **kwargs):
             )
         )
     return errors
+
+
+@register(Tags.security, deploy=True)
+def check_access(app_configs, **kwargs):
+    if settings.DEBUG or not settings.APP_HOST:
+        return []
+    if settings.CF_ACCESS_AUD and settings.CF_ACCESS_TEAM_DOMAIN:
+        return []
+    return [
+        Error(
+            "APP_HOST is set but CF_ACCESS_AUD or CF_ACCESS_TEAM_DOMAIN is unset.",
+            hint="Set CF_ACCESS_TEAM_DOMAIN and CF_ACCESS_AUD so the app host verifies Access tokens.",
+            id="unitpricer.E022",
+        )
+    ]

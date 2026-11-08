@@ -38,6 +38,7 @@ INSTALLED_APPS = [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "web.hosts.HostRoutingMiddleware",
+    "web.access.CloudflareAccessMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
@@ -105,6 +106,9 @@ APP_HOST = env("UNITPRICER_APP_HOST", "")
 PUBLIC_URL = env("UNITPRICER_PUBLIC_URL", "")
 SITE_URL = env("UNITPRICER_SITE_URL", "")
 TRUST_CF_IP = env("UNITPRICER_TRUST_CF_IP", "0") == "1"
+# Cloudflare Access (app host). Empty AUD disables the token check (dev).
+CF_ACCESS_TEAM_DOMAIN = env("CF_ACCESS_TEAM_DOMAIN", "")
+CF_ACCESS_AUD = env("CF_ACCESS_AUD", "")
 
 # Security (production sits behind Cloudflare Tunnel, which terminates TLS).
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
