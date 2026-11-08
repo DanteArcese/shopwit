@@ -229,6 +229,7 @@ class OpenPricesClient:
         self._clock = clock
         self._last: float | None = None
         self.unparsed = 0
+        self.unparsed_ids: set[int] = set()
 
     def close(self) -> None:
         self._client.close()
@@ -288,6 +289,9 @@ class OpenPricesClient:
                 obs = parse_item(item)
                 if obs is None:
                     self.unparsed += 1
+                    bad_id = _int(item.get("id")) if isinstance(item, dict) else None
+                    if bad_id is not None:
+                        self.unparsed_ids.add(bad_id)
                 elif obs.price_id not in seen:
                     seen.add(obs.price_id)
                     out.append(obs)

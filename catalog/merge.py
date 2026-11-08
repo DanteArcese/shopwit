@@ -25,7 +25,7 @@ from normalize import load_categories
 from normalize.compare import unit_prices
 from normalize.types import AttrValue
 
-from .models import Product, ReviewItem
+from .models import Offer, Product, ReviewItem
 
 
 def _merge_map(maps: list[dict], conflict_entry) -> tuple[dict, list[str]]:
@@ -90,8 +90,12 @@ def merge_product(product: Product, now: datetime | None = None) -> None:
         if not offers:
             _sync_review_items(locked, [], now)
             return
-        view = merged_view(offers)
-        unresolved = _apply_overrides(locked, offers, view)
+        # Observed (in-store) offers never change live data: with any live offer,
+        # the merge, conflicts, review items and unit prices use live offers only.
+        live = [o for o in offers if o.kind == Offer.Kind.LIVE]
+        basis = live or offers
+        view = merged_view(basis)
+        unresolved = _apply_overrides(locked, basis, view)
         locked.title = view["title"]
         locked.brand = view["brand"]
         locked.category = view["category"] or locked.category

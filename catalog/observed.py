@@ -6,14 +6,14 @@ deleted only after the whole window was fetched successfully.
 
 from __future__ import annotations
 
-from datetime import datetime
+import logging
+from datetime import datetime, timedelta
 
 from django.conf import settings
 from django.db import transaction
 from django.utils import timezone
 
 import enrichment.off
-from enrichment.off import normalize_upc
 from connectors.base import ConnectorError
 from connectors.open_prices import (
     Observation,
@@ -22,6 +22,7 @@ from connectors.open_prices import (
     skip_reason,
     to_raw_offer,
 )
+from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.types import OffProduct
 
@@ -32,9 +33,17 @@ from .models import IngestionRun, Offer, OpenPriceObservation, Product, Store
 CONNECTOR = "openprices"
 
 
+RETRY_BACKOFF = timedelta(hours=1)
+MIN_KEPT_RATIO = 0.5  # a pull smaller than this share of the stored rows deletes nothing
+
+logger = logging.getLogger(__name__)
+
+
 def due(now: datetime) -> bool:
-    return not IngestionRun.objects.filter(
-        connector=CONNECTOR,
+    runs = IngestionRun.objects.filter(connector=CONNECTOR)
+    if runs.filter(started_at__gte=now - RETRY_BACKOFF).exists():
+        return False  # any run, so a failing upstream is retried hourly at most
+    return not runs.filter(
         status=IngestionRun.Status.SUCCEEDED,
         started_at__gte=now - settings.OPEN_PRICES_INTERVAL,
     ).exists()
@@ -95,7 +104,31 @@ def sync_open_prices(
             skipped += 1
     run.fetched = len(kept)
 
-    # The pull succeeded: store it and drop what vanished, in one transaction.
+    stored = OpenPriceObservation.objects.count()
+    protected = set(getattr(client, "unparsed_ids", ()))  # seen upstream, just unreadable
+    safe_to_delete = not (stored and len(kept) < stored * MIN_KEPT_RATIO)
+    if not safe_to_delete:
+        logger.warning(
+            "open prices: suspiciously small window (kept %s of %s stored); deletions skipped",
+            len(kept), stored,
+        )
+        run.error = "suspiciously small window; deletions skipped"
+
+    try:
+        touched, keep_offers, skipped = _write(
+            run, kept, protected, safe_to_delete, now, off_lookup, skipped
+        )
+    except Exception as exc:  # the write transaction rolled back; prior state is intact
+        return _fail(run, type(exc).__name__)
+
+    run.skipped = skipped
+    run.status = IngestionRun.Status.SUCCEEDED
+    run.finished_at = timezone.now()
+    run.save()
+    return run
+
+
+def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
     stores: dict[str, Store] = {}
     with transaction.atomic():
         for obs in kept:
@@ -122,8 +155,10 @@ def sync_open_prices(
                     "fetched_at": now,
                 },
             )
-        OpenPriceObservation.objects.exclude(price_id__in=[o.price_id for o in kept]).delete()
-        Store.objects.filter(observations__isnull=True).delete()
+        if safe_to_delete:
+            keep_ids = [o.price_id for o in kept] + list(protected)
+            OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
+            Store.objects.filter(observations__isnull=True).delete()
 
     # Latest observation per (store, upc) becomes the offer.
     latest: dict[tuple[str, str], Observation] = {}
@@ -137,10 +172,26 @@ def sync_open_prices(
     store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
     model_cache: dict = {}
     touched: set[int] = set()
-    live: set[tuple[str, str]] = set()  # (retailer, item id) of offers that must survive
+    keep_offers: set[int] = set()  # pks of observed offers that must survive
+
+    def offer_pk(retailer, item_id):
+        return (
+            Offer.objects.filter(retailer=retailer, retailer_item_id=item_id)
+            .values_list("pk", flat=True)
+            .first()
+        )
+
+    # Offers behind observations that were seen upstream but unreadable stay.
+    for kept_obs in OpenPriceObservation.objects.filter(price_id__in=protected).select_related("store"):
+        pk = offer_pk(kept_obs.store.chain_code, f"{kept_obs.upc}@{kept_obs.store.code}")
+        if pk is not None:
+            keep_offers.add(pk)
+
     for (store_code, upc), obs in latest.items():
         raw = to_raw_offer(obs, now)
-        live_key = (raw.retailer, raw.retailer_item_id)
+        existing = offer_pk(raw.retailer, raw.retailer_item_id)
+        if existing is not None:
+            keep_offers.add(existing)  # an error below must not delete the existing offer
         try:
             normalized = normalize(
                 raw,
@@ -150,7 +201,6 @@ def sync_open_prices(
             )
             if normalized.category is None:
                 continue
-            live.add(live_key)  # an error below must not delete the existing offer
             with transaction.atomic():
                 normalized = _upsert(
                     raw,
@@ -171,17 +221,18 @@ def sync_open_prices(
             if not run.error:
                 run.error = f"{type(exc).__name__} on {raw.retailer}:{raw.retailer_item_id}"[:500]
             continue
+        keep_offers.add(offer_pk(raw.retailer, raw.retailer_item_id))
         run.matched += 1
         if normalized.unresolved:
             run.unresolved += 1
         else:
             run.fully_parsed += 1
 
-    with transaction.atomic():
-        for offer in Offer.objects.filter(kind=Offer.Kind.OBSERVED):
-            if (offer.retailer, offer.retailer_item_id) not in live:
-                touched.add(offer.product_id)
-                offer.delete()
+    if safe_to_delete:
+        with transaction.atomic():
+            doomed = Offer.objects.filter(kind=Offer.Kind.OBSERVED).exclude(pk__in=keep_offers)
+            touched.update(doomed.values_list("product_id", flat=True))
+            doomed.delete()
 
     for pk in sorted(touched):
         try:
@@ -192,9 +243,4 @@ def sync_open_prices(
             skipped += 1
             if not run.error:
                 run.error = f"{type(exc).__name__} merging product {pk}"[:500]
-
-    run.skipped = skipped
-    run.status = IngestionRun.Status.SUCCEEDED
-    run.finished_at = timezone.now()
-    run.save()
-    return run
+    return touched, keep_offers, skipped

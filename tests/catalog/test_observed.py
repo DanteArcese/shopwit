@@ -52,7 +52,8 @@ def obs(price_id=1, price="4.99", days=5, location=None, title=TITLE, upc=UPC, *
 
 
 class FakeClient:
-    def __init__(self, observations=(), error=None, unparsed=0):
+    def __init__(self, observations=(), error=None, unparsed=0, unparsed_ids=()):
+        self.unparsed_ids = set(unparsed_ids)
         self.observations = list(observations)
         self.error = error
         self.unparsed = unparsed
@@ -121,13 +122,17 @@ def test_same_date_tie_goes_to_higher_price_id():
 
 
 def test_removed_upstream_is_deleted_on_success():
-    sync(obs())
-    product = Product.objects.get()
-    run = sync()
+    keep, gone = obs(1, location=loc(1)), obs(2, location=loc(2), upc="0811620020176", title=TITLE)
+    sync(keep, gone)
+    assert Offer.objects.count() == 2
+    run = sync(keep)
     assert run.status == "succeeded"
-    assert OpenPriceObservation.objects.count() == 0
-    assert Offer.objects.count() == 0
-    assert Store.objects.count() == 0
+    assert list(OpenPriceObservation.objects.values_list("price_id", flat=True)) == [1]
+    assert Offer.objects.count() == 1
+    assert list(Store.objects.values_list("code", flat=True)) == ["osm-n1"]
+    sync(keep, obs(3, location=loc(3), upc="0811620020176"))
+    product = Product.objects.get(upc="0811620020176")
+    sync(keep)
     assert product.offers.count() == 0
 
 
@@ -208,6 +213,97 @@ def test_punctuation_only_location_name_is_skipped_as_no_location():
     assert reason == "no_location"
     sync(o)
     assert Store.objects.count() == 0
+
+
+def test_due_backs_off_after_failed_run():
+    IngestionRun.objects.create(
+        connector=CONNECTOR, category_slug="all", status="failed",
+        started_at=NOW - timedelta(minutes=10),
+    )
+    assert not due(NOW)
+    IngestionRun.objects.update(started_at=NOW - timedelta(hours=2))
+    assert due(NOW)
+
+
+def test_empty_pull_with_stored_rows_deletes_nothing(caplog):
+    sync(obs())
+    with caplog.at_level("WARNING"):
+        run = sync()
+    assert run.status == "succeeded" and "deletions skipped" in run.error
+    assert "suspiciously small window" in caplog.text
+    assert OpenPriceObservation.objects.count() == 1
+    assert Offer.objects.count() == 1 and Store.objects.count() == 1
+
+
+def test_pull_under_half_of_stored_deletes_nothing():
+    four = [obs(i, location=loc(i), upc=UPC) for i in range(1, 5)]
+    sync(*four)
+    run = sync(four[0])  # 1 of 4 kept
+    assert "deletions skipped" in run.error
+    assert OpenPriceObservation.objects.count() == 4 and Offer.objects.count() == 4
+    run = sync(*four[:2])  # exactly half: deletions proceed
+    assert run.error is None or run.error == ""
+    assert OpenPriceObservation.objects.count() == 2 and Offer.objects.count() == 2
+
+
+def test_exception_in_normalize_keeps_existing_offer(monkeypatch):
+    from catalog import observed
+
+    sync(obs())
+    monkeypatch.setattr(observed, "normalize", lambda *a, **k: 1 / 0)
+    run = sync(obs())
+    assert run.status == "succeeded" and run.skipped == 1
+    assert Offer.objects.count() == 1
+
+
+def test_unparsed_ids_are_not_deleted():
+    sync(obs(1), obs(2, location=loc(2)))
+    run = sync(obs(2, location=loc(2)), unparsed=1, unparsed_ids={1})
+    assert run.status == "succeeded"
+    assert OpenPriceObservation.objects.filter(price_id=1).exists()
+    assert Offer.objects.count() == 2
+
+
+def test_write_phase_exception_rolls_back(monkeypatch):
+    sync(obs(1, "4.99"))
+    monkeypatch.setattr(
+        OpenPriceObservation.objects, "exclude", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x"))
+    )
+    run = sync(obs(1, "5.49"))
+    assert (run.status, run.error) == ("failed", "RuntimeError")
+    monkeypatch.undo()
+    assert OpenPriceObservation.objects.get().price == Decimal("4.99")
+    assert Offer.objects.get().price == Decimal("4.99")
+
+
+def test_observed_offer_never_changes_live_merge():
+    from catalog.ingest import ingest
+    from catalog.models import Category, ReviewItem
+    from connectors.base import SearchResult
+    from tests.catalog.helpers import FakeConnector
+
+    walmart = raw(title="Horizon Organic 2% Reduced Fat Milk, 1 gal", item="W1",
+                  retailer="walmart", upc=UPC, brand="Horizon")
+    cat = Category.objects.get(slug="dairy/milk")
+    ingest(
+        FakeConnector({cat.search[0]: SearchResult(offers=[walmart], skipped=0)}, name="walmart"),
+        cat, NOW, off_lookup=no_off,
+    )
+    live = Offer.objects.get(retailer="walmart")
+    before = (live.unit_prices, list(live.unresolved))
+    product = Product.objects.get()
+    title, brand, attrs, measures = product.title, product.brand, product.attributes, product.measures
+    items_before = set(ReviewItem.objects.values_list("detail", flat=True))
+
+    sync(obs(title="Some Store Brand Whole Milk", quantity="2 L", brands="Other Co"))
+    assert Offer.objects.filter(kind="observed").count() == 1
+    product.refresh_from_db()
+    live.refresh_from_db()
+    assert (product.title, product.brand) == (title, brand)
+    assert product.attributes == attrs and product.measures == measures
+    assert (live.unit_prices, list(live.unresolved)) == before
+    assert set(ReviewItem.objects.values_list("detail", flat=True)) == items_before
+    assert not any("conflict" in d for d in ReviewItem.objects.values_list("detail", flat=True))
 
 
 def test_due_respects_interval():
