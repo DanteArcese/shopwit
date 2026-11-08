@@ -89,8 +89,8 @@ def available(environ: Mapping[str, str] = os.environ) -> dict[str, Connector]:
 
 
 # Live sources that are not scheduled connectors, enabled by the live_off flag:
-# name -> "package.module:ClassName". Task 9 adds "off-prices".
-LIVE_OFF_SPECS: dict[str, str] = {}
+# name -> "package.module:ClassName".
+LIVE_OFF_SPECS: dict[str, str] = {"off-prices": "connectors.off_search:OffPricesSource"}
 
 
 def _class(path: str):

@@ -138,6 +138,7 @@ def test_live_sources_and_info(monkeypatch):
     assert set(built) == {"livestub"} and LiveStub.built == 1  # no live_search: not a live source
     assert registry.live_source_info({"STUB_TOKEN": "t"}) == {}
 
+    monkeypatch.setattr(registry, "LIVE_OFF_SPECS", {})  # only the stubs, not the real off-prices
     monkeypatch.setitem(registry.LIVE_OFF_SPECS, "offstub", f"{__name__}:LiveStub")
     assert "offstub" not in registry.live_source_info({})
     assert set(registry.live_source_info({}, live_off=True)) == {"offstub"}
@@ -160,6 +161,7 @@ class NoAttrsLive:
 
 
 def test_raising_live_source_is_skipped(monkeypatch, caplog):
+    monkeypatch.setattr(registry, "LIVE_OFF_SPECS", {})
     monkeypatch.setitem(registry.LIVE_OFF_SPECS, "broken", f"{__name__}:BrokenLive")
     monkeypatch.setitem(registry.LIVE_OFF_SPECS, "noattrs", f"{__name__}:NoAttrsLive")
     monkeypatch.setitem(registry.LIVE_OFF_SPECS, "missing", "connectors.nope:Gone")

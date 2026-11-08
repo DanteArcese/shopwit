@@ -10,10 +10,11 @@ import json
 import math
 import re
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
+from typing import TYPE_CHECKING
 
 import httpx
 
@@ -22,6 +23,9 @@ from enrichment.off import normalize_upc
 from normalize.generic import off_category_path
 from normalize.types import RawOffer
 
+if TYPE_CHECKING:
+    from connectors.live import Budget
+
 PRICES_URL = "https://prices.openfoodfacts.org/api/v1/prices"
 PRICE_PAGE = "https://prices.openfoodfacts.org/prices/{id}"
 USER_AGENT = "unitpricer/0.1 (+https://github.com/DanteArcese/unitpricer)"
@@ -29,6 +33,7 @@ PAGE_SIZE = 100
 MAX_PAGES = 500
 MIN_INTERVAL = 1.0
 ATTEMPTS = 3
+MAX_CODES = 50
 BACKOFF = (2.0, 4.0)
 
 
@@ -355,3 +360,49 @@ class OpenPricesClient:
             if page >= pages:
                 return out
             page += 1
+
+    def fetch_codes(
+        self, codes: Sequence[str], since: date, currency: str, budget: Budget
+    ) -> list[Observation]:
+        """Prices for up to 50 barcodes in one request, drawn from the "openprices" bucket.
+
+        Exactly one request, no retry: a non-200 raises ``ConnectorError`` after reporting
+        its status, and the shared budget's backoff paces whatever runs next.
+        """
+        codes = list(codes)[:MAX_CODES]
+        params = {
+            "product_code__in": ",".join(codes),
+            "currency": currency,
+            "date__gte": since.isoformat(),
+            "type": "PRODUCT",
+            "location__type": "OSM",
+            "duplicate_of__isnull": "true",
+            "order_by": "-id",
+            "size": str(PAGE_SIZE),
+            "page": "1",
+        }
+        budget.acquire("openprices")
+        try:
+            resp = self._client.get(PRICES_URL, params=params)
+        except httpx.HTTPError as exc:
+            budget.report("openprices", None, None)
+            raise ConnectorError(f"Open Prices request failed ({type(exc).__name__})") from None
+        budget.report("openprices", resp.status_code, _retry_after(resp))
+        if resp.status_code != 200:
+            raise ConnectorError(f"Open Prices request failed: HTTP {resp.status_code}")
+        try:
+            data = json.loads(resp.content, parse_float=Decimal)
+        except ValueError:
+            raise ConnectorError("Open Prices returned unreadable data") from None
+        if not isinstance(data, dict) or not isinstance(data.get("items"), list):
+            raise ConnectorError("Open Prices returned an unexpected shape")
+        seen: set[int] = set()
+        out: list[Observation] = []
+        for item in data["items"]:
+            obs = parse_item(item)
+            if obs is None:
+                self.unparsed += 1
+            elif obs.price_id not in seen:
+                seen.add(obs.price_id)
+                out.append(obs)
+        return out

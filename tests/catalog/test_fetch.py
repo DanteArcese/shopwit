@@ -624,3 +624,58 @@ def test_scheduled_ingest_interrupted_on_stop(milk):
     run = ingest(conn, milk, NOW, off_lookup=no_off, budget=DbBudget(stop=stop))
     assert (run.status, run.error) == ("failed", "interrupted")
     assert conn.queries == []
+
+
+# --- off-prices end to end -------------------------------------------------
+
+
+def _off_source(transport):
+    import httpx
+
+    from connectors.off_search import OffPricesSource
+
+    return OffPricesSource(client=httpx.Client(transport=transport), today=lambda: NOW.date())
+
+
+def _off_transport(*, prices=True):
+    from pathlib import Path
+
+    import httpx
+
+    from connectors.recording import recorded_transport
+
+    root = Path(__file__).parent.parent / "connectors" / "recordings"
+    off = recorded_transport(root / "off_search", strict=True)
+    op = recorded_transport(root / "open_prices", strict=True)
+
+    def handler(request):
+        if request.url.host.startswith("world."):
+            return off.handle_request(request)
+        return op.handle_request(request) if prices else httpx.Response(200, json={"items": []})
+
+    return httpx.MockTransport(handler)
+
+
+def test_off_prices_job_end_to_end(budgets, milk):
+    j = job("oat milk", source="off-prices")
+    sources = {"off-prices": _off_source(_off_transport())}
+    run_job(claim(NOW), sources, DbBudget(now=lambda: NOW), NOW)
+    j.refresh_from_db()
+    assert j.status == "succeeded", j.error
+    kept = OpenPriceObservation.objects.count()
+    assert kept > 0 and Offer.objects.filter(kind="observed").exists()
+    products = OpenPriceObservation.objects.values("upc").distinct().count()
+    assert j.result_count == products > 0
+    entry = OffEntry.objects.get(pk="0044100156182")
+    assert "en:vegan" in entry.labels and entry.categories
+    assert SourceBudget.objects.get(source="off-search").tokens < 5.0
+    assert SourceBudget.objects.get(source="openprices").tokens < 5.0
+
+
+def test_off_prices_job_without_prices_still_updates_off(budgets, milk):
+    j = job("oat milk", source="off-prices")
+    sources = {"off-prices": _off_source(_off_transport(prices=False))}
+    run_job(claim(NOW), sources, DbBudget(now=lambda: NOW), NOW)
+    j.refresh_from_db()
+    assert (j.status, j.result_count) == ("succeeded", 0)
+    assert OffEntry.objects.count() == 5 and OpenPriceObservation.objects.count() == 0
