@@ -47,6 +47,12 @@ _MULT_PREFIX_ANY = re.compile(
     r'(?<![\w.])\d+\s*x\s*(?!\d+(?:\.\d+)?\s*(?:in\b|"))\d', re.IGNORECASE
 )
 _PACK_OF = re.compile(r"\bpack\s+of\s+(\d+)\b", re.IGNORECASE)
+# "40 Count Bottles", "24 Cans": containers multiply, but only when no pack wording does.
+_CONTAINERS_RE = re.compile(r"\b(\d+)\s*(?:(?:count|ct)\s+)?(?:cans|bottles)\b", re.IGNORECASE)
+# A bare "4 Count" beside a size: per-pack or total is ambiguous.
+_BARE_COUNT_RE = re.compile(
+    r"(?<![\w./])(?<!\d,)(\d+)\s*(?:ct|count)\b(?!\s+(?:cans|bottles)\b)", re.IGNORECASE
+)
 
 # --- volume / mass -----------------------------------------------------------
 # (regex alternation, pint unit) pairs; longer spellings first.
@@ -91,7 +97,7 @@ def _multiplier(text: str, start: int) -> int:
     m = _MULT_PREFIX.search(text[:start])
     if m:
         return int(m.group(1))
-    m = _PACK_OF.search(text) or _PACK_N.search(text)
+    m = _PACK_OF.search(text) or _PACK_N.search(text) or _CONTAINERS_RE.search(text)
     return int(m.group(1)) if m else 1
 
 
@@ -131,7 +137,12 @@ def _measure(
         if (unit, second) not in _COMPOUNDS:
             return None
         value = value + _to_float(part.group(1)) * _ureg(second)
-    value = value * _multiplier(text, m.start())
+    mult = _multiplier(text, m.start())
+    if mult == 1:
+        bare = _BARE_COUNT_RE.search(text)
+        if bare and int(bare.group(1)) > 1:
+            return None  # "5.3 oz, 4 Count": per-pack or total, never guess
+    value = value * mult
     if value.magnitude <= 0:
         return None
     return float(value.to(target).magnitude)
@@ -142,7 +153,17 @@ def _volume(text: str) -> Measures:
     return {} if ml is None else {"volume_ml": ml}
 
 
+# Nutrient amounts ("30g Protein") are not the pack size. The words allowed between the
+# grams and the nutrient are a closed set, so "907 g Whey Protein" is still a pack mass.
+_NUTRIENT_RE = re.compile(
+    rf"{_NUM}\s*g(?:rams?)?\s+(?:of\s+|plant[- ]based\s+|added\s+|total\s+)?"
+    r"(?:protein|sugars?|fib(?:er|re)|carbs?|carbohydrates?|fat)\b",
+    re.IGNORECASE,
+)
+
+
 def _mass(text: str) -> Measures:
+    text = _NUTRIENT_RE.sub(" ", text)
     g = _measure(_strip_fl_oz(text), _MASS_RE, _MASS_UNITS, "gram")
     return {} if g is None else {"mass_g": g}
 
@@ -153,7 +174,7 @@ def _strip_fl_oz(text: str) -> str:
 
 # --- count -------------------------------------------------------------------
 _COUNT_RE = re.compile(
-    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs)\b", re.IGNORECASE
+    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs|bags|pacs|pods|tabs|tablets)\b", re.IGNORECASE
 )
 _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 
