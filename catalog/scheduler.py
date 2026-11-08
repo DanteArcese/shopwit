@@ -15,12 +15,14 @@ from django.core.management import call_command
 from django.utils import timezone
 
 from connectors import registry
+from connectors.registry import live_source_info
 from connectors.base import Connector
 
 from connectors.open_prices import OpenPricesClient
 
 from . import observed
 from .budget import DbBudget, seed_budgets
+from .demand import prune_demand, warm_due, warm_round
 from .fetch import fetch_loop, housekeeping
 from .ingest import ingest
 from .models import Category, IngestionRun
@@ -120,6 +122,7 @@ def tick(
         if open_prices_due:
             runs.extend(_open_prices(now, budget))
     fetch_housekeeping(now)
+    demand_housekeeping(now)
     clear_expired_sessions(now)
     purge_feedback_emails(now)
     return runs
@@ -162,6 +165,22 @@ def purge_feedback_emails(now: datetime) -> bool:
         return False
     logger.info("feedback email purge done purged=%s", purged)
     return True
+
+
+def demand_housekeeping(now: datetime) -> None:
+    """Prune stale demand rows and, every WARM_INTERVAL, queue warm refreshes. Never raises."""
+    try:
+        pruned = prune_demand(now.date())
+        if pruned:
+            logger.info("demand pruned=%s", pruned)
+    except Exception as exc:
+        logger.error("demand prune failed: %s", type(exc).__name__)
+    try:
+        if warm_due(now):
+            sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+            logger.info("warm round jobs=%s", warm_round(now, sources))
+    except Exception as exc:
+        logger.error("warm round failed: %s", type(exc).__name__)
 
 
 def fetch_housekeeping(now: datetime) -> dict[str, int] | None:

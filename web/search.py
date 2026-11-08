@@ -32,6 +32,7 @@ from catalog.generic import (
     near_misses,
     parse_generic_filters,
 )
+from catalog.demand import record_demand
 from catalog.fetch import enqueue
 from catalog.models import FetchJob
 from catalog.units import GENERIC_COMPARISON, display_generic_size
@@ -392,6 +393,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
         and not BOT_UA.search(request.headers.get("User-Agent", ""))
     ):
         phrase = normalize_phrase(q)
+        record_demand(phrase, when.date())  # a genuine search: never a poll, swap or bot
         sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
         if sources and phrase and not is_personal(phrase):
             jobs = enqueue(phrase, "search", when, sources, client_key=client_ip(request))

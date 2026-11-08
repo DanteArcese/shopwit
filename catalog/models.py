@@ -302,3 +302,12 @@ class SearchDemand(models.Model):
     count = models.PositiveIntegerField(default=0)
     days_seen = models.PositiveIntegerField(default=0)
     last_seen = models.DateField(db_index=True)
+
+
+class CurateNext(SearchDemand):
+    """Admin-only view of SearchDemand rows seen on enough days to be worth curating."""
+
+    class Meta:
+        proxy = True
+        verbose_name = "curate-next phrase"
+        verbose_name_plural = "curate next"

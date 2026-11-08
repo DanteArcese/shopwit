@@ -86,7 +86,7 @@ def test_idle_poll_is_cheap(client, django_assert_max_num_queries):
     assert 'hx-trigger="every 2s"' in body
     assert 'id="results"' not in body
     assert FetchJob.objects.count() == 1
-    assert SearchDemand.objects.count() == 0
+    assert SearchDemand.objects.get(phrase="oat milk").count == 1  # the page counted; the poll did not
 
 
 def test_poll_after_job_finishes_swaps_results(client):
