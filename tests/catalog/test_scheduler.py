@@ -228,3 +228,44 @@ def test_tick_survives_open_prices_due_error(cats, settings, monkeypatch, caplog
     settings.OPEN_PRICES_ENABLED = True
     assert scheduler.tick(NOW, {}) == []
     assert "open prices due check failed: RuntimeError" in caplog.text
+
+
+@pytest.fixture
+def fresh_cleanup(monkeypatch):
+    monkeypatch.setattr(scheduler, "_sessions_cleared_at", None)
+
+
+def test_tick_clears_expired_sessions_daily(cats, fresh_cleanup, monkeypatch):
+    from django.contrib.sessions.backends.db import SessionStore
+    from django.contrib.sessions.models import Session
+    from django.utils import timezone as dj_timezone
+
+    expired = SessionStore()
+    expired["prefs"] = {"postal_code": "94043"}
+    expired.create()
+    Session.objects.filter(pk=expired.session_key).update(
+        expire_date=dj_timezone.now() - timedelta(seconds=1)
+    )
+    live = SessionStore()
+    live["prefs"] = {"postal_code": "10001"}
+    live.create()
+
+    scheduler.tick(NOW, {})
+    assert list(Session.objects.values_list("session_key", flat=True)) == [live.session_key]
+
+    calls = []
+    monkeypatch.setattr(scheduler, "call_command", lambda name: calls.append(name))
+    scheduler.tick(NOW + timedelta(hours=23), {})
+    assert calls == []
+    scheduler.tick(NOW + timedelta(days=1), {})
+    assert calls == ["clearsessions"]
+
+
+def test_clearsessions_failure_never_stops_tick(cats, fresh_cleanup, monkeypatch, caplog):
+    def boom(name):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(scheduler, "call_command", boom)
+    assert scheduler.tick(NOW, {}) == []
+    assert "clearsessions failed: RuntimeError" in caplog.text
+    assert scheduler.clear_expired_sessions(NOW + timedelta(hours=1)) is False  # waits a day

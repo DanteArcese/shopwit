@@ -66,6 +66,12 @@ class Store(TimestampedModel):
     country_code = models.CharField(max_length=2)
     osm_type = models.CharField(max_length=10)
     osm_id = models.BigIntegerField()
+    # WGS84 position from OpenStreetMap; null until a sync records it.
+    lat = models.FloatField(null=True, blank=True)
+    lon = models.FloatField(null=True, blank=True)
+
+    class Meta:
+        indexes = [models.Index(fields=["lat", "lon"], name="store_lat_lon")]
 
     def __str__(self):
         return self.display
