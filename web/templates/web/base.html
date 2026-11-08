@@ -10,12 +10,14 @@
   <script src="{% static 'web/app.js' %}" defer></script>
 </head>
 <body>
-  <header class="site-header">
+  <header class="site-header{% block header_class %}{% endblock %}">
     <a class="site-name" href="{% url 'home' %}">UnitPricer</a>
+    {% block header_search %}
     <form class="search" action="{% url 'search' %}" method="get" role="search">
       <input type="search" name="q" aria-label="Search products" placeholder="Search products" value="{{ q|default:'' }}">
       <button type="submit">Search</button>
     </form>
+    {% endblock %}
   </header>
   <main>
     {% if has_outbound %}<p class="affiliate-banner" role="note">We may earn a commission when you buy through links on this site. It never affects ranking. <a href="{% url 'disclosure' %}">Details</a></p>{% endif %}

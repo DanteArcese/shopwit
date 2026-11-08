@@ -35,3 +35,20 @@ def test_no_external_asset_urls(client, categories):
     assert urls.index("/static/web/htmx.min.js") < urls.index("/static/web/app.js")
     assert "/static/web/app.js" in urls
     assert "/static/web/app.css" in urls
+
+
+def test_home_has_exactly_one_search_form(client, categories):
+    html = client.get("/").content.decode()
+    assert len(re.findall(r"<form\b[^>]*role=\"search\"", html)) == 1
+    assert 'class="search search-large"' in html
+    assert 'class="site-header no-search"' in html
+
+
+def test_other_pages_keep_header_search(client, categories):
+    for url in ("/c/dairy/milk/", "/search?q=mystery"):
+        resp = client.get(url)
+        assert resp.status_code == 200, url
+        html = resp.content.decode()
+        header = re.search(r"<header.*?</header>", html, re.S)
+        assert header and 'role="search"' in header.group(0), url
+        assert len(re.findall(r"<form\b[^>]*role=\"search\"", html)) == 1, url
