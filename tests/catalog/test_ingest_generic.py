@@ -120,12 +120,64 @@ def test_backfill_generic_idempotent(milk):
         for o in Offer.objects.all()
     }
     Offer.objects.update(measure_dim=None, measure_amount=None, generic_unit_price=None, labels=[])
-    for _ in range(2):
+    for args, count in ((("--batch", "1"), 2), (("--batch", "1"), 0), (("--all",), 2), (("--all",), 2)):
         out = StringIO()
-        call_command("backfill_generic", "--batch", "1", stdout=out)
-        assert out.getvalue().strip() == "updated=2"
+        call_command("backfill_generic", *args, stdout=out)
+        assert out.getvalue().strip() == f"updated={count}"
         got = {
             o.pk: (o.measure_dim, o.measure_amount, o.generic_unit_price, o.labels)
             for o in Offer.objects.all()
         }
         assert got == want
+
+
+def test_backfill_skips_computed_unknown_measures(milk):
+    run_ingest(milk, [raw(title="Mystery Milk", item="M1", brand=None)])
+    offer = Offer.objects.get()
+    assert offer.measure_dim is None and offer.measure_reason
+    out = StringIO()
+    call_command("backfill_generic", stdout=out)
+    assert out.getvalue().strip() == "updated=0"
+
+
+def test_backfill_uses_fresh_price(milk):
+    from catalog.management.commands.backfill_generic import recompute
+
+    run_ingest(milk, [raw(item="A1")])
+    stale = Offer.objects.get()
+    Offer.objects.update(price=Decimal("10.00"))  # concurrent ingest after the stale read
+    recompute(stale)
+    fresh = Offer.objects.get()
+    assert fresh.price == Decimal("10.00")
+    assert fresh.generic_unit_price == (Decimal("10.00") / Decimal("2800")).quantize(Decimal("0.000001"))
+
+
+def _cat(offer):
+    return Offer.objects.get(retailer_item_id=offer).category
+
+
+def test_generic_then_curated_gains_category(milk):
+    run_ingest(milk, [raw(title=OATLY, item="G1", upc="0093966010015", brand=None)])
+    product = Product.objects.get()
+    assert product.category is None
+    run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="other")])
+    product.refresh_from_db()
+    assert product.category == milk
+    assert ReviewItem.objects.filter(detail="category").count() == 0
+
+
+def test_curated_then_generic_keeps_category(milk):
+    run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="zeta")])
+    # a generic offer from a retailer that sorts first
+    run_ingest(milk, [raw(title=OATLY, item="G1", upc="0093966010015", retailer="alpha", brand=None)])
+    product = Product.objects.get()
+    assert product.category == milk
+    assert not ReviewItem.objects.filter(detail="category").exists()
+
+
+def test_curated_offer_reingested_as_unmatched_keeps_product_category(milk):
+    run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="a"), raw(item="C2", upc="0093966010015", retailer="b")])
+    run_ingest(milk, [raw(title=OATLY, item="C1", upc="0093966010015", retailer="a", brand=None)])
+    assert Offer.objects.get(retailer="a").category is None
+    assert Product.objects.get().category == milk
+    assert not ReviewItem.objects.filter(detail="category").exists()

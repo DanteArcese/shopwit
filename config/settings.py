@@ -126,9 +126,11 @@ def _budget(key, capacity, refill, daily):
     else:
         try:
             daily_limit = int(raw_daily)
+            if daily_limit <= 0:
+                raise ValueError
         except ValueError:
             raise ImproperlyConfigured(
-                f"{prefix}_DAILY_LIMIT must be an integer or 'unlimited', got {raw_daily!r}"
+                f"{prefix}_DAILY_LIMIT must be a positive integer or 'unlimited', got {raw_daily!r}"
             ) from None
     return {
         "capacity": float(env(prefix + "_CAPACITY", capacity) or capacity),

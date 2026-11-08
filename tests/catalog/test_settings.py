@@ -82,3 +82,14 @@ def test_budget_daily_limit_rejects_garbage(monkeypatch):
     monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", "lots")
     with pytest.raises(ImproperlyConfigured):
         _budget("walmart", 5, 1.0, 5000)
+
+
+@pytest.mark.parametrize("value", ["0", "-5"])
+def test_budget_daily_limit_rejects_zero_and_negative(monkeypatch, value):
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings import _budget
+
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_DAILY_LIMIT", value)
+    with pytest.raises(ImproperlyConfigured):
+        _budget("walmart", 5, 1.0, 5000)

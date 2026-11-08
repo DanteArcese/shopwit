@@ -2,10 +2,13 @@
 
 Live offers keep no size text, so they are computed from the title and the OFF
 quantity; observed offers also use their latest observation's quantity. Live
-offers get exact values on their next refresh. Safe to run repeatedly.
+offers get exact values on their next refresh. Safe to run repeatedly: by
+default offers that already have a generic measure (a dimension, or a reason it
+is unknown) are skipped; ``--all`` recomputes every offer.
 """
 
 from django.core.management.base import BaseCommand
+from django.db import transaction
 
 import enrichment.off
 from catalog.models import Offer, OpenPriceObservation
@@ -24,7 +27,19 @@ def _observation(offer: Offer):
 
 
 def recompute(offer: Offer, off_lookup=enrichment.off.lookup) -> bool:
-    """Set the generic fields on ``offer``; returns True when it saved."""
+    """Set the generic fields on ``offer``; returns True when it saved.
+
+    The row is re-read under a lock first, so a concurrent ingest's price or
+    category path is never overwritten with a stale value.
+    """
+    with transaction.atomic():
+        fresh = Offer.objects.select_for_update().select_related("product").filter(pk=offer.pk).first()
+        if fresh is None:
+            return False
+        return _recompute_locked(fresh, off_lookup)
+
+
+def _recompute_locked(offer: Offer, off_lookup) -> bool:
     off = off_lookup(offer.product.upc)
     obs = _observation(offer)
     quantity = (off.quantity if off else None) or (obs.quantity if obs else None) or ""
@@ -60,15 +75,19 @@ class Command(BaseCommand):
 
     def add_arguments(self, parser):
         parser.add_argument("--batch", type=int, default=1000)
+        parser.add_argument(
+            "--all", action="store_true", help="recompute offers that already have a generic measure"
+        )
 
     def handle(self, *args, **options):
         batch = max(1, options["batch"])
         updated = 0
         last_pk = 0
         while True:
-            offers = list(
-                Offer.objects.filter(pk__gt=last_pk).select_related("product").order_by("pk")[:batch]
-            )
+            qs = Offer.objects.filter(pk__gt=last_pk)
+            if not options["all"]:
+                qs = qs.filter(measure_dim__isnull=True, measure_reason__isnull=True)
+            offers = list(qs.select_related("product").order_by("pk")[:batch])
             if not offers:
                 break
             for offer in offers:

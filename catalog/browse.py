@@ -174,7 +174,11 @@ def browse(
     if comparison not in allowed:
         comparison = category.comparison_default
 
-    qs = (fresh_observed(now) if observed else fresh_offers(now)).filter(product__category=category)
+    # Offers with no category (generic) never appear on a curated page, even when
+    # they share a product with a curated offer.
+    qs = (fresh_observed(now) if observed else fresh_offers(now)).filter(
+        product__category=category, category=category
+    )
     if stores is not None:
         qs = qs.filter(retailer__in=stores)
     for name, value in spec.attributes.items():
