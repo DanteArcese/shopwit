@@ -14,7 +14,7 @@ from decimal import Decimal, InvalidOperation
 
 from normalize.compare import COMPARISONS
 
-from .freshness import fresh_offers
+from .freshness import fresh_observed, fresh_offers
 from .models import Category, Offer, Product
 
 BRAND_TIERS = ("name_brand", "store_brand")
@@ -123,12 +123,14 @@ def browse(
     stores: frozenset[str] | None,
     now: datetime,
     limit: int = 50,
+    *,
+    observed: bool = False,
 ) -> BrowseResult:
     allowed = [category.comparison_default, *category.comparison_alternates]
     if comparison not in allowed:
         comparison = category.comparison_default
 
-    qs = fresh_offers(now).filter(product__category=category)
+    qs = (fresh_observed(now) if observed else fresh_offers(now)).filter(product__category=category)
     if stores is not None:
         qs = qs.filter(retailer__in=stores)
     for name, value in spec.attributes.items():
@@ -137,7 +139,7 @@ def browse(
         qs = qs.filter(product__attributes__contains={"brand_tier": {"value": spec.brand_tier}})
 
     key = SIZE_KEYS.get(category.dimension)
-    offers = list(qs.select_related("product"))
+    offers = list(qs.select_related("product", "store") if observed else qs.select_related("product"))
     if spec.size_min is not None or spec.size_max is not None:
         sized = []
         for o in offers:

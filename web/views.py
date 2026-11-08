@@ -5,7 +5,7 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.http import HttpResponse, HttpResponseRedirect
+from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
@@ -17,12 +17,12 @@ from django.views.decorators.http import require_http_methods, require_POST
 from catalog.browse import BRAND_TIERS, browse, parse_filters
 from catalog.freshness import fresh_offers
 from catalog.models import Category, ClickEvent, Offer, Product
-from catalog.retailers import RETAILERS, available_retailers, display_name
+from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
 from normalize import load_categories
 from normalize.query import resolve_query
 
-from .prefs import Prefs, get_prefs, save_prefs
+from .prefs import Prefs, get_prefs, save_prefs, split_stores
 
 SEARCH_LIMIT = 25
 MAX_QUERY_LENGTH = 200
@@ -68,10 +68,13 @@ def safe_next(request, value: str | None) -> str:
 
 def _store_options(prefs: Prefs, available: list[str]) -> list[dict]:
     """Available stores, plus saved ones that currently have no fresh offers."""
-    options = [{"code": c, "name": display_name(c), "stale": False} for c in available]
-    for code in sorted(prefs.stores or (), key=lambda c: (display_name(c), c)):
+    chains = chain_names([*available, *(prefs.stores or ())])
+    options = [{"code": c, "name": display_name(c, chains), "stale": False} for c in available]
+    for code in sorted(prefs.stores or (), key=lambda c: (display_name(c, chains), c)):
         if code not in available:
-            options.append({"code": code, "name": f"{display_name(code)} (no current prices)", "stale": True})
+            options.append(
+                {"code": code, "name": f"{display_name(code, chains)} (no current prices)", "stale": True}
+            )
     return options
 
 
@@ -122,11 +125,23 @@ def _present(row, comparison: str, unit_system: str, dimension: str) -> dict:
         "size": display_size(offer.measures, dimension, unit_system),
         "price": format_money(offer.price, offer.currency),
         "unit_price": unit_text,
-        "retailer": display_name(offer.retailer),
+        "retailer": "" if offer.kind == Offer.Kind.OBSERVED else display_name(offer.retailer),
         "offer": offer,
         "unknown": [f"{n.replace('_', ' ')} unknown" for n in row.unknown],
         "reason": row.reason,
     }
+
+
+def _present_observed(row, comparison: str, unit_system: str, dimension: str) -> dict:
+    out = _present(row, comparison, unit_system, dimension)
+    offer = row.offer
+    out.update(
+        store=offer.store.display if offer.store else "a store",
+        observed_on=offer.observed_on,
+        is_sale=offer.is_sale,
+        source_url=offer.url,
+    )
+    return out
 
 
 def category(request, slug):
@@ -139,7 +154,9 @@ def category(request, slug):
     spec = parse_filters(cat, _canonical_params(cat, params, size_system))
     selected_stores = {s for s in params.getlist("store") if s}
     stores = frozenset(selected_stores) if selected_stores else prefs.stores
-    result = browse(cat, spec, params.get("comparison"), stores, when)
+    live_stores, chain_stores = split_stores(stores)
+    result = browse(cat, spec, params.get("comparison"), live_stores, when)
+    obs = browse(cat, spec, params.get("comparison"), chain_stores, when, observed=True)
 
     url = reverse("category", args=[cat.slug])
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
@@ -171,6 +188,11 @@ def category(request, slug):
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
+        "observed_ranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension) for r in obs.ranked],
+        "observed_unranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension) for r in obs.unranked],
+        "observed_total": obs.total_products,
+        "observed_ranked_total": obs.total_products - obs.unranked_total,
+        "observed_unranked_total": obs.unranked_total,
     }
     q_rest = params.get("q_rest", "").strip()
     if q_rest:
@@ -215,8 +237,9 @@ def search(request):
     prefs = get_prefs(request)
     when = now()
     offers = fresh_offers(when)
-    if prefs.stores is not None:
-        offers = offers.filter(retailer__in=prefs.stores)
+    live_stores, _chains = split_stores(prefs.stores)
+    if live_stores is not None:
+        offers = offers.filter(retailer__in=live_stores)
     query = SearchQuery(q, search_type="websearch")
     vector = SearchVector("title")
     products = (
@@ -266,6 +289,8 @@ def click(request):
         offer = Offer.objects.filter(pk=int(request.GET.get("o", ""))).first()
     except (ValueError, OverflowError):
         offer = None
+    if offer is not None and offer.kind != Offer.Kind.LIVE:
+        raise Http404  # observed prices have no outbound link and are never counted
     if offer is not None:
         ClickEvent.objects.create(offer=offer, retailer=offer.retailer)
     return HttpResponse(status=204)

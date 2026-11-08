@@ -52,3 +52,18 @@ def save_prefs(request, prefs: Prefs) -> None:
         "unit_system": prefs.unit_system,
         "stores": None if prefs.stores is None else sorted(prefs.stores),
     }
+
+
+def split_stores(stores: frozenset[str] | None) -> tuple[frozenset[str] | None, frozenset[str] | None]:
+    """Split a store selection into (live retailers, op- chains) filters.
+
+    Live codes filter only the live ranking; op- chain codes filter only the
+    "Seen in stores" section. A side with nothing selected is unfiltered (None),
+    so choosing only chains never empties the live ranking and choosing only
+    live stores never empties the observed section.
+    """
+    if stores is None:
+        return None, None
+    chains = frozenset(c for c in stores if c.startswith("op-"))
+    live = frozenset(stores - chains)
+    return (live or None), (chains or None)

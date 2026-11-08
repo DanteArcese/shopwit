@@ -175,3 +175,9 @@ a { color: var(--accent); }
 
 /* Home page has no header search (hero search is primary): keep the bar compact. */
 .site-header.no-search { flex-direction: row; justify-content: flex-start; }
+
+.observed { margin-top: 1.5rem; display: grid; gap: 0.75rem; }
+.observed h2, .observed h3 { margin: 0; }
+.observed a { display: inline-flex; align-items: center; min-height: 44px; }
+.attribution a { display: inline; min-height: 0; }
+.sale { color: var(--accent); font-weight: 600; }
