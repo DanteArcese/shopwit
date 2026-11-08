@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from decimal import Decimal
 from urllib.parse import urlencode
 
@@ -276,8 +277,19 @@ def _redirect_query(resolution) -> str:
     return urlencode(pairs)
 
 
+# NUL breaks Postgres text parameters (a 500); other C0 controls and DEL are never search words.
+_NUL = re.compile("\x00")
+_CONTROLS = re.compile("[\x01-\x1f\x7f]")
+
+
+def clean_query(raw: str) -> str:
+    """The query with NUL removed, other control characters as spaces, trimmed and capped."""
+    q = _CONTROLS.sub(" ", _NUL.sub("", raw))
+    return q.strip()[:MAX_QUERY_LENGTH].strip()
+
+
 def search(request):
-    q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH].strip()
+    q = clean_query(request.GET.get("q", ""))
     if not q:
         return redirect("home")
     if request.headers.get("HX-Request") == "true" and "poll" in request.GET:

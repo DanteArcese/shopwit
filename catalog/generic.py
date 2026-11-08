@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import math
 from collections import Counter
+from functools import lru_cache
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
@@ -20,7 +21,7 @@ from django.contrib.postgres.search import (
     SearchRank,
     TrigramWordSimilarity,
 )
-from django.db.models import Max
+from django.db.models import F, Max
 from django.http import QueryDict
 
 from catalog.browse import BRAND_TIERS, SIZE_TOLERANCE, _tie
@@ -69,6 +70,16 @@ class GenericResult:
 
 
 _EMPTY = Match(offers=[], fuzzy=False, capped=False)
+# Heavy columns the generic page never reads (offer.measures stays: rows display it).
+_UNUSED_COLUMNS = (
+    "search_vector",
+    "unit_prices",
+    "unresolved",
+    "attributes",
+    "product__attributes",
+    "product__manual_attributes",
+    "product__measures",
+)
 
 
 def match_offers(
@@ -85,7 +96,8 @@ def match_offers(
     ranked = (
         population.filter(search_vector=query)
         .values("product_id")
-        .annotate(rank=Max(SearchRank("search_vector", query)))
+        # F(): a bare string would be re-wrapped in to_tsvector() and lose the A/B/C weights.
+        .annotate(rank=Max(SearchRank(F("search_vector"), query)))
         .order_by("-rank", "product_id")
     )
     ids = [row["product_id"] for row in ranked[: MATCH_CAP + 1]]
@@ -111,6 +123,7 @@ def match_offers(
     offers = list(
         population.filter(product_id__in=ids)
         .select_related("product", "product__category", "store")
+        .defer(*_UNUSED_COLUMNS)
         .order_by("id")
     )
     return Match(offers=offers, fuzzy=fuzzy, capped=capped)
@@ -235,8 +248,14 @@ class Facet:
 
 
 def load_label_allowlist(path: Path) -> dict[str, str]:
+    return dict(_label_allowlist(str(path)))
+
+
+@lru_cache(maxsize=8)
+def _label_allowlist(path: str) -> tuple[tuple[str, str], ...]:
+    """Read once per path and process (a deploy restarts the process)."""
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or {}
-    return {str(tag): str(name) for tag, name in data.items()}
+    return tuple((str(tag), str(name)) for tag, name in data.items())
 
 
 def _bound(raw: str | None, dimension: str, unit_system: str) -> float | None:
@@ -269,9 +288,24 @@ def parse_generic_filters(
     return GenericFilters(brands, tier if tier in BRAND_TIERS else None, labels, path, sizes)
 
 
-def _tier(offer: Offer, store_brands: frozenset[str]) -> str | None:
-    value = brand_tier_from_field(offer.brand, store_brands)
-    return str(value.value) if value else None
+class _Brands:
+    """Per-call memo of fold(brand) and brand tier: a few brands repeat over ~500 offers."""
+
+    def __init__(self, store_brands: frozenset[str]) -> None:
+        self._store_brands = store_brands
+        self._folded: dict[str | None, str] = {}
+        self._tiers: dict[str | None, str | None] = {}
+
+    def fold(self, brand: str | None) -> str:
+        if brand not in self._folded:
+            self._folded[brand] = fold(brand or "")
+        return self._folded[brand]
+
+    def tier(self, brand: str | None) -> str | None:
+        if brand not in self._tiers:
+            value = brand_tier_from_field(brand, self._store_brands)
+            self._tiers[brand] = str(value.value) if value else None
+        return self._tiers[brand]
 
 
 def _in_path(offer: Offer, path: str) -> bool:
@@ -289,10 +323,10 @@ def _size_ok(offer: Offer, sizes: Mapping[str, tuple[float | None, float | None]
     return not (hi is not None and offer.measure_amount > hi * (1 + SIZE_TOLERANCE))
 
 
-def _passes(offer: Offer, f: GenericFilters, store_brands: frozenset[str], skip: str = "") -> bool:
-    if f.brands and skip != "brand" and fold(offer.brand or "") not in f.brands:
+def _passes(offer: Offer, f: GenericFilters, brands: _Brands, skip: str = "") -> bool:
+    if f.brands and skip != "brand" and brands.fold(offer.brand) not in f.brands:
         return False
-    if f.brand_tier and skip != "brand_tier" and _tier(offer, store_brands) != f.brand_tier:
+    if f.brand_tier and skip != "brand_tier" and brands.tier(offer.brand) != f.brand_tier:
         return False
     if f.labels and skip != "labels" and not f.labels <= set(offer.labels or ()):
         return False
@@ -309,7 +343,8 @@ def apply_filters(
     Size bounds on several dimensions are alternatives: an offer is kept when the bounds
     for its own dimension hold. Offers in a dimension with no bound are dropped.
     """
-    return [o for o in offers if _passes(o, f, store_brands)]
+    brands = _Brands(store_brands)
+    return [o for o in offers if _passes(o, f, brands)]
 
 
 def _counts(pairs: Iterable[tuple[str, int]]) -> dict[str, int]:
@@ -342,23 +377,24 @@ def facets(
 ) -> list[Facet]:
     """Facets over the offers; each sees the offers passing every other active filter."""
     out: list[Facet] = []
+    brands = _Brands(store_brands)
 
     pools: dict[str, list[Offer]] = {}
 
     def pool(skip: str) -> list[Offer]:
         if skip not in pools:
-            pools[skip] = [o for o in offers if _passes(o, f, store_brands, skip)]
+            pools[skip] = [o for o in offers if _passes(o, f, brands, skip)]
         return pools[skip]
 
     # brand
     spellings: dict[str, Counter] = {}
+    keyed: list[tuple[str, int]] = []
     for o in pool("brand"):
-        key = fold(o.brand or "")
+        key = brands.fold(o.brand)
         if key:
             spellings.setdefault(key, Counter())[o.brand] += 1
-    counts = _counts(
-        (fold(o.brand or ""), o.product_id) for o in pool("brand") if fold(o.brand or "")
-    )
+            keyed.append((key, o.product_id))
+    counts = _counts(keyed)
     if len(counts) >= 2 or f.brands:
         options = []
         for key in sorted(set(counts) | f.brands):
@@ -370,7 +406,7 @@ def facets(
 
     # brand tier
     counts = _counts(
-        (t, o.product_id) for o in pool("brand_tier") if (t := _tier(o, store_brands))
+        (t, o.product_id) for o in pool("brand_tier") if (t := brands.tier(o.brand))
     )
     if len(counts) >= 2 or f.brand_tier:
         names = {"name_brand": "Name brand", "store_brand": "Store brand"}

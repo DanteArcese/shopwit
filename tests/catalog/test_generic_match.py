@@ -200,3 +200,22 @@ def test_bench_search_cleans_up_when_seeding_is_interrupted(settings):
     finally:
         bench_search.Offer = real
     assert not Product.objects.filter(identity__startswith="bench:").exists()
+
+
+@pytest.mark.django_db
+def test_title_match_outranks_category_path_match_when_capped():
+    """The stored vector's weights count: a title (A) hit beats a category-path (C) hit."""
+    products = [Product(identity=f"p{i}", title=f"Thing {i}") for i in range(MATCH_CAP)]
+    Product.objects.bulk_create(products)
+    Offer.objects.bulk_create(
+        [
+            Offer(product=p, retailer="fake", retailer_item_id=p.identity, price=Decimal("1"),
+                  currency="USD", url="https://example.com/", title=p.title, last_seen_at=NOW,
+                  category_path="Food/Dairies/Milks")
+            for p in Product.objects.all()
+        ]
+    )
+    titled = make_generic_offer("Fresh Milk", "3", dim="volume", amount=1000)
+    m = match_offers("milk", NOW)
+    assert m.capped
+    assert titled.product_id in {o.product_id for o in m.offers}

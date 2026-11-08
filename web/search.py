@@ -82,6 +82,9 @@ TRANSIENT = ("q", "show", "sec", "poll", "seen")
 
 
 POLL_WINDOW = 15  # seconds a page keeps polling for background results
+# A poll/seen timestamp outside [now - POLL_MAX_AGE, now + POLL_MAX_AHEAD] is invalid: polling stops.
+POLL_MAX_AGE = 3600
+POLL_MAX_AHEAD = 60
 SOURCE_NAMES = {"walmart": "Walmart", "off-prices": "Open Food Facts"}
 # Obvious automated clients only. A missing User-Agent is not treated as a bot.
 BOT_UA = re.compile(
@@ -117,7 +120,8 @@ def _names(jobs: Sequence[JobState]) -> str:
     return " and ".join(sorted({SOURCE_NAMES.get(j.source, j.source) for j in jobs}))
 
 
-def live_status(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) -> str | None:
+def live_parts(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) -> list[str]:
+    """Source status messages, in display order."""
     parts: list[str] = []
     active = [j for j in jobs if j.status in FetchJob.ACTIVE]
     if active:
@@ -127,7 +131,7 @@ def live_status(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) 
         )
     new = sum(j.result_count for j in jobs if j.status == FetchJob.Status.SUCCEEDED)
     if new > 0:
-        parts.append(f"updated with {new} new products")
+        parts.append(f"updated with {new} new product{'' if new == 1 else 's'}")
     parts += [
         f"{SOURCE_NAMES.get(j.source, j.source)} didn't respond; showing saved prices."
         for j in sorted(jobs, key=lambda j: j.source)
@@ -135,7 +139,11 @@ def live_status(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) 
     ]
     if enqueue_refused:
         parts.append("Live search is busy; showing saved prices.")
-    return " \u00b7 ".join(parts) or None
+    return parts
+
+
+def live_status(jobs: Sequence[JobState], polling: bool, enqueue_refused: bool) -> str | None:
+    return " \u00b7 ".join(live_parts(jobs, polling, enqueue_refused)) or None
 
 
 def _load_states(phrase: str, since: datetime) -> list[JobState]:
@@ -169,11 +177,15 @@ def _as_state(job: FetchJob) -> JobState:
     return JobState(job.source, job.status, job.finished_at, job.result_count)
 
 
-def _int(value: str | None) -> int | None:
+def _stamp(value: str | None, now: float) -> int | None:
+    """A poll/seen timestamp within [now - POLL_MAX_AGE, now + POLL_MAX_AHEAD], else None."""
     try:
-        return int(value) if value is not None else None
+        stamp = int(value) if value is not None else None
     except ValueError:
         return None
+    if stamp is None or not now - POLL_MAX_AGE <= stamp <= now + POLL_MAX_AHEAD:
+        return None
+    return stamp
 
 
 def _poller_url(q: str, start: int, seen: int) -> str:
@@ -189,7 +201,7 @@ def poll_results(request, q: str) -> HttpResponse:
 
     when = views.now()
     now = when.timestamp()
-    start, seen = _int(request.GET.get("poll")), _int(request.GET.get("seen"))
+    start, seen = _stamp(request.GET.get("poll"), now), _stamp(request.GET.get("seen"), now)
     valid = start is not None and seen is not None
     since = datetime.fromtimestamp(start if valid else now - POLL_WINDOW, UTC)
     states = _load_states(normalize_phrase(q), since)
@@ -214,6 +226,13 @@ def _query_string(get, *, drop: tuple[str, ...] = (), add: tuple[tuple[str, str]
         if k not in TRANSIENT and k not in drop
     ]
     return urlencode([*pairs, *add])
+
+
+def _settings_next(q: str, get) -> str:
+    """The search to come back to from Settings: q and facet values only (never poll/seen)."""
+    keep = {p for ps in FACET_PARAMS.values() for p in ps}
+    pairs = [(k, v) for k, values in get.lists() if k in keep for v in values]
+    return f"{reverse('search')}?{urlencode([('q', q), *pairs])}"
 
 
 def _facet_url(q: str, get, **kw) -> str:
@@ -266,13 +285,16 @@ def _present_facet(facet: Facet, *, q: str, get, f: GenericFilters, unit_system:
     return out
 
 
-def status_text(total: int, *, fuzzy: bool, capped: bool, q: str, live: str | None) -> str:
+def match_note(*, fuzzy: bool, capped: bool, q: str) -> str | None:
     if fuzzy:
-        text = f"Showing close matches for '{q}'"
-    elif capped:
-        text = "Showing the 500 closest matches; add words to narrow"
-    else:
-        text = f"{total} product{'' if total == 1 else 's'}"
+        return f"Showing close matches for '{q}'"
+    if capped:
+        return "Showing the 500 closest matches; add words to narrow"
+    return None
+
+
+def status_text(total: int, *, fuzzy: bool, capped: bool, q: str, live: str | None) -> str:
+    text = match_note(fuzzy=fuzzy, capped=capped, q=q) or f"{total} product{'' if total == 1 else 's'}"
     if live:
         text += f" · {live}"
     return text
@@ -386,7 +408,14 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
     polling = poll.polling if poll else False
     refused = False
     poller_url = _poller_url(q, poll.start, poll.seen) if poll and poll.polling else None
-    if (
+    if poll is not None:
+        # A source refused on the first render (blocked, queue full, throttled) has no job to
+        # report, so the busy note must be worked out again or it would vanish on the first poll.
+        phrase = normalize_phrase(q)
+        sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+        if sources and phrase and not is_personal(phrase):
+            refused = _refused(phrase, sources, states, when)
+    elif (
         poll is None
         and not htmx
         and request.method == "GET"
@@ -403,7 +432,10 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
                 polling = True
                 start = int(when.timestamp())
                 poller_url = _poller_url(q, start, start)
-    live_text = live_status(states, polling, refused)
+    parts = live_parts(states, polling, refused)
+    live_text = " \u00b7 ".join(parts) or None
+    fuzzy, capped = live.fuzzy or seen.fuzzy, live.capped or seen.capped
+    note = match_note(fuzzy=fuzzy, capped=capped, q=q)
     finished = bool(states) and not any(s.status in FetchJob.ACTIVE for s in states)
     context = {
         "q": q,
@@ -437,9 +469,10 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
         ),
         "keep_qs": f"&{keep}" if keep else "",
         "live_empty": not live_groups and seen_result.total_products > 0,
-        "status_text": status_text(
-            held_total, fuzzy=live.fuzzy or seen.fuzzy, capped=live.capped or seen.capped, q=q, live=live_text
-        ),
+        "status_text": status_text(held_total, fuzzy=fuzzy, capped=capped, q=q, live=live_text),
+        # The same notes, visible: the status line above is a screen-reader live region only.
+        "search_notes": [*([note] if note else []), *parts],
+        "settings_next": _settings_next(q, request.GET),
     }
     if poll is not None:
         template = "web/_generic_poll.html"

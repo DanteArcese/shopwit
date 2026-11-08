@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from functools import lru_cache
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -70,6 +71,12 @@ def match_category(raw: RawOffer, categories: Mapping[str, CategoryDef]) -> str 
 
 
 def load_store_brands(path: Path) -> frozenset[str]:
+    """Folded store-brand names; read once per path and process (a deploy restarts it)."""
+    return _store_brands(str(path))
+
+
+@lru_cache(maxsize=8)
+def _store_brands(path: str) -> frozenset[str]:
     data = yaml.safe_load(Path(path).read_text(encoding="utf-8")) or []
     return frozenset(fold(str(b)) for b in data)
 
@@ -87,9 +94,11 @@ def brand_tier(raw: RawOffer, store_brands: frozenset[str]) -> AttrValue | None:
 
 
 def brand_tier_from_field(brand: str | None, store_brands: frozenset[str]) -> AttrValue | None:
-    """Brand tier from the brand field only; no title-prefix fallback."""
+    """Brand tier from the brand field only; no title-prefix fallback.
+
+    ``store_brands`` is already folded (``load_store_brands`` folds every entry).
+    """
     name = fold(brand or "")
     if not name:
         return None
-    brands = {fold(b) for b in store_brands}
-    return AttrValue("store_brand" if name in brands else "name_brand", "rule")
+    return AttrValue("store_brand" if name in store_brands else "name_brand", "rule")

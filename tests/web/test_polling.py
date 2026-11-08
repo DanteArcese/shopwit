@@ -1,5 +1,6 @@
 import re
 from datetime import timedelta
+from pathlib import Path
 from html import unescape
 from urllib.parse import parse_qs, urlparse
 
@@ -168,7 +169,10 @@ def test_personal_phrase_no_job_no_poller(client):
     make_generic_offer("Milk 555-123-4567 Special", "2", dim="volume", amount=1000)
     _, body = page(client, "555-123-4567 milk")
     assert FetchJob.objects.count() == 0
-    assert "poller" in body and "every 2s" not in body
+    assert SearchDemand.objects.count() == 0
+    assert '<div id="poller"></div>' in body  # the empty placeholder: no hx-get, no trigger
+    assert "every 2s" not in body and "poll=" not in body
+    assert "checking" not in body and "busy" not in body
 
 
 def test_poll_sets_no_cookies(client):
@@ -218,11 +222,108 @@ def test_invalid_poll_values_stop(client):
         assert resp.status_code == 200 and "hx-trigger" not in resp.content.decode()
 
 
+@pytest.mark.parametrize("value", ["99999999999999", "-5", "1e30", str(START - 3601), str(START + 61)])
+@pytest.mark.parametrize("which", ["poll", "seen"])
+def test_out_of_range_poll_values_stop(client, value, which):
+    page(client)
+    params = {"poll": str(START), "seen": str(START), which: value}
+    resp = client.get("/search", {"q": "oat milk", **params}, HTTP_HX_REQUEST="true")
+    assert resp.status_code == 200
+    assert "hx-trigger" not in resp.content.decode()
+
+
+def test_history_restore_does_not_enqueue(client):
+    resp = client.get(
+        "/search", {"q": "oat milk"}, HTTP_HX_REQUEST="true", HTTP_HX_HISTORY_RESTORE_REQUEST="true"
+    )
+    assert resp.status_code == 200
+    assert "<html" in resp.content.decode()  # the full page, as a cache miss needs
+    assert FetchJob.objects.count() == 0
+    assert SearchDemand.objects.count() == 0
+
+
+OFF = SourceInfo("off-prices", ("off-search", "openprices"), timedelta(hours=24))
+
+
+def test_busy_persists_across_polls(client, sources):
+    sources["off-prices"] = OFF
+    SourceBudget.objects.create(
+        source="off-search", capacity=5.0, refill_per_second=1.0, tokens=5.0,
+        refilled_at=NOW, daily_limit=None, daily_used=0, day=NOW.date(),
+        blocked_until=NOW + timedelta(hours=1),
+    )
+    _, body = page(client)
+    assert list(FetchJob.objects.values_list("source", flat=True)) == ["walmart"]
+    assert "Live search is busy; showing saved prices." in body
+    make_generic_offer("Oat Milk Acme", "2", dim="volume", amount=1000)
+    finish(count=1)
+    _, body = poll(client)
+    assert 'id="results"' in body
+    assert "Live search is busy; showing saved prices." in body
+    assert "updated with 1 new product" in body and "1 new products" not in body
+
+
+def test_status_notes_are_visible(client):
+    page(client)
+    finish("failed")
+    _, body = poll(client)
+    results = body[body.index('id="results"'):]
+    assert 'class="search-notes"' in results
+    assert "Walmart didn&#x27;t respond; showing saved prices." in results
+    assert 'role="status"' not in results  # the live region stays where it was
+    _, body = poll(client, start=START - 16, seen=START - 16)
+    assert 'class="search-notes"' in body
+
+
+def test_still_checking_note_is_visible(client):
+    _, body = page(client)
+    notes = body[body.index('class="search-notes"'):]
+    assert "checking Walmart…" in notes[: notes.index("</")]
+    assert 'role="status"' in body and 'aria-live="polite"' in body
+
+
+def _settings_next(body):
+    link = re.search(r'id="settings-link"[^>]*href="([^"]*)"', body)
+    assert link, body
+    return parse_qs(urlparse(unescape(link.group(1))).query)["next"][0]
+
+
+def test_settings_link_from_query_and_facets_only(client):
+    page(client)
+    make_generic_offer("Oat Milk Acme", "2", dim="volume", amount=1000, brand="Acme")
+    finish(count=1)
+    resp = client.get(
+        "/search",
+        {"q": "oat milk", "poll": START, "seen": START, "brand": "acme", "junk": "1", "sec": "observed"},
+        HTTP_HX_REQUEST="true",
+    )
+    nxt = _settings_next(resp.content.decode())
+    params = parse_qs(urlparse(nxt).query)
+    assert urlparse(nxt).path == "/search"
+    assert params == {"q": ["oat milk"], "brand": ["acme"]}
+    _, body = page(client)
+    assert parse_qs(urlparse(_settings_next(body)).query) == {"q": ["oat milk"]}
+
+
+def test_poll_does_not_reset_facets_drawer_or_inputs(client):
+    page(client)
+    for n, brand in enumerate(["Acme", "Bravo"]):
+        make_generic_offer(f"Oat Milk {brand}", str(2 + n), dim="volume", amount=1000 + n, brand=brand)
+    finish(count=2)
+    _, body = poll(client)
+    facets = re.search(r'<div id="facets"([^>]*)>', body)
+    assert facets and 'hx-swap-oob="true"' in facets.group(1)
+    assert "data-poll" in facets.group(1)  # app.js keeps drawer state and a focused input
+    script = (Path(__file__).resolve().parents[2] / "web/static/web/app.js").read_text()
+    assert "htmx:oobBeforeSwap" in script and "data-poll" in script and "shouldSwap" in script
+
+
 def test_live_status_messages():
     q, s = state("queued"), state("succeeded", NOW, 2)
     assert live_status([q], True, False) == "checking Walmart…"
     assert live_status([q], False, False) == "Still checking Walmart. Reload in a minute for more."
     assert live_status([s], False, False) == "updated with 2 new products"
+    assert live_status([state("succeeded", NOW, 1)], False, False) == "updated with 1 new product"
     assert live_status([], False, True) == "Live search is busy; showing saved prices."
     assert live_status([], False, False) is None
     both = live_status([state("queued"), state("queued", source="off-prices")], True, False)

@@ -235,6 +235,7 @@ def browse(
                 placed = lat is not None and lon is not None
                 (far_products if placed else unplaced_products).add(product_id)
         qs = qs.filter(box)
+    qs = qs.defer("search_vector")  # the text-search column is never read here
     offers = list(qs.select_related("product", "store") if observed else qs.select_related("product"))
     offers = [o for o in offers if _size_ok(o.measures, key, spec)]
     if near is not None:

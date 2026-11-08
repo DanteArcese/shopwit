@@ -343,3 +343,25 @@ def test_path_survives_htmx_updates(client, oat_drinks):
         "/search", {"q": "oat drink", "brand": ["oatly", "alpro"]}, **hx
     ).content.decode()
     assert _hidden_path(body) is None
+
+
+@pytest.mark.parametrize("q", ["\x00", "milk\x00", "\x01\x1f", "mi\x00lk\x7f"])
+def test_control_characters_never_error(client, db, q):
+    resp = get(client, q)
+    assert resp.status_code in (200, 302)
+    if resp.status_code == 200:
+        page = resp.content.decode()
+        assert "\x00" not in page and "No saved prices match" in page
+
+
+def test_nul_query_url_encoded(client, db):
+    assert client.get("/search?q=%00").status_code == 302  # nothing left: home
+    resp = client.get("/search?q=milk%00")
+    assert resp.status_code == 200 and "\x00" not in resp.content.decode()
+
+
+def test_fuzzy_and_capped_notes_are_visible(client, db):
+    make_generic_offer("Chobani Greek Yogurt", "2", dim="mass", amount=500)
+    page = html(client, "chobanni")
+    notes = page[page.index('class="search-notes"'):]
+    assert "Showing close matches for &#x27;chobanni&#x27;" in notes[: notes.index("</div>")]

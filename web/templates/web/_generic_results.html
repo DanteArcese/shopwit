@@ -1,3 +1,4 @@
+{% if search_notes %}<div class="search-notes">{% for n in search_notes %}<p class="note">{{ n }}</p>{% endfor %}</div>{% endif %}
 {% if has_amazon %}<p class="note amazon-associate">As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
 {% if near_misses %}
 <nav class="near-misses" aria-label="Related categories">
@@ -30,5 +31,5 @@
 {% if oob %}
 {% include "web/_status.html" %}
 <div id="facets" hx-swap-oob="true">{% include "web/_generic_facets.html" %}</div>
-<a id="settings-link" hx-swap-oob="true" href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>
+<a id="settings-link" hx-swap-oob="true" href="{% url 'settings' %}?next={{ settings_next|urlencode }}">Settings</a>
 {% endif %}
