@@ -36,6 +36,8 @@ def store_totals(
 
 
 def cheapest_single_store(totals: Sequence[StoreTotal]) -> StoreTotal | None:
+    if not totals or not any(t.covered or t.missing for t in totals):
+        return None
     full = [t for t in totals if not t.missing]
     return min(full, key=lambda t: (t.total, t.store)) if full else None
 
@@ -58,16 +60,23 @@ def cheapest_split(
     stores: Sequence[str],
     max_stores: int | None,
 ) -> Split | None:
-    if max_stores is None or max_stores >= len(stores):
-        return _assign(costs, set(stores))
+    if not costs:
+        return None
+    # Lower bound on the total: every item at its overall cheapest allowed store.
+    bound = _assign(costs, set(stores))
+    if bound is None:
+        return None
+    limit = len(stores) if max_stores is None else min(max_stores, len(stores))
     best: Split | None = None
-    for k in range(1, max_stores + 1):
+    for k in range(1, limit + 1):
         for subset in itertools.combinations(sorted(stores), k):
             cand = _assign(costs, set(subset))
             if cand is None:
                 continue
             if best is None or _rank(cand) < _rank(best):
                 best = cand
+        if best is not None and best.total == bound.total:
+            break  # larger subsets cannot beat this total with fewer stores
     return best
 
 

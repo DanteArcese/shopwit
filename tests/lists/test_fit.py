@@ -33,7 +33,7 @@ def test_packages_never_fractional():
             t, s = Decimal(target), Decimal(str(size))
             n = packages_needed(t, s)
             if n is None:
-                assert -(-t // s) > MAX_PACKAGES or n is None
+                assert (t * (1 - FIT_TOLERANCE)) / s > MAX_PACKAGES
                 continue
             floor = t * (1 - FIT_TOLERANCE)
             assert isinstance(n, int) and n >= 1
@@ -110,3 +110,10 @@ def test_fit_generic_measure_amount():
     # dim matches but amount missing -> falls back to measures, then None
     o3 = FakeOffer(Decimal("2.00"), {}, measure_dim="count", measure_amount=None)
     assert fit_offer(o3, "count", Decimal(1)) is None
+
+
+def test_packages_needed_guards():
+    assert packages_needed(Decimal(5), Decimal("1e-30")) is None
+    assert packages_needed(Decimal("1e30"), Decimal("1e-30")) is None
+    assert packages_needed(Decimal(0), Decimal(5)) is None
+    assert packages_needed(Decimal(-3), Decimal(5)) is None

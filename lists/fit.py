@@ -20,12 +20,17 @@ def packages_needed(target: Decimal, size: Decimal) -> int | None:
     not round up to one more package). None for a non-positive size or when
     more than MAX_PACKAGES would be needed.
     """
-    if size <= 0:
+    if size <= 0 or target <= 0:
         return None
     floor = target * (1 - FIT_TOLERANCE)
-    n = max(1, int(floor // size))
-    while n * size < floor:
-        n += 1
+    try:
+        n = max(1, int(floor // size))
+        if n > MAX_PACKAGES:
+            return None
+        while n * size < floor:
+            n += 1
+    except ArithmeticError:  # includes decimal.InvalidOperation
+        return None
     return n if n <= MAX_PACKAGES else None
 
 

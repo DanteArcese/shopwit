@@ -74,15 +74,37 @@ def test_split_matches_brute_force():
             got = cheapest_split(costs, stores, k)
             items = list(costs)
             best = None
+            best_rank = None
             for combo in itertools.product(stores, repeat=len(items)):
                 if len(set(combo)) > (k or 99):
                     continue
                 if any(s not in costs[i] for i, s in zip(items, combo)):
                     continue
                 t = sum(costs[i][s] for i, s in zip(items, combo))
-                best = t if best is None or t < best else best
+                rank = (t, len(set(combo)), tuple(sorted(set(combo))))
+                if best_rank is None or rank < best_rank:
+                    best_rank = rank
+                best = best_rank[0]
             if best is None:
                 assert got is None
             else:
                 assert got is not None and got.total == best
+                assert (got.total, len(got.stores), got.stores) == best_rank
+                assert got.total == sum(costs[i][s] for i, s in got.assignments.items())
+                assert got.stores == tuple(sorted(set(got.assignments.values())))
                 assert len(set(got.assignments.values())) <= (k or 99)
+
+
+def test_split_unlimited_tie_prefers_single_store():
+    costs = {"a": {"x": D(1), "y": D(1)}, "b": {"y": D(2)}}
+    for k in (None, 2):
+        s = cheapest_split(costs, ["x", "y"], k)
+        assert s.stores == ("y",) and s.total == 3
+        assert s.assignments == {"a": "y", "b": "y"}
+
+
+def test_empty_costs_is_none():
+    assert cheapest_split({}, ["x"], None) is None
+    assert cheapest_split({}, ["x"], 1) is None
+    assert cheapest_single_store(store_totals({}, ["x", "y"])) is None
+    assert cheapest_single_store([]) is None
