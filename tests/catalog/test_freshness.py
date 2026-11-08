@@ -86,3 +86,22 @@ def test_available_retailers_lists_chains_once():
     assert available_retailers(NOW) == ["walmart", "op-safeway"]
     assert display_name("op-safeway") == "Safeway (in-store prices)"
     assert display_name("op-unknown") == "op-unknown"
+
+
+@pytest.mark.django_db
+def test_category_store_list_ignores_generic_offers_on_a_curated_product():
+    """A generic observed offer sharing a curated product adds no chain to that category's stores."""
+    milk = Category.objects.create(slug="dairy/milk", name="Milk", dimension="volume", comparison_default="per_gal")
+    product = Product.objects.create(identity="upc:1", title="Milk", category=milk)
+    for chain, category in (("op-curated", milk), ("op-generic", None)):
+        store = Store.objects.create(
+            code=f"osm-{chain}", name=chain, chain_code=chain, chain_name=chain.title(),
+            country_code="US", osm_type="node", osm_id=len(chain),
+        )
+        Offer.objects.create(
+            product=product, retailer=chain, retailer_item_id=f"1@{chain}", price=Decimal("3"), currency="USD",
+            url="https://example.com/", last_seen_at=NOW, kind="observed", observed_on=NOW.date(),
+            store=store, category=category,
+        )
+    assert available_retailers(NOW, milk) == ["op-curated"]
+    assert set(available_retailers(NOW)) == {"op-curated", "op-generic"}

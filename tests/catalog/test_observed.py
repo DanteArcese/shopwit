@@ -459,3 +459,49 @@ def test_stop_mid_sync_is_interrupted_and_still_due():
     run = sync_open_prices(StoppingClient(), NOW, off_lookup=no_off)
     assert (run.status, run.error) == ("failed", "interrupted")
     assert due(NOW + timedelta(minutes=1))  # an interrupted run is no upstream failure
+
+
+def test_stop_during_write_phase_is_interrupted_and_deletes_nothing():
+    """A shutdown between offers ends the write cleanly: run "interrupted", no deletions."""
+    sync(obs(1, upc="0811620020169"), obs(2, upc="0070038640219", location=loc(osm_id=2)))
+    before = set(Offer.objects.values_list("retailer_item_id", flat=True))
+    assert len(before) == 2
+    stopped = {"now": False}
+    lookups = []
+
+    def off_lookup(upc):  # the first offer's write sets the stop request
+        lookups.append(upc)
+        stopped["now"] = True
+        return None
+
+    client = FakeClient([obs(3, upc="0811620020169", location=loc(osm_id=3)), obs(4, upc="0070038640220", location=loc(osm_id=4))])
+    run = sync_open_prices(
+        client, NOW + timedelta(days=1), off_lookup=off_lookup, allow_deletions=True,
+        stopping=lambda: stopped["now"],
+    )
+    assert (run.status, run.error) == ("failed", "interrupted")
+    assert len(lookups) == 1  # the second offer was never written
+    assert before <= set(Offer.objects.values_list("retailer_item_id", flat=True))  # nothing deleted
+    assert due(NOW + timedelta(days=1, minutes=1))
+
+
+def test_scheduler_passes_stop_to_open_prices_sync(monkeypatch):
+    import threading
+
+    from catalog import scheduler
+    from catalog.budget import DbBudget
+
+    seen = {}
+
+    def fake(client, now, **kw):
+        seen.update(kw)
+        return IngestionRun.objects.create(
+            connector="openprices", category_slug="all", started_at=now, status="succeeded"
+        )
+
+    monkeypatch.setattr(scheduler.observed, "sync_open_prices", fake)
+    stop = threading.Event()
+    scheduler._open_prices(NOW, DbBudget(stop=stop))
+    assert not seen["stopping"]()
+    stop.set()
+    assert seen["stopping"]()

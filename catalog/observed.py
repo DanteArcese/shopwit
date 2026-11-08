@@ -7,6 +7,7 @@ deleted only after the whole window was fetched successfully.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from django.conf import settings
@@ -91,7 +92,11 @@ def sync_open_prices(
     *,
     off_lookup=enrichment.off.lookup,
     allow_deletions: bool = False,
+    stopping: Callable[[], bool] | None = None,
 ) -> IngestionRun:
+    """Pull the window and write it. ``stopping`` (the worker's stop request) is checked
+    between offers in the write phase: a shutdown ends the run as "interrupted" with nothing
+    deleted, and ``due`` retries it on the next start."""
     run = IngestionRun.objects.create(connector=CONNECTOR, category_slug="all", started_at=now)
     since = (now - settings.OBSERVED_MAX_AGE).date()
     try:
@@ -140,8 +145,10 @@ def sync_open_prices(
 
     try:
         touched, keep_offers, skipped = _write(
-            run, kept, protected, safe_to_delete, now, off_lookup, skipped
+            run, kept, protected, safe_to_delete, now, off_lookup, skipped, stopping
         )
+    except Stopping:  # offers written so far stay; nothing was deleted or merged
+        return _fail(run, INTERRUPTED)
     except Exception as exc:  # the write transaction rolled back; prior state is intact
         return _fail(run, type(exc).__name__)
 
@@ -159,6 +166,7 @@ def upsert_observations(
     off_lookup,
     run: IngestionRun | None,
     prune=None,
+    stopping: Callable[[], bool] | None = None,
 ) -> tuple[set[int], set[int], int]:
     """Write stores, observations and the latest observed offer per (store, UPC).
 
@@ -213,6 +221,8 @@ def upsert_observations(
     keep_offers: set[int] = set()  # pks of observed offers that must survive
 
     for (store_code, upc), obs in latest.items():
+        if stopping is not None and stopping():
+            raise Stopping()
         raw = to_raw_offer(obs, now)
         existing = _offer_pk(raw.retailer, raw.retailer_item_id)
         if existing is not None:
@@ -262,14 +272,15 @@ def _offer_pk(retailer, item_id):
     )
 
 
-def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped):
+def _write(run, kept, protected, safe_to_delete, now, off_lookup, skipped, stopping=None):
     def prune():
         keep_ids = [o.price_id for o in kept] + list(protected)
         OpenPriceObservation.objects.exclude(price_id__in=keep_ids).delete()
         Store.objects.filter(observations__isnull=True).delete()
 
     touched, keep_offers, more_skipped = upsert_observations(
-        kept, now, off_lookup=off_lookup, run=run, prune=prune if safe_to_delete else None
+        kept, now, off_lookup=off_lookup, run=run, prune=prune if safe_to_delete else None,
+        stopping=stopping,
     )
     skipped += more_skipped
 

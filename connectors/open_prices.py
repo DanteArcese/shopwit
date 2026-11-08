@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from connectors.base import ConnectorError
+from connectors.live import retry_after
 from enrichment.off import normalize_upc
 from normalize.generic import off_category_path
 from normalize.types import RawOffer
@@ -246,18 +247,6 @@ def to_raw_offer(obs: Observation, fetched_at: datetime) -> RawOffer:
     )
 
 
-def _retry_after(resp: httpx.Response) -> float | None:
-    """A Retry-After given in seconds; anything else (an HTTP date, garbage) is None."""
-    value = resp.headers.get("Retry-After")
-    if value is None:
-        return None
-    try:
-        seconds = float(value.strip())
-    except ValueError:
-        return None
-    return seconds if math.isfinite(seconds) and seconds >= 0 else None
-
-
 class OpenPricesClient:
     def __init__(
         self,
@@ -309,7 +298,7 @@ class OpenPricesClient:
                     f"Open Prices request failed ({type(exc).__name__}) on page {page}"
                 ) from None
             if self._budget_report is not None:
-                self._budget_report("openprices", status, _retry_after(resp))
+                self._budget_report("openprices", status, retry_after(resp))
             if status == 429 or status >= 500:
                 if attempt < ATTEMPTS - 1 and self._budget_report is None:
                     self._sleep(BACKOFF[attempt])  # with a budget, its backoff paces the retry
@@ -387,7 +376,7 @@ class OpenPricesClient:
         except httpx.HTTPError as exc:
             budget.report("openprices", None, None)
             raise ConnectorError(f"Open Prices request failed ({type(exc).__name__})") from None
-        budget.report("openprices", resp.status_code, _retry_after(resp))
+        budget.report("openprices", resp.status_code, retry_after(resp))
         if resp.status_code != 200:
             raise ConnectorError(f"Open Prices request failed: HTTP {resp.status_code}")
         try:

@@ -1,3 +1,4 @@
+import math
 import os
 from datetime import timedelta
 from pathlib import Path
@@ -110,7 +111,23 @@ OPEN_PRICES_ENABLED = env("UNITPRICER_OPEN_PRICES", "0") == "1"
 OPEN_PRICES_COUNTRY = env("UNITPRICER_OPEN_PRICES_COUNTRY", "US")
 OPEN_PRICES_INTERVAL = timedelta(hours=float(env("UNITPRICER_OPEN_PRICES_HOURS", 24)))
 LIVE_OFF_ENABLED = env("UNITPRICER_LIVE_OFF", "0") == "1"
-FETCH_THREADS = max(1, min(2, int(env("UNITPRICER_FETCH_THREADS", 1) or 1)))
+
+
+def _fetch_threads(raw):
+    """1 or 2 worker fetch threads; unset or blank is 1, a non-integer is an error."""
+    raw = (raw or "").strip()
+    if not raw:
+        return 1
+    try:
+        value = int(raw)
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"UNITPRICER_FETCH_THREADS must be an integer, got {raw!r}"
+        ) from None
+    return max(1, min(2, value))
+
+
+FETCH_THREADS = _fetch_threads(os.environ.get("UNITPRICER_FETCH_THREADS"))
 WARM_INTERVAL = timedelta(hours=float(env("UNITPRICER_WARM_HOURS", 12)))
 LABELS_FILE = BASE_DIR / "data/labels.yaml"
 
@@ -135,15 +152,25 @@ def _budget(key, capacity, refill, daily):
     raw_capacity = env(prefix + "_CAPACITY", capacity) or capacity
     try:
         capacity = float(raw_capacity)
-        if not capacity >= 1:  # also rejects nan: a bucket below 1 token never grants one
+        # A bucket below 1 token never grants one; inf would never run dry; nan compares false.
+        if not (math.isfinite(capacity) and capacity >= 1):
             raise ValueError
     except ValueError:
         raise ImproperlyConfigured(
-            f"{prefix}_CAPACITY must be a number of at least 1, got {raw_capacity!r}"
+            f"{prefix}_CAPACITY must be a finite number of at least 1, got {raw_capacity!r}"
+        ) from None
+    raw_refill = env(prefix + "_REFILL_PER_SECOND", refill) or refill
+    try:
+        refill_per_second = float(raw_refill)
+        if not (math.isfinite(refill_per_second) and refill_per_second >= 0):
+            raise ValueError
+    except ValueError:
+        raise ImproperlyConfigured(
+            f"{prefix}_REFILL_PER_SECOND must be a finite number of at least 0, got {raw_refill!r}"
         ) from None
     return {
         "capacity": capacity,
-        "refill_per_second": float(env(prefix + "_REFILL_PER_SECOND", refill) or refill),
+        "refill_per_second": refill_per_second,
         "daily_limit": daily_limit,
     }
 

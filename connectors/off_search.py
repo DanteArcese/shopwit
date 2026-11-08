@@ -14,8 +14,8 @@ from datetime import date, timedelta
 import httpx
 
 from connectors.base import ConnectorError
-from connectors.live import Budget, LiveSearchResult
-from connectors.open_prices import MAX_CODES, OpenPricesClient, _retry_after
+from connectors.live import Budget, LiveSearchResult, retry_after
+from connectors.open_prices import MAX_CODES, OpenPricesClient
 from enrichment.off import USER_AGENT, OffRecord, _record_from_dict, normalize_upc
 
 SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl"
@@ -28,6 +28,24 @@ ATTEMPTS = 3  # one try and two retries on a 503
 TIMEOUT = 20.0
 JOB_DEADLINE = 90.0  # seconds; far under the fetch queue's STUCK_AFTER (5 min)
 CURRENCY = "USD"
+
+
+class _Prepaid:
+    """A budget whose first ``acquire(key)`` spends a token already taken."""
+
+    def __init__(self, budget: Budget, key: str) -> None:
+        self._budget = budget
+        self._key = key
+        self._paid = True
+
+    def acquire(self, key: str) -> None:
+        if key == self._key and self._paid:
+            self._paid = False
+            return
+        self._budget.acquire(key)
+
+    def report(self, key: str, status: int | None, retry_after: float | None = None) -> None:
+        self._budget.report(key, status, retry_after)
 
 
 class OffPricesSource:
@@ -77,7 +95,7 @@ class OffPricesSource:
                     f"Open Food Facts search failed ({type(exc).__name__})"
                 ) from None
             status = resp.status_code
-            budget.report("off-search", status, _retry_after(resp))
+            budget.report("off-search", status, retry_after(resp))
             if status == 503:  # the shared backoff paces the retry through acquire
                 continue
             break
@@ -94,6 +112,10 @@ class OffPricesSource:
 
     def live_search(self, phrase: str, limit: int, budget: Budget) -> LiveSearchResult:
         deadline = self._clock() + JOB_DEADLINE
+        # Take the prices token first: a shortage then requeues the job before the OFF search,
+        # instead of after it, where the retry would repeat the search. (With no barcodes found
+        # the token goes unused: one second of the 1 req/s bucket.)
+        budget.acquire("openprices")
         products = self._search(phrase, budget, deadline)
         records: dict[str, OffRecord] = {}
         skipped = 0
@@ -109,7 +131,9 @@ class OffPricesSource:
             if self._clock() >= deadline:
                 raise ConnectorError("Open Prices lookup ran past its deadline")
             since = self._today() - self.max_cache_age
-            observations = self._prices.fetch_codes(codes, since, CURRENCY, budget)
+            observations = self._prices.fetch_codes(
+                codes, since, CURRENCY, _Prepaid(budget, "openprices")
+            )
         return LiveSearchResult(
             observations=observations, off_records=list(records.values()), skipped=skipped
         )

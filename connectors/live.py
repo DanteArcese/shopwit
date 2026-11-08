@@ -5,13 +5,17 @@ No Django import: the DB-backed budget lives in ``catalog.budget``.
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 from datetime import timedelta
-from typing import Protocol
+from typing import TYPE_CHECKING, Protocol
 
-from connectors.open_prices import Observation
-from enrichment.off import OffRecord
-from normalize.types import RawOffer
+if TYPE_CHECKING:  # type-only: connectors.open_prices imports retry_after from here
+    import httpx
+
+    from connectors.open_prices import Observation
+    from enrichment.off import OffRecord
+    from normalize.types import RawOffer
 
 
 class BudgetExhausted(Exception):
@@ -27,6 +31,18 @@ class Stopping(BudgetExhausted):
 
     def __init__(self) -> None:
         super().__init__(0.0)
+
+
+def retry_after(resp: httpx.Response) -> float | None:
+    """A Retry-After given in seconds; anything else (an HTTP date, garbage) is None."""
+    value = resp.headers.get("Retry-After")
+    if value is None:
+        return None
+    try:
+        seconds = float(value.strip())
+    except ValueError:
+        return None
+    return seconds if math.isfinite(seconds) and seconds >= 0 else None
 
 
 class Budget(Protocol):

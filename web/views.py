@@ -233,7 +233,7 @@ def category(request, slug):
             and obs.total_products == 0
             and obs.hidden_far == 0
             and obs.hidden_unplaced == 0
-            and fresh_observed(when).filter(product__category=cat).exists()
+            and fresh_observed(when).filter(product__category=cat, category=cat).exists()
         ),
         "location": location,
         "observed_hidden_far": obs.hidden_far,

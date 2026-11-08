@@ -48,7 +48,8 @@ def available_retailers(now: datetime, category=None) -> list[str]:
     live = set(fresh_offers(now).values_list("retailer", flat=True).distinct())
     observed_qs = fresh_observed(now)
     if category is not None:
-        observed_qs = observed_qs.filter(product__category=category)
+        # The offer's own category too: a generic offer on a curated product is not on the page.
+        observed_qs = observed_qs.filter(product__category=category, category=category)
     observed = set(observed_qs.values_list("retailer", flat=True).distinct())
     chains = chain_names(observed)
 

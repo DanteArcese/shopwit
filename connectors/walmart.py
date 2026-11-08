@@ -13,8 +13,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from connectors.base import ConnectorError, SearchResult
-from connectors.live import Budget, LiveSearchResult
-from connectors.open_prices import _retry_after
+from connectors.live import Budget, LiveSearchResult, retry_after
 from normalize.types import RawOffer
 
 SEARCH_URL = (
@@ -150,7 +149,7 @@ class WalmartConnector:
         except ConnectorError:
             budget.report("walmart", None, None)
             raise
-        budget.report("walmart", resp.status_code, _retry_after(resp))
+        budget.report("walmart", resp.status_code, retry_after(resp))
         result = self._parse(resp)
         return LiveSearchResult(offers=result.offers, skipped=result.skipped)
 

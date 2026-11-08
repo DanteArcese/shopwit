@@ -214,7 +214,9 @@ def _open_prices(now: datetime, budget: DbBudget | None = None) -> list[Ingestio
             if budget
             else OpenPricesClient()
         )
-        run = observed.sync_open_prices(client, now)
+        run = observed.sync_open_prices(
+            client, now, stopping=(lambda: budget.stopping) if budget else None
+        )
     except Exception as exc:
         logger.error("ingest connector=%s failed: %s", observed.CONNECTOR, type(exc).__name__)
         return [_fail_run(observed.CONNECTOR, "all", now, exc)]
@@ -256,7 +258,10 @@ def run_loop(
     threads: list[threading.Thread] = []
     try:
         if fetch and not once:
-            threads = start_fetch_threads(stop, budget)
+            if live_source_info(live_off=settings.LIVE_OFF_ENABLED):
+                threads = start_fetch_threads(stop, budget)
+            else:  # nothing to fetch from: idle threads would only poll the queue
+                logger.info("no live search sources; fetch threads not started")
         while not stop.is_set():
             tick(now(), connectors, budget=budget)
             if once:

@@ -219,3 +219,12 @@ def test_title_match_outranks_category_path_match_when_capped():
     m = match_offers("milk", NOW)
     assert m.capped
     assert titled.product_id in {o.product_id for o in m.offers}
+
+
+@pytest.mark.django_db
+def test_match_defers_heavy_columns():
+    make_generic_offer("Oat Milk", "3", dim="volume", amount=1000)
+    offer = match_offers("oat milk", NOW).offers[0]
+    assert {"search_vector", "unit_prices", "unresolved", "attributes"} <= offer.get_deferred_fields()
+    assert {"attributes", "manual_attributes", "measures"} <= offer.product.get_deferred_fields()
+    assert "measures" not in offer.get_deferred_fields()  # rows display it

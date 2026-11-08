@@ -337,6 +337,7 @@ def test_run_loop_runs_fetch_threads_and_stops_them(settings, monkeypatch):
         return {"walmart": built[-1]}
 
     monkeypatch.setattr(scheduler.registry, "live_sources", factory)
+    monkeypatch.setattr(scheduler, "live_source_info", lambda **kw: {"walmart": object()})
     job = FetchJob.objects.create(source="walmart", phrase="oat milk", not_before=NOW)
     stop = threading.Event()
 
@@ -367,6 +368,25 @@ def test_once_and_fetch_false_start_no_fetch_threads(cats, monkeypatch):
     scheduler.run_loop(once=True, connectors={})
     stop = threading.Event()
     scheduler.run_loop(wait=lambda s: stop.set(), stop=stop, connectors={}, fetch=False)
+
+
+def test_no_fetch_threads_without_live_sources(cats, monkeypatch, caplog):
+    def boom(*args, **kwargs):
+        raise AssertionError("no fetch threads expected")
+
+    monkeypatch.setattr(scheduler, "live_source_info", lambda **kw: {})
+    monkeypatch.setattr(scheduler, "start_fetch_threads", boom)
+    stop = threading.Event()
+    waits = []
+
+    def wait(seconds):
+        waits.append(seconds)
+        if len(waits) == 3:
+            stop.set()
+
+    with caplog.at_level("INFO", logger="catalog.scheduler"):
+        scheduler.run_loop(wait=wait, stop=stop, connectors={})
+    assert caplog.text.count("no live search sources; fetch threads not started") == 1
 
 
 def test_tick_runs_fetch_housekeeping(cats):

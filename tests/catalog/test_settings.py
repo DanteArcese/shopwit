@@ -95,7 +95,7 @@ def test_budget_daily_limit_rejects_zero_and_negative(monkeypatch, value):
         _budget("walmart", 5, 1.0, 5000)
 
 
-@pytest.mark.parametrize("value", ["0.5", "0", "-1", "nan", "lots"])
+@pytest.mark.parametrize("value", ["0.5", "0", "-1", "nan", "lots", "inf", "-inf", "1e999"])
 def test_budget_capacity_must_be_at_least_one(monkeypatch, value):
     from django.core.exceptions import ImproperlyConfigured
 
@@ -115,3 +115,39 @@ def test_openprices_budget_has_no_burst(monkeypatch):
     assert settings.SOURCE_BUDGETS["openprices"]["capacity"] == 1.0
     monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_CAPACITY", "1")
     assert _budget("walmart", 5, 1.0, 5000)["capacity"] == 1.0
+
+
+@pytest.mark.parametrize("value", ["-1", "nan", "inf", "1e999", "lots"])
+def test_budget_refill_must_be_finite_and_not_negative(monkeypatch, value):
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings import _budget
+
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_REFILL_PER_SECOND", value)
+    with pytest.raises(ImproperlyConfigured):
+        _budget("walmart", 5, 1.0, 5000)
+
+
+@pytest.mark.parametrize(("value", "expected"), [("0", 0.0), ("0.25", 0.25), ("", 1.0)])
+def test_budget_refill_accepts_zero_and_blank(monkeypatch, value, expected):
+    from config.settings import _budget
+
+    monkeypatch.setenv("UNITPRICER_BUDGET_WALMART_REFILL_PER_SECOND", value)
+    assert _budget("walmart", 5, 1.0, 5000)["refill_per_second"] == expected
+
+
+@pytest.mark.parametrize(("value", "expected"), [(None, 1), ("", 1), ("1", 1), ("2", 2), ("9", 2), ("0", 1)])
+def test_fetch_threads(value, expected):
+    from config.settings import _fetch_threads
+
+    assert _fetch_threads(value) == expected
+
+
+@pytest.mark.parametrize("value", ["two", "1.5", "nan"])
+def test_fetch_threads_rejects_non_integers(value):
+    from django.core.exceptions import ImproperlyConfigured
+
+    from config.settings import _fetch_threads
+
+    with pytest.raises(ImproperlyConfigured):
+        _fetch_threads(value)

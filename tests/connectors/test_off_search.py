@@ -58,7 +58,8 @@ def test_search_then_prices():
     both = recorded()
     budget = FakeBudget()
     result = source(httpx.MockTransport(both)).live_search("oat milk", 25, budget)
-    assert budget.keys() == ["off-search", "openprices"]
+    # The prices token is taken before the search and spent on the prices request.
+    assert budget.keys() == ["openprices", "off-search"]
     assert len(result.off_records) == 5 and result.skipped == 0
     by_upc = {r.upc: r for r in result.off_records}
     assert "en:vegan" in by_upc["0044100156182"].labels
@@ -123,7 +124,7 @@ def test_off_503_three_times_fails():
     budget = FakeBudget()
     with pytest.raises(ConnectorError):
         source(httpx.MockTransport(handler)).live_search("oat milk", 25, budget)
-    assert budget.keys() == ["off-search"] * 3
+    assert budget.keys() == ["openprices"] + ["off-search"] * 3
     assert [c[2] for c in budget.calls if c[0] == "report"] == [503, 503, 503]
     assert len(seen) == 3
 
@@ -138,7 +139,9 @@ def test_429_reports_and_fails_without_retry():
     budget = FakeBudget()
     with pytest.raises(ConnectorError):
         source(httpx.MockTransport(handler)).live_search("oat milk", 25, budget)
-    assert budget.calls == [("acquire", "off-search"), ("report", "off-search", 429)]
+    assert budget.calls == [
+        ("acquire", "openprices"), ("acquire", "off-search"), ("report", "off-search", 429),
+    ]
     assert len(seen) == 1
 
 
@@ -157,7 +160,7 @@ def test_no_codes_no_prices_request():
     budget = FakeBudget()
     result = source(httpx.MockTransport(both)).live_search("zzzz-nothing", 25, budget)
     assert result.observations == [] and result.off_records == [] and result.skipped == 0
-    assert budget.keys() == ["off-search"]
+    assert budget.keys() == ["openprices", "off-search"]
     assert [r.url.host for r in both.requests] == ["world.openfoodfacts.org"]
 
 
@@ -176,11 +179,22 @@ def test_budget_exhausted_propagates():
     assert info.value.wait == 3 and both.requests == []
 
 
-def test_prices_budget_exhausted_propagates_after_search():
+def test_prices_budget_exhausted_before_any_search():
+    """An Open Prices shortage must not cost an OFF search that the requeued job repeats."""
     both = recorded()
+    budget = FakeBudget("openprices")
     with pytest.raises(BudgetExhausted):
-        source(httpx.MockTransport(both)).live_search("oat milk", 25, FakeBudget("openprices"))
-    assert len(both.requests) == 1
+        source(httpx.MockTransport(both)).live_search("oat milk", 25, budget)
+    assert both.requests == []
+    assert budget.keys() == []
+
+
+def test_prepaid_prices_token_is_used_once():
+    both = recorded()
+    budget = FakeBudget()
+    source(httpx.MockTransport(both)).live_search("oat milk", 25, budget)
+    assert budget.keys().count("openprices") == 1
+    assert [r.url.host for r in both.requests] == ["world.openfoodfacts.org", "prices.openfoodfacts.org"]
 
 
 def test_deadline_stops_a_slow_job():
@@ -201,7 +215,7 @@ def test_deadline_stops_a_slow_job():
     budget = FakeBudget()
     with pytest.raises(ConnectorError, match="deadline"):
         src.live_search("oat milk", 25, budget)
-    assert budget.keys() == ["off-search"]  # no second request after the deadline
+    assert budget.keys() == ["openprices", "off-search"]  # no second request after the deadline
 
 
 def test_fetch_codes_non_200_reports_and_raises():
@@ -245,3 +259,19 @@ def test_live_off_off_by_default():
             s.close()
     info = registry.live_source_info({}, live_off=True)["off-prices"]
     assert info.budget_keys == ("off-search", "openprices")
+
+
+@pytest.mark.parametrize(
+    ("header", "expected"),
+    [("30", 30.0), (" 2.5 ", 2.5), ("-1", None), ("nan", None), ("inf", None), ("Wed, 21 Oct 2015", None), (None, None)],
+)
+def test_retry_after_is_a_public_live_helper(header, expected):
+    import connectors.off_search
+    import connectors.open_prices
+    import connectors.walmart
+    from connectors.live import retry_after
+
+    headers = {"Retry-After": header} if header is not None else {}
+    assert retry_after(httpx.Response(429, headers=headers)) == expected
+    for module in (connectors.off_search, connectors.open_prices, connectors.walmart):
+        assert not hasattr(module, "_retry_after")

@@ -55,6 +55,15 @@ docker compose run --rm -T web python manage.py backfill_generic </dev/null
 
 It is safe to re-run. New offers get these fields at ingestion. Raise or remove a source cap with `unlimited` as described under source budgets; budgets already in the database change only in the admin.
 
+**The migrate window.** `deploy.sh` runs `migrate` while the old `worker` is still up. Migration 0008 rewrites the `catalog_offer` table (the stored search vector), so an old-worker tick that writes offers during it can wait on the lock or fail. That is harmless: a failed run is retried on the next tick, and the new worker starts with the stack. To avoid the noise, stop the worker first (`docker compose stop worker` on the droplet) and deploy; the deploy starts it again.
+
+**What the backfill covers.** `backfill_generic` fills the generic measure and phrase on offers already in the database. Two things fill in later, on their own:
+
+- Generic *observed* offers (in-store prices that match no category) did not exist before this release, since the sync dropped them. They appear after the next daily Open Prices sync.
+- Open Food Facts labels and category paths on existing offers fill in as their OFF entries refresh (live offers on their next ingestion, at most 12 h; observed offers on the next daily sync).
+
+A worker shutdown during the daily Open Prices sync ends the run as `interrupted` between offers: offers already written stay, nothing is deleted, and the sync runs again on the next start.
+
 ## Rollback
 
 `deploy/deploy.sh <older-sha>`. Migrations are not reversed: only roll back across commits with no new migration, or restore the database from a backup first.
