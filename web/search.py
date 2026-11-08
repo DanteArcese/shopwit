@@ -3,15 +3,32 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from urllib.parse import urlencode
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.urls import reverse
 from django.utils.cache import patch_vary_headers
 
 from catalog.browse import limit_to_radius
-from catalog.generic import GROUP_PAGE, GenericResult, GenericRow, group_products, match_offers, near_misses
+from catalog.generic import (
+    GROUP_PAGE,
+    SIZE_PARAMS,
+    Facet,
+    GenericFilters,
+    GenericResult,
+    GenericRow,
+    apply_filters,
+    facets,
+    group_products,
+    load_label_allowlist,
+    match_offers,
+    near_misses,
+    parse_generic_filters,
+)
 from catalog.units import GENERIC_COMPARISON, display_generic_size
+from normalize import load_store_brands
 from normalize.text import fold
 
 from .prefs import get_prefs, split_stores
@@ -24,6 +41,93 @@ HEADINGS = {
     "unknown": "Size unknown",
 }
 PAGE_NOTE = "Matched by text and ranked by price per unit. For precise filters, pick a category."
+
+
+FACET_TITLES = {
+    "brand": "Brand",
+    "brand_tier": "Brand type",
+    "labels": "Labels",
+    "path": "Browse by",
+    "vol": "Volume",
+    "mass": "Weight",
+    "oz": "Per oz as labeled",
+    "count": "Count",
+}
+SIZE_UNITS = {
+    "vol": {"imperial": "fl oz", "metric": "L"},
+    "mass": {"imperial": "oz", "metric": "kg"},
+    "oz": {"imperial": "oz", "metric": "oz"},
+    "count": {"imperial": "items", "metric": "items"},
+}
+FACET_PARAMS = {
+    "brand": ("brand",),
+    "brand_tier": ("brand_tier",),
+    "labels": ("label",),
+    "path": ("path",),
+    **{key: (f"{key}_min", f"{key}_max") for key in SIZE_PARAMS.values()},
+}
+# Never carried in a facet URL: they describe one request, not the search.
+TRANSIENT = ("q", "show", "sec", "poll")
+
+
+def _query_string(get, *, drop: tuple[str, ...] = (), add: tuple[tuple[str, str], ...] = ()) -> str:
+    pairs = [
+        (k, v)
+        for k, values in get.lists()
+        for v in values
+        if k not in TRANSIENT and k not in drop
+    ]
+    return urlencode([*pairs, *add])
+
+
+def _facet_url(q: str, get, **kw) -> str:
+    rest = _query_string(get, **kw)
+    return f"{reverse('search')}?{urlencode({'q': q})}{'&' + rest if rest else ''}"
+
+
+def _present_facet(facet: Facet, *, q: str, get, f: GenericFilters, unit_system: str) -> dict:
+    params = FACET_PARAMS[facet.name]
+    out = {
+        "name": facet.name,
+        "title": FACET_TITLES[facet.name],
+        "active": facet.active,
+        "clear_url": _facet_url(q, get, drop=params) if facet.active else None,
+        "kind": "checks",
+    }
+    if facet.name in ("brand", "labels"):
+        chosen = f.brands if facet.name == "brand" else f.labels
+        out["param"] = params[0]
+        out["options"] = [
+            {"value": v, "label": label, "count": n, "checked": v in chosen}
+            for v, label, n in facet.options
+        ]
+    elif facet.name == "brand_tier":
+        out["kind"] = "select"
+        out["param"] = "brand_tier"
+        out["options"] = [
+            {"value": v, "label": label, "count": n, "selected": v == f.brand_tier}
+            for v, label, n in facet.options
+        ]
+    elif facet.name == "path":
+        out["kind"] = "links"
+        out["options"] = [
+            {
+                "label": label,
+                "count": n,
+                "url": _facet_url(q, get, drop=("path",), add=(("path", v),)),
+            }
+            for v, label, n in facet.options
+        ]
+    else:
+        out["kind"] = "range"
+        unit = SIZE_UNITS[facet.name][unit_system]
+        out["unit"] = unit
+        out["title"] = f"{FACET_TITLES[facet.name]} ({unit})"
+        out["min_name"], out["max_name"] = params
+        out["range_min"], out["range_max"] = facet.options[0][1], facet.options[1][1]
+        out["current_min"] = get.get(params[0], "") if facet.active else ""
+        out["current_max"] = get.get(params[1], "") if facet.active else ""
+    return out
 
 
 def status_text(total: int, *, fuzzy: bool, capped: bool, q: str, live: str | None) -> str:
@@ -101,8 +205,19 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
     seen = match_offers(folded, when, observed=True, stores=chain_stores)
     seen_offers, hidden_far, hidden_unplaced = limit_to_radius(seen.offers, near)
 
-    live_result = group_products(live.offers)
+    store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
+    allowlist = load_label_allowlist(settings.LABELS_FILE)
+    filters = parse_generic_filters(request.GET, prefs.unit_system, allowlist)
+    facet_list = facets([*live.offers, *seen_offers], filters, store_brands, allowlist, prefs.unit_system)
+    live_offers = apply_filters(live.offers, filters, store_brands)
+    seen_offers = apply_filters(seen_offers, filters, store_brands)
+
+    live_result = group_products(live_offers)
     seen_result = group_products(seen_offers)
+    unfiltered_hits = bool(live.offers or seen.offers or hidden_far or hidden_unplaced)
+    no_results = not live_offers and not seen_offers and not hidden_far and not hidden_unplaced
+    keep = _query_string(request.GET)
+    held_total = len({o.product_id for o in [*live_offers, *seen_offers]})
 
     htmx = request.headers.get("HX-Request") == "true"
     restore = request.headers.get("HX-History-Restore-Request") == "true"
@@ -125,7 +240,6 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
             patch_vary_headers(response, ["HX-Request", "HX-History-Restore-Request", "Accept-Language"])
             return response
 
-    total = live_result.total_products
     misses = [
         {"name": m.name, "url": f"{reverse('category', args=[m.slug])}?q_rest={_quote(folded)}"}
         for m in near_misses(folded, [*live.offers, *seen.offers], definitions, names)
@@ -144,9 +258,19 @@ def generic_results(request, q: str, *, definitions=None) -> HttpResponse:
         "observed_hidden_unplaced": hidden_unplaced,
         "location": location,
         "near_misses": misses,
-        "empty": total == 0 and seen_result.total_products == 0 and not hidden_far and not hidden_unplaced,
+        "empty": no_results and not unfiltered_hits,
+        "filtered_empty": no_results and unfiltered_hits and filters.active,
+        "facets": [
+            _present_facet(x, q=q, get=request.GET, f=filters, unit_system=prefs.unit_system)
+            for x in facet_list
+        ],
+        "filters_active": filters.active,
+        "path_param": filters.path or "",
+        "clear_all_url": _facet_url(q, request.GET, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)),
+        "keep_qs": f"&{keep}" if keep else "",
+        "live_empty": not live_groups and seen_result.total_products > 0,
         "status_text": status_text(
-            total, fuzzy=live.fuzzy or seen.fuzzy, capped=live.capped or seen.capped, q=q, live=None
+            held_total, fuzzy=live.fuzzy or seen.fuzzy, capped=live.capped or seen.capped, q=q, live=None
         ),
     }
     template = "web/_generic_results.html" if htmx and not restore else "web/generic.html"

@@ -4,5 +4,5 @@
   <ol class="results">
     {% for row in group.rows %}{% if group.observed %}{% include "web/_observed_row.html" %}{% else %}{% include "web/_row.html" %}{% endif %}{% endfor %}
   </ol>
-  {% if group.more %}<a class="show-all" href="?q={{ q|urlencode }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-get="?q={{ q|urlencode }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-target="#{{ group.dom_id }}" hx-swap="outerHTML" hx-push-url="false">Show all {{ group.total }}</a>{% endif %}
+  {% if group.more %}<a class="show-all" href="?q={{ q|urlencode }}{{ keep_qs }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-get="?q={{ q|urlencode }}{{ keep_qs }}&amp;show={{ group.dimension }}&amp;sec={{ group.section }}" hx-target="#{{ group.dom_id }}" hx-swap="outerHTML" hx-push-url="false">Show all {{ group.total }}</a>{% endif %}
 </section>

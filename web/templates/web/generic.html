@@ -2,6 +2,12 @@
 {% block title %}Search: {{ q }} - UnitPricer{% endblock %}
 {% block main %}
 <h1>Results for &lsquo;{{ q }}&rsquo;</h1>
+<form class="facet-form" method="get" action="{% url 'search' %}" hx-get="{% url 'search' %}" hx-trigger="change" hx-target="#results" hx-push-url="true">
+<input type="hidden" name="q" value="{{ q }}">
+{% if path_param %}<input type="hidden" name="path" value="{{ path_param }}">{% endif %}
+<div id="facets">{% include "web/_generic_facets.html" %}</div>
+<noscript><button type="submit">Apply filters</button></noscript>
+</form>
 {% include "web/_status.html" %}
 <div id="results">
 {% include "web/_generic_results.html" %}
