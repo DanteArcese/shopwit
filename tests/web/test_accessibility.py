@@ -70,7 +70,7 @@ def parse(client, url):
 
 @pytest.fixture
 def urls(milk_rows):
-    return ["/", "/c/dairy/milk/", "/search?q=mystery", "/settings", "/disclosure"]
+    return ["/", "/c/dairy/milk/", "/search?q=mystery", "/settings", "/disclosure", "/feedback"]
 
 
 def test_every_input_has_label(client, urls):

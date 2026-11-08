@@ -157,7 +157,13 @@ def _refresh_unit_prices(offers: list, attributes: dict) -> list[set[str]]:
 
 def _sync_review_items(product: Product, unresolved: list[str], now: datetime) -> None:
     current = set(unresolved)
-    open_items = {i.detail: i for i in product.review_items.filter(status=ReviewItem.Status.OPEN)}
+    # User reports stay open until an admin resolves them.
+    open_items = {
+        i.detail: i
+        for i in product.review_items.filter(
+            status=ReviewItem.Status.OPEN, reason=ReviewItem.Reason.INGEST
+        )
+    }
     for detail in sorted(current - open_items.keys()):
         # get_or_create: a concurrent writer may have opened the same item.
         ReviewItem.objects.get_or_create(

@@ -133,8 +133,13 @@ class ReviewItem(TimestampedModel):
         OPEN = "open"
         RESOLVED = "resolved"
 
+    class Reason(models.TextChoices):
+        INGEST = "ingest"  # opened and resolved by the merge as data changes
+        USER_REPORT = "user_report"  # a visitor's approved "wrong price or size" report
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="review_items")
     detail = models.CharField(max_length=255)
+    reason = models.CharField(max_length=20, choices=Reason.choices, default=Reason.INGEST)
     status = models.CharField(max_length=10, choices=Status.choices, default=Status.OPEN)
     resolved_at = models.DateTimeField(null=True, blank=True)
 

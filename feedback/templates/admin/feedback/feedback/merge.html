@@ -1,0 +1,15 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+<p>Add a +1 comment (the quoted message, no email) to an existing GitHub issue instead of opening a new one for:</p>
+<ul>
+  {% for item in items %}<li>{{ item }}: {{ item.message|truncatechars:120 }}</li>{% endfor %}
+</ul>
+<form method="post">
+  {% csrf_token %}
+  {{ form.as_p }}
+  {% for item in items %}<input type="hidden" name="{{ action_checkbox_name }}" value="{{ item.pk }}">{% endfor %}
+  <input type="hidden" name="action" value="merge_into_issue">
+  <input type="hidden" name="apply" value="1">
+  <input type="submit" value="Merge">
+</form>
+{% endblock %}

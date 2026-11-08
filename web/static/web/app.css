@@ -185,3 +185,13 @@ a { color: var(--accent); }
 .settings input[type="text"], .settings select { min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0 0.5rem; max-width: 12rem; }
 .settings fieldset { display: grid; gap: 0.25rem; }
 .error { padding: 0.5rem 0.75rem; border-left: 3px solid currentColor; font-weight: 600; }
+
+/* Feedback form */
+.feedback-form { display: grid; gap: 0.5rem; max-width: 40rem; }
+.feedback-form fieldset { display: grid; gap: 0.25rem; border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.75rem; margin: 0; }
+.feedback-form label.choice { display: flex; align-items: center; gap: 0.5rem; min-height: 44px; }
+.feedback-form input[type="text"], .feedback-form input[type="email"], .feedback-form textarea { min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
+.feedback-form button { justify-self: start; min-height: 44px; min-width: 44px; padding: 0 1rem; font: inherit; font-weight: 600; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 0.375rem; cursor: pointer; }
+.feedback-form .hint { margin: 0; }
+.hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+.report-link { font-size: 0.875rem; color: var(--muted); }

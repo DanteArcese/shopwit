@@ -15,4 +15,5 @@
   </div>
   {% if row.offer.retailer == "amazon" %}<p class="result-fine amazon-note">Product prices and availability are accurate as of the date/time indicated and are subject to change.</p>{% endif %}
   {% include "web/_outbound.html" with offer=row.offer label="View at "|add:row.retailer %}
+  <a class="report-link" href="{% url 'feedback' %}?type=wrong-data&amp;offer={{ row.offer.pk }}" rel="nofollow">Report a problem</a>
 </li>

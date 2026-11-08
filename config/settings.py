@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     "catalog",
     "web",
     "waitlist",
+    "feedback",
 ]
 
 MIDDLEWARE = [
@@ -114,6 +115,9 @@ AFFILIATE = {
     "sovrn_site_key": env("SOVRN_SITE_KEY"),
     "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
 }
+# Feedback sync: a fine-grained token limited to issues on this repo. Unset = sync off.
+GITHUB_TOKEN = env("UNITPRICER_GITHUB_TOKEN", "")
+GITHUB_REPO = env("UNITPRICER_GITHUB_REPO", "DanteArcese/unitpricer")
 CATEGORIES_DIR = BASE_DIR / "categories"
 STORE_BRANDS_FILE = BASE_DIR / "data/store_brands.yaml"
 

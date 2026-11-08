@@ -32,11 +32,11 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(ReviewItem)
 class ReviewItemAdmin(admin.ModelAdmin):
-    readonly_fields = ("product", "detail", "status", "resolved_at")
+    readonly_fields = ("product", "detail", "reason", "status", "resolved_at")
     fields = readonly_fields
 
-    list_display = ("product", "category", "detail", "status", "created_at")
-    list_filter = ("status", DetailPrefixFilter, "product__category")
+    list_display = ("product", "category", "detail", "reason", "status", "created_at")
+    list_filter = ("status", "reason", DetailPrefixFilter, "product__category")
     search_fields = ("product__title",)
     list_select_related = ("product__category",)
     actions = ["mark_resolved"]

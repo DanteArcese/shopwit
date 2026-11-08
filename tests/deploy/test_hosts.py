@@ -30,6 +30,8 @@ APP_ROUTES = [
     ("get", "/admin/", {}),
     ("get", "/admin/login/", {}),
     ("post", "/click", {}),
+    ("get", "/feedback", {}),
+    ("post", "/feedback", {}),
 ]
 
 
