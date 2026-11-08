@@ -5,17 +5,18 @@ from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
-from django.http import HttpResponseRedirect
+from django.http import HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.http import url_has_allowed_host_and_scheme
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters
 from catalog.freshness import fresh_offers
-from catalog.models import Category, Product
+from catalog.models import Category, ClickEvent, Offer, Product
 from catalog.retailers import RETAILERS, available_retailers, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
 from normalize import load_categories
@@ -123,7 +124,13 @@ def category(request, slug):
     result = browse(cat, spec, params.get("comparison"), stores, when)
 
     url = reverse("category", args=[cat.slug])
+    ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
+    unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
     context = {
+        # The banner stays on the full page even when a filter empties the list,
+        # since HTMX swaps can bring links in later.
+        "has_outbound": True,
+        "has_amazon": any(r["offer"].retailer == "amazon" for r in ranked + unranked),
         "category": cat,
         "category_url": url,
         "controls": _controls(cat, params),
@@ -140,8 +147,8 @@ def category(request, slug):
         "stores": _store_options(prefs, available_retailers(when)),
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - len(result.unranked),
-        "ranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked],
-        "unranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked],
+        "ranked": ranked,
+        "unranked": unranked,
     }
     q_rest = params.get("q_rest", "").strip()
     if q_rest:
@@ -209,7 +216,30 @@ def search(request):
         for p in products
         if p.pk in cheapest
     ]
-    return render(request, "web/search_results.html", {"q": q, "results": results})
+    context = {
+        "q": q,
+        "results": results,
+        "has_outbound": bool(results),
+        "has_amazon": any(r["offer"].retailer == "amazon" for r in results),
+    }
+    return render(request, "web/search_results.html", context)
+
+
+def disclosure(request):
+    return render(request, "web/disclosure.html")
+
+
+@csrf_exempt
+@require_POST
+def click(request):
+    """Count an outbound click: offer id + retailer + time, nothing else."""
+    try:
+        offer = Offer.objects.filter(pk=int(request.GET.get("o", ""))).first()
+    except (ValueError, OverflowError):
+        offer = None
+    if offer is not None:
+        ClickEvent.objects.create(offer=offer, retailer=offer.retailer)
+    return HttpResponse(status=204)
 
 
 @require_http_methods(["GET", "POST"])

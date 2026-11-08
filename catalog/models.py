@@ -77,6 +77,14 @@ class Offer(TimestampedModel):
         ]
 
 
+class ClickEvent(models.Model):
+    """An outbound click. Deliberately stores no personal data."""
+
+    offer = models.ForeignKey(Offer, null=True, on_delete=models.SET_NULL)
+    retailer = models.CharField(max_length=50)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
 class PriceHistory(models.Model):
     offer = models.ForeignKey(Offer, on_delete=models.CASCADE, related_name="price_history")
     price = models.DecimalField(max_digits=10, decimal_places=2)

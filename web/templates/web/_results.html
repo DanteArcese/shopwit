@@ -1,3 +1,4 @@
+{% if has_amazon %}<p class="note amazon-associate">As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
 {% if ranked %}
 {% if ranked_total > ranked|length %}<p class="note">Showing the top {{ ranked|length }} of {{ ranked_total }}</p>{% endif %}
 <ol class="results">

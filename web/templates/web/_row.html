@@ -14,5 +14,6 @@
     price as of <time datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }}</time>
     {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
   </div>
+  {% if row.offer.retailer == "amazon" %}<p class="result-fine amazon-note">Product prices and availability are accurate as of the date/time indicated and are subject to change.</p>{% endif %}
   {% include "web/_outbound.html" with offer=row.offer label="View at "|add:row.retailer %}
 </li>

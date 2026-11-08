@@ -88,6 +88,11 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # unitpricer
 REFRESH_INTERVAL = timedelta(hours=float(env("UNITPRICER_REFRESH_HOURS", 12)))
 FRESHNESS_CUTOFF = timedelta(hours=float(env("UNITPRICER_FRESHNESS_HOURS", 24)))
+AFFILIATE = {
+    "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
+    "sovrn_site_key": env("SOVRN_SITE_KEY"),
+    "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
+}
 CATEGORIES_DIR = BASE_DIR / "categories"
 STORE_BRANDS_FILE = BASE_DIR / "data/store_brands.yaml"
 

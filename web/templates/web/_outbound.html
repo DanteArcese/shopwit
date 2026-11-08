@@ -1,1 +1,1 @@
-<a href="{{ offer.url }}" rel="noopener noreferrer" target="_blank" data-offer="{{ offer.pk }}">{{ label|default:"View at retailer" }}</a>
+{% load outbound %}{% outbound offer label|default:"View at retailer" %}

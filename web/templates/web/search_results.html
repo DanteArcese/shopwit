@@ -2,6 +2,7 @@
 {% block title %}Search: {{ q }} - UnitPricer{% endblock %}
 {% block main %}
 <h1>Results for &lsquo;{{ q }}&rsquo;</h1>
+{% if has_amazon %}<p class="note amazon-associate">As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
 {% if results %}
 <ol class="results">
   {% for row in results %}{% include "web/_row.html" %}{% endfor %}
