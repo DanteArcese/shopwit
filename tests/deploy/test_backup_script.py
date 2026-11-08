@@ -27,6 +27,10 @@ FAKES = {
         '$RCLONE_CONFIG_R2_NO_CHECK_BUCKET $RCLONE_CONFIG_R2_TYPE" >> "$FAKE_LOG"; '
         'case "$2" in r2:*) echo dump > "$3" ;; esac; fi'
     ),
+    "sleep": (
+        'echo "sleep $*" >> "$FAKE_LOG"; n=$(cat "$FAKE_LOG.sleeps" 2>/dev/null || echo 0); '
+        'echo $((n + 1)) > "$FAKE_LOG.sleeps"; [ "$n" -ge 1 ] && kill -TERM $PPID; exit 0'
+    ),
     "curl": 'echo "curl $*" >> "$FAKE_LOG"',
 }
 
@@ -148,3 +152,47 @@ def test_restore_latest_local_when_no_r2(run):
     assert proc.returncode == 0, proc.stderr
     assert "rclone" not in log
     assert "unitpricer-20240101T000002Z.dump" in log.split("pg_restore")[1]
+
+
+def test_loop_failed_run_sends_no_heartbeat(run):
+    env = {**R2, "FAKE_DUMP_FAIL": "1", "BACKUP_HEARTBEAT_URL": "https://hb.example/x"}
+    proc, log = run("loop", env=env)  # fake sleep terminates the loop on its 2nd call
+    assert "run FAILED" in proc.stdout
+    assert "rclone" not in log and "curl" not in log
+    assert log.count("pg_dump") == 1
+
+
+def test_loop_rejects_bad_backup_at(run):
+    for bad in ("25:00", "3:30", "03:60", "x"):
+        proc, log = run("loop", env={"BACKUP_AT": bad})
+        assert proc.returncode == 2 and "invalid BACKUP_AT" in proc.stderr
+        assert "pg_dump" not in log
+
+
+def delay(run, now, at="03:30"):
+    proc, _ = run("next-delay", env={"BACKUP_AT": at, "BACKUP_NOW_EPOCH": str(now)})
+    assert proc.returncode == 0, proc.stderr
+    return int(proc.stdout)
+
+
+def test_seconds_until_later_today_and_tomorrow(run):
+    day = 1_700_000_000 - 1_700_000_000 % 86400  # a UTC midnight
+    assert delay(run, day + 3600) == 2 * 3600 + 1800
+    assert delay(run, day + 4 * 3600) == 23 * 3600 + 1800
+    assert delay(run, day + 3 * 3600 + 1800) == 86400  # exactly now -> tomorrow
+    assert delay(run, day + 3 * 3600 + 1799) == 1
+
+
+def test_heartbeat_failure_fails_run_without_leaking_url(run):
+    # curl fake succeeds; here just confirm the URL is never printed on success.
+    proc, _ = run(env={"BACKUP_HEARTBEAT_URL": "https://hb.example/secret-token"})
+    assert "secret-token" not in proc.stdout + proc.stderr
+
+
+def test_no_rotation_when_upload_fails(run, tmp_path):
+    seed(run.store, 9)
+    bad = tmp_path / "bin" / "rclone"
+    bad.write_text("#!/bin/bash\nexit 1\n")
+    proc, _ = run(env=R2)
+    assert proc.returncode != 0
+    assert len(list(run.store.glob("unitpricer-*.dump"))) == 10

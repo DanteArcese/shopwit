@@ -45,7 +45,6 @@ once() {
 
   mkdir -p "$BACKUP_DIR"
   cp -- "$file" "$BACKUP_DIR/$name"
-  rotate_local
   log "kept local copy $name"
 
   if r2_configured; then
@@ -55,29 +54,41 @@ once() {
   else
     log "R2 not configured; kept dump locally"
   fi
+  rotate_local
 
   rm -f -- "$file"
   if [ -n "${BACKUP_HEARTBEAT_URL:-}" ]; then
-    curl -fsS -m 10 --retry 3 -o /dev/null "$BACKUP_HEARTBEAT_URL"
+    curl -fsS -m 10 --retry 3 "$BACKUP_HEARTBEAT_URL" > /dev/null 2>&1 || { log "heartbeat failed"; exit 1; }
     log "heartbeat sent"
   fi
 }
 
+valid_backup_at() {
+  [[ "${BACKUP_AT:-03:30}" =~ ^([01][0-9]|2[0-3]):[0-5][0-9]$ ]]
+}
+
+# Seconds until the next BACKUP_AT (UTC), always >= 1. BACKUP_NOW_EPOCH is a test hook.
 seconds_until() {
-  local now target
-  now=$(date -u +%s)
-  target=$(date -u -d "today ${BACKUP_AT:-03:30}" +%s)
-  [ "$target" -le "$now" ] && target=$(date -u -d "tomorrow ${BACKUP_AT:-03:30}" +%s)
+  local now day target at="${BACKUP_AT:-03:30}"
+  now="${BACKUP_NOW_EPOCH:-$(date -u +%s)}"
+  day=$(date -u -d "@$now" +%Y-%m-%d)
+  target=$(date -u -d "$day $at" +%s)
+  [ "$target" -le "$now" ] && target=$((target + 86400))
   echo $((target - now))
 }
 
 loop() {
-  local wait
+  local delay
+  if ! valid_backup_at; then
+    echo "backup: invalid BACKUP_AT '${BACKUP_AT}' (want HH:MM, 24h UTC)" >&2
+    exit 2
+  fi
   while true; do
-    wait=$(seconds_until)
-    log "next run in ${wait}s (BACKUP_AT=${BACKUP_AT:-03:30} UTC)"
-    sleep "$wait"
-    if ! ( once ); then log "run FAILED"; fi
+    delay=$(seconds_until)
+    log "next run in ${delay}s (BACKUP_AT=${BACKUP_AT:-03:30} UTC)"
+    sleep "$delay"
+    # Separate process so set -e stays active inside the run.
+    "$0" once || log "run FAILED"
   done
 }
 
@@ -85,7 +96,7 @@ restore_latest() {
   local url="${1:?usage: backup.sh restore-latest <target-db-url>}" latest
   if r2_configured; then
     r2_env
-    latest=$(rclone lsf "r2:${R2_BUCKET}/pg/" | grep '^unitpricer-.*\.dump$' | sort | tail -n 1)
+    latest=$(rclone lsf "r2:${R2_BUCKET}/pg/" | grep '^unitpricer-.*\.dump$' | sort | tail -n 1 || true)
     [ -n "$latest" ] || { log "no dumps in r2:${R2_BUCKET}/pg/"; return 1; }
     file="$WORK_DIR/$latest"
     trap '[ -z "$file" ] || rm -f -- "$file"' EXIT
@@ -103,6 +114,7 @@ restore_latest() {
 case "${1:-loop}" in
   once) once ;;
   loop) loop ;;
+  next-delay) valid_backup_at && seconds_until ;;
   restore-latest) shift; restore_latest "$@" ;;
   *) echo "usage: backup.sh once|loop|restore-latest <target-db-url>" >&2; exit 2 ;;
 esac
