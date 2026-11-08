@@ -10,8 +10,8 @@
 </head>
 <body>
   <header class="site-header">
-    <a class="site-name" href="/">UnitPricer</a>
-    <form class="search" action="/search" method="get" role="search">
+    <a class="site-name" href="{% url 'home' %}">UnitPricer</a>
+    <form class="search" action="{% url 'search' %}" method="get" role="search">
       <input type="search" name="q" aria-label="Search products" placeholder="Search products" value="{{ q|default:'' }}">
       <button type="submit">Search</button>
     </form>
@@ -21,6 +21,7 @@
   </main>
   <footer class="site-footer">
     <a href="/disclosure">Disclosure</a>
+    <a href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>
   </footer>
 </body>
 </html>

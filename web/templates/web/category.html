@@ -1,0 +1,49 @@
+{% extends "web/base.html" %}
+{% block title %}{{ category.name }} - UnitPricer{% endblock %}
+{% block main %}
+<h1>{{ category.name }}</h1>
+{% if q_rest %}
+<p class="note">also matching &lsquo;{{ q_rest }}&rsquo; (not applied as a filter) <a href="{{ dismiss_url }}" aria-label="Dismiss">Dismiss</a></p>
+{% endif %}
+<form class="filters" method="get" action="{{ category_url }}" hx-get="{{ category_url }}" hx-trigger="change" hx-target="#results" hx-push-url="true">
+  {% for c in controls %}
+    {% if c.type == "bool" %}
+    <label class="check"><input type="checkbox" name="{{ c.name }}" value="true"{% if c.current == "true" %} checked{% endif %}> {{ c.label }}</label>
+    {% else %}
+    <label>{{ c.label }}
+      <select name="{{ c.name }}">
+        <option value="any">Any</option>
+        {% for o in c.options %}<option value="{{ o }}"{% if o == c.current %} selected{% endif %}>{{ o }}</option>{% endfor %}
+      </select>
+    </label>
+    {% endif %}
+  {% endfor %}
+  <label>Brand
+    <select name="brand_tier">
+      <option value="any">Any</option>
+      {% for t in brand_tiers %}<option value="{{ t }}"{% if t == brand_tier %} selected{% endif %}>{% if t == "name_brand" %}Name brand{% else %}Store brand{% endif %}</option>{% endfor %}
+    </select>
+  </label>
+  <fieldset class="size-range">
+    <legend>Size{% if size_unit %} ({{ size_unit }}){% endif %}</legend>
+    <input type="number" step="any" min="0" name="size_min" value="{{ size_min }}" aria-label="Minimum size" placeholder="Min">
+    <input type="number" step="any" min="0" name="size_max" value="{{ size_max }}" aria-label="Maximum size" placeholder="Max">
+  </fieldset>
+  <label>Compare by
+    <select name="comparison">
+      {% for c in comparisons %}<option value="{{ c.name }}"{% if c.name == comparison %} selected{% endif %}>Price per {{ c.label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% if stores %}
+  <label>Stores
+    <select name="store" multiple size="{{ stores|length }}">
+      {% for s in stores %}<option value="{{ s.code }}"{% if s.code in selected_stores %} selected{% endif %}>{{ s.name }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
+  <noscript><button type="submit">Apply filters</button></noscript>
+</form>
+<div id="results" aria-live="polite">
+{% include "web/_results.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,22 @@
+{% extends "web/base.html" %}
+{% block title %}Settings - UnitPricer{% endblock %}
+{% block main %}
+<h1>Settings</h1>
+<form method="post" action="{% url 'settings' %}" class="settings">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <fieldset>
+    <legend>Units</legend>
+    <label><input type="radio" name="unit_system" value="imperial"{% if prefs.unit_system == "imperial" %} checked{% endif %}> Imperial (fl oz, oz, lb)</label>
+    <label><input type="radio" name="unit_system" value="metric"{% if prefs.unit_system == "metric" %} checked{% endif %}> Metric (mL, L, g, kg)</label>
+  </fieldset>
+  <fieldset>
+    <legend>Stores</legend>
+    <label><input type="checkbox" name="all_stores" value="1"{% if prefs.stores is None %} checked{% endif %}> All stores (overrides the selection below)</label>
+    {% for s in stores %}
+    <label><input type="checkbox" name="stores" value="{{ s.code }}"{% if prefs.stores and s.code in prefs.stores %} checked{% endif %}> {{ s.name }}</label>
+    {% endfor %}
+  </fieldset>
+  <button type="submit">Save</button>
+</form>
+{% endblock %}
