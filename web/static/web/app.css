@@ -171,3 +171,6 @@ a { color: var(--accent); }
   .filters-drawer:not([open])::details-content { content-visibility: visible; display: block; }
   .filters { grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); }
 }
+
+/* Home page has no header search (hero search is primary): keep the bar compact. */
+.site-header.no-search { flex-direction: row; justify-content: flex-start; }
