@@ -402,3 +402,14 @@ def test_count_nouns(text, n):
 def test_compound_weight_and_hyphenated_units_unchanged():
     assert _mass("Roast Beef, 1 lb 2 oz")["mass_g"] == _r(510.29)
     assert _mass("Jar 12-oz")["mass_g"] == _r(340.19)
+
+
+def test_nutrient_guard_exempts_descriptors():
+    assert _mass("Cottage Cheese 500 g Fat Free")["mass_g"] == _r(500)
+    assert _mass("Syrup 250 g Sugar Free")["mass_g"] == _r(250)
+    assert _mass("Whey 907 g Protein Powder")["mass_g"] == _r(907)
+
+
+def test_count_before_size_still_unresolved_and_one_count_ok():
+    assert _mass("Yogurt 12 ct, 8 oz") == {}
+    assert _mass("Coffee 12 oz, 1 Count")["mass_g"] == _r(340.19)

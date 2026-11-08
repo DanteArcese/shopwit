@@ -157,7 +157,10 @@ def _volume(text: str) -> Measures:
 # grams and the nutrient are a closed set, so "907 g Whey Protein" is still a pack mass.
 _NUTRIENT_RE = re.compile(
     rf"{_NUM}\s*g(?:rams?)?\s+(?:of\s+|plant[- ]based\s+|added\s+|total\s+)?"
-    r"(?:protein|sugars?|fib(?:er|re)|carbs?|carbohydrates?|fat)\b",
+    r"(?:protein|sugars?|fib(?:er|re)|carbs?|carbohydrates?|fat)\b"
+    # ...unless the nutrient word is part of a product descriptor ("500 g Fat Free",
+    # "907 g Protein Powder"). Keep this list small.
+    r"(?!\s+(?:free|powder|bar|shake|isolate|blend)\b)",
     re.IGNORECASE,
 )
 
