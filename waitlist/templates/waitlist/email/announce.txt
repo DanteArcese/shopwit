@@ -1,0 +1,11 @@
+{% autoescape off %}Hi,
+
+UnitPricer is open.
+
+{{ site_url }}
+
+--
+You're receiving this because you joined the UnitPricer waitlist at unitpricer.com.
+Unsubscribe: {{ unsubscribe_url }}
+{{ postal_address }}
+{% endautoescape %}

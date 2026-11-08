@@ -106,6 +106,7 @@ PUBLIC_HOST = env("UNITPRICER_PUBLIC_HOST", "")
 APP_HOST = env("UNITPRICER_APP_HOST", "")
 PUBLIC_URL = env("UNITPRICER_PUBLIC_URL", "")
 SITE_URL = env("UNITPRICER_SITE_URL", "")
+POSTAL_ADDRESS = env("UNITPRICER_POSTAL_ADDRESS", "")
 TRUST_CF_IP = env("UNITPRICER_TRUST_CF_IP", "0") == "1"
 # Cloudflare Access (app host). Empty AUD disables the token check (dev).
 CF_ACCESS_TEAM_DOMAIN = env("CF_ACCESS_TEAM_DOMAIN", "")
