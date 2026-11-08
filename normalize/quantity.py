@@ -332,6 +332,14 @@ def parse_generic(text: str) -> dict[str, float]:
         out["oz_labeled"] = oz
     if _VOLUME_RE.search(stripped) or _MASS_RE.search(stripped):
         out["has_size_unit"] = 1.0
+    # Tokens of two kinds, even if one failed to parse ("10 fl oz 2 oz"): never pick one.
+    tokens = (
+        _G_VOLUME_RE.search(stripped) is not None,
+        _G_MASS_RE.search(_strip_fl_oz(stripped)) is not None,
+        _G_OZ_RE.search(oz_text) is not None,
+    )
+    if sum(tokens) >= 2:
+        out["mixed"] = 1.0
     if not _PAPER_WORDS.search(text):
         count = _count(text, _G_COUNT_RE)
         if "count" in count:

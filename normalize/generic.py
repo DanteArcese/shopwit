@@ -45,7 +45,7 @@ def generic_measure(texts: Sequence[str], structured_unit: str | None = None) ->
     for i, text in enumerate(texts):
         p = parse_generic(fold(text or ""))
         found = [(key, dim) for key, dim in _KINDS if key in p]
-        if len(found) >= 2:
+        if len(found) >= 2 or "mixed" in p:
             return _unknown("more than one kind of size")
         if found:
             key, dim = found[0]

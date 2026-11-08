@@ -70,3 +70,10 @@
 - texts: ["", "Yogurt", "16 oz"]
   structured_unit: g
   expected: {dimension: mass, amount: 453.59}
+- texts: ["", "Mixed Pack 10 fl oz 2 oz"]
+  expected: {reason: more than one kind of size}
+- texts: ["", "Flour 2 lb 3 oz and 5 oz"]
+  expected: {reason: more than one kind of size}
+- texts: ["", "", "16 oz"]
+  structured_unit: ml
+  expected: {dimension: volume, amount: 473.18}
