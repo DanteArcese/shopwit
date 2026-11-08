@@ -170,7 +170,8 @@ def test_postal_code_hides_far_and_unplaced_stores(client, milk_rows, spread):
     assert "Near Milk" in s and "Mid Milk" in s
     for title in ("Far Milk", "Unplaced Milk", "Storeless Milk"):
         assert title not in s
-    assert "3 more from stores farther away" in s
+    assert "1 more from stores farther away" in s
+    assert "2 more from stores with unknown location" in s
     assert "Near 94043 · 25 mi · " in s and ">change</a>" in s
     assert "Set your ZIP code" not in s
 
@@ -179,7 +180,8 @@ def test_smaller_radius_hides_more(client, milk_rows, spread):
     set_prefs(client, postal_code="94043", country="US", radius=10)
     s = section(page(client))
     assert "Near Milk" in s and "Mid Milk" not in s
-    assert "4 more from stores farther away" in s
+    assert "2 more from stores farther away" in s
+    assert "2 more from stores with unknown location" in s
     assert "Near 94043 · 10 mi" in s
 
 
@@ -217,8 +219,30 @@ def test_everything_far_keeps_section_with_empty_note(client, milk_rows, spread)
     set_prefs(client, postal_code="10001", country="US")
     s = section(page(client))
     assert "No in-store prices within 25 mi of 10001." in s
-    assert "5 more from stores farther away" in s
+    assert "3 more from stores farther away" in s
+    assert "2 more from stores with unknown location" in s
     assert "No in-store prices from the selected stores." not in page(client)
+
+
+def test_product_far_and_unplaced_counts_as_far(milk, store, observe, frozen_now):
+    observe(store("osm-n3", FAR), "Mixed Milk", n="a")
+    observe(store("osm-n4", None), "Mixed Milk", n="b")
+    observe(None, "Mixed Milk", n="c")
+    observe(store("osm-n6", None), "Lost Milk")
+    near = Near(*locate("94043"), radius_km(25, "imperial"))
+    result = browse(milk, FilterSpec(attributes={}), None, None, NOW, observed=True, near=near)
+    assert result.total_products == 0
+    assert (result.hidden_far, result.hidden_unplaced) == (1, 1)
+
+
+def test_only_unplaced_hidden_makes_no_distance_claim(client, milk_rows, store, observe):
+    observe(store("osm-n4", None), "Unplaced Milk")
+    observe(None, "Storeless Milk")
+    set_prefs(client, postal_code="94043", country="US")
+    s = section(page(client))
+    assert "2 more from stores with unknown location" in s
+    assert "within" not in s and "farther away" not in s
+    assert "No in-store prices from stores with a known location." in s
 
 
 def test_unknown_postal_code_filters_nothing_and_says_so(client, milk_rows, spread):
@@ -227,7 +251,7 @@ def test_unknown_postal_code_filters_nothing_and_says_so(client, milk_rows, spre
     assert "We don't have a location for ZIP code 00000" in s
     for title in ("Near Milk", "Far Milk", "Unplaced Milk", "Storeless Milk"):
         assert title in s
-    assert "farther away" not in s
+    assert "farther away" not in s and "unknown location" not in s
 
 
 def test_live_offers_never_filtered_by_distance(client, milk_rows, spread):
@@ -313,15 +337,16 @@ def test_settings_post_rejects_malformed_postal_code(client, db):
     resp = client.post(
         "/settings", {"postal_code": "9404x", "radius": "10", "unit_system": "metric"}
     )
-    assert resp.status_code == 400
+    assert resp.status_code == 200
     html = resp.content.decode()
-    assert "Enter a 5-digit US ZIP code" in html and 'aria-invalid="true"' in html
+    assert "Enter a 5-digit US ZIP code. Your other changes were saved." in html
+    assert 'aria-invalid="true"' in html
     prefs = client.session["prefs"]
-    assert (prefs["postal_code"], prefs["radius"], prefs["unit_system"]) == (
-        "94043",
-        50,
-        "imperial",
-    )
+    assert (prefs["postal_code"], prefs["radius"], prefs["unit_system"]) == ("94043", 10, "metric")
+    # The form shows what is saved, not the rejected input.
+    assert 'name="postal_code" value="94043"' in html and "9404x" not in html
+    assert '<option value="10" selected>16 km</option>' in html
+    assert 'value="metric" checked' in html
 
 
 def test_settings_post_blank_clears_and_absent_keeps(client, db):
@@ -376,4 +401,19 @@ def test_prefs_dataclass_defaults():
 def test_privacy_page_mentions_postal_code(client):
     html = client.get("/privacy").content.decode()
     collect = html[html.index(">What we collect<") : html.index(">Why<")]
-    assert "ZIP code" in collect and "browser session" in collect
+    assert (
+        "Beta app: the ZIP code and distance you choose in Settings. They are saved on our server "
+        "in your session record (linked to your browser by a session cookie, expiring 2 weeks after "
+        "you last save your settings), used only to show in-store prices from nearby stores, and "
+        "never logged. Clear the ZIP code in Settings to remove it."
+    ) in collect
+
+
+def test_privacy_session_lifetime_matches_settings(settings):
+    assert settings.SESSION_COOKIE_AGE == 14 * 24 * 3600
+    assert settings.SESSION_SAVE_EVERY_REQUEST is False  # so expiry counts from the last save
+
+
+def test_settings_page_location_hint(client, db):
+    html = client.get("/settings").content.decode()
+    assert "Saved with your session on our server; never logged." in html

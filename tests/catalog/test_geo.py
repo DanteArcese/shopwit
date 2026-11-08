@@ -119,3 +119,12 @@ def test_bounding_box_contains_every_point_within_radius(lat, radius_km):
 def test_bounding_box_drops_longitude_at_antimeridian():
     assert bounding_box(Near(52.0, 179.9, 50))[2:] == (None, None)
     assert bounding_box(Near(89.9, 0.0, 50))[2:] == (None, None)
+
+
+def test_gunicorn_workers_warm_the_zcta_cache():
+    import runpy
+
+    conf = runpy.run_path("deploy/gunicorn.conf.py")
+    geo._zcta.cache_clear()
+    conf["post_fork"](None, None)
+    assert geo._zcta.cache_info().currsize == 1

@@ -52,7 +52,8 @@ class BrowseResult:
     comparison: str
     total_products: int
     unranked_total: int = 0
-    hidden_far: int = 0  # products seen only at stores outside the radius (or unplaced)
+    hidden_far: int = 0  # products hidden because their stores are outside the radius
+    hidden_unplaced: int = 0  # products hidden only because their stores have no location
 
 
 def _parse_value(attr, raw: str):
@@ -164,9 +165,10 @@ def browse(
     """Rank offers by unit price.
 
     With ``near`` (observed offers only), offers from stores outside the radius
-    or without coordinates are left out and the products they alone carried
-    are counted in ``hidden_far``. A bounding box narrows rows in SQL; the
-    exact haversine check runs on what is left. Costs one extra query.
+    or without coordinates are left out. A product left with no offer counts in
+    ``hidden_far`` if any of its offers is at a placed store beyond the radius,
+    else in ``hidden_unplaced``. A bounding box narrows rows in SQL; the exact
+    haversine check runs on what is left. Costs one extra query.
     """
     allowed = [category.comparison_default, *category.comparison_alternates]
     if comparison not in allowed:
@@ -183,13 +185,14 @@ def browse(
     key = SIZE_KEYS.get(category.dimension)
     near = near if observed else None  # live offers are never filtered by distance
     far_products: set[int] = set()
+    unplaced_products: set[int] = set()
     if near is not None:
         box = _in_box(near)
-        far_products = {
-            product_id
-            for product_id, measures in qs.exclude(box).values_list("product_id", "measures")
-            if _size_ok(measures, key, spec)
-        }
+        outside = qs.exclude(box).values_list("product_id", "measures", "store__lat", "store__lon")
+        for product_id, measures, lat, lon in outside:
+            if _size_ok(measures, key, spec):
+                placed = lat is not None and lon is not None
+                (far_products if placed else unplaced_products).add(product_id)
         qs = qs.filter(box)
     offers = list(qs.select_related("product", "store") if observed else qs.select_related("product"))
     offers = [o for o in offers if _size_ok(o.measures, key, spec)]
@@ -206,6 +209,7 @@ def browse(
     for o in offers:
         by_product.setdefault(o.product_id, []).append(o)
     hidden_far = len(far_products - by_product.keys())
+    hidden_unplaced = len(unplaced_products - by_product.keys() - far_products)
 
     attr_names = [a.name for a in category.attribute_defs.all()]
     ranked: list[Row] = []
@@ -232,4 +236,5 @@ def browse(
         comparison=comparison,
         total_products=len(ranked) + len(unranked),
         hidden_far=hidden_far,
+        hidden_unplaced=hidden_unplaced,
     )

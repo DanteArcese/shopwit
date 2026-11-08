@@ -12,7 +12,7 @@
   </fieldset>
   <fieldset id="location">
     <legend>Location for in-store prices</legend>
-    <p class="note">In-store prices are limited to stores near this ZIP code. Online prices are never filtered by distance. Kept only in your session.</p>
+    <p class="note">In-store prices are limited to stores near this ZIP code. Online prices are never filtered by distance. Saved with your session on our server; never logged.</p>
     {% if postal_error %}<p class="error" id="postal-code-error" role="alert">{{ postal_error }}</p>{% endif %}
     {% if location.state == "unknown" and not postal_error %}<p class="note" role="status">We don't have a location for ZIP code {{ location.postal_code }}, so in-store prices from all stores are shown.</p>{% endif %}
     <label for="postal-code">ZIP code (US)</label>

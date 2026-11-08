@@ -233,10 +233,12 @@ def category(request, slug):
             chain_stores is not None
             and obs.total_products == 0
             and obs.hidden_far == 0
+            and obs.hidden_unplaced == 0
             and fresh_observed(when).filter(product__category=cat).exists()
         ),
         "location": location,
         "observed_hidden_far": obs.hidden_far,
+        "observed_hidden_unplaced": obs.hidden_unplaced,
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
@@ -348,7 +350,7 @@ def click(request):
     return HttpResponse(status=204)
 
 
-POSTAL_CODE_ERROR = "Enter a 5-digit US ZIP code, like 94043. Nothing was saved."
+POSTAL_CODE_ERROR = "Enter a 5-digit US ZIP code. Your other changes were saved."
 
 
 @sensitive_post_parameters("postal_code")
@@ -357,8 +359,8 @@ def settings_page(request):
     prefs = get_prefs(request)
     when = now()
     codes = available_retailers(when)
-    postal_value = prefs.postal_code or ""
     postal_error = None
+    next_url = safe_next(request, request.GET.get("next"))
     if request.method == "POST":
         system = request.POST.get("unit_system")
         if system not in ("imperial", "metric"):
@@ -370,10 +372,13 @@ def settings_page(request):
         else:
             stores = chosen or prefs.stores  # no/invalid selection keeps the previous one
         postal_code = prefs.postal_code
-        if "postal_code" in request.POST:  # absent: keep; blank: clear
-            postal_value = request.POST["postal_code"].strip()[:20]
-            postal_code = normalize_postal_code(postal_value) if postal_value else None
-            if postal_value and postal_code is None:
+        if "postal_code" in request.POST:  # absent: keep; blank: clear; malformed: keep + error
+            raw = request.POST["postal_code"].strip()
+            if not raw:
+                postal_code = None
+            elif (normalized := normalize_postal_code(raw)) is not None:
+                postal_code = normalized
+            else:
                 postal_error = POSTAL_CODE_ERROR
         try:
             radius = int(request.POST.get("radius", ""))
@@ -381,21 +386,22 @@ def settings_page(request):
             radius = prefs.radius
         if radius not in RADIUS_STEPS:
             radius = prefs.radius
+        prefs = Prefs(system, stores, postal_code=postal_code, radius=radius)
+        save_prefs(request, prefs)
+        next_url = safe_next(request, request.POST.get("next"))
         if postal_error is None:
-            save_prefs(request, Prefs(system, stores, postal_code=postal_code, radius=radius))
-            return HttpResponseRedirect(safe_next(request, request.POST.get("next")))
+            return HttpResponseRedirect(next_url)
+    # The form always shows what is saved (never a rejected postal code).
     location, _near = _location(prefs)
-    response = render(
+    return render(
         request,
         "web/settings.html",
         {
-            "next": safe_next(request, request.POST.get("next") if postal_error else request.GET.get("next")),
+            "next": next_url,
             "stores": _store_options(prefs, codes),
             "location": location,
-            "postal_value": postal_value,
+            "postal_value": prefs.postal_code or "",
             "postal_error": postal_error,
             "radius_choices": radius_choices(prefs.unit_system),
         },
-        status=400 if postal_error else 200,
     )
-    return response
