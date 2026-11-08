@@ -255,3 +255,44 @@ def test_unparseable_items_counted():
     client = _client(httpx.MockTransport(handler), FakeTime())
     assert [o.price_id for o in client.fetch_window(date(2026, 8, 10), "USD")] == [9]
     assert client.unparsed == 2
+
+
+def _with_location(**fields):
+    item = _item()
+    item["location"] = {**item["location"], **fields}
+    return parse_item(json.loads(json.dumps(item), parse_float=Decimal))
+
+
+def test_location_coordinates_parsed():
+    loc = _with_location(osm_lat=37.4031206, osm_lon=-122.079306).location
+    assert (loc.lat, loc.lon) == (37.4031206, -122.079306)
+    assert isinstance(loc.lat, float) and isinstance(loc.lon, float)
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {},
+        {"osm_lat": None, "osm_lon": None},
+        {"osm_lat": "37.4", "osm_lon": "-122.0"},
+        {"osm_lat": True, "osm_lon": -122.0},
+        {"osm_lat": 91, "osm_lon": -122.0},
+        {"osm_lat": 37.4, "osm_lon": 181},
+        {"osm_lat": 37.4},
+    ],
+)
+def test_location_coordinates_missing_or_bad_are_none(fields):
+    loc = _with_location(**fields).location
+    assert (loc.lat, loc.lon) == (None, None)
+
+
+def test_recorded_locations_carry_coordinates():
+    rec = Path(__file__).parent / "recordings" / "open_prices"
+    items = []
+    for path in sorted(rec.glob("*.json")):
+        body = json.loads(path.read_text(), parse_float=Decimal)["json"]
+        items.extend(body.get("items", []))
+    assert items
+    for item in items:
+        loc = parse_item(item).location
+        assert loc.lat is not None and loc.lon is not None

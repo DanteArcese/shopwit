@@ -12,17 +12,28 @@ from django.utils import timezone
 from django.utils.cache import patch_vary_headers
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters
 from catalog.freshness import fresh_observed, fresh_offers
+from catalog.geo import Near, locate, normalize_postal_code
 from catalog.models import Category, ClickEvent, Offer, Product
 from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
 from normalize import load_categories
 from normalize.query import resolve_query
 
-from .prefs import Prefs, get_prefs, save_prefs, split_stores
+from .prefs import (
+    RADIUS_STEPS,
+    Prefs,
+    get_prefs,
+    radius_choices,
+    radius_km,
+    radius_label,
+    save_prefs,
+    split_stores,
+)
 
 SEARCH_LIMIT = 25
 MAX_QUERY_LENGTH = 200
@@ -144,6 +155,24 @@ def _present_observed(row, comparison: str, unit_system: str, dimension: str) ->
     return out
 
 
+def _location(prefs: Prefs) -> tuple[dict, Near | None]:
+    """What to say about the saved postal code, and the filter it implies.
+
+    state is "unset" (no code saved), "unknown" (not in the gazetteer: nothing
+    is filtered) or "known".
+    """
+    info = {
+        "postal_code": prefs.postal_code,
+        "radius": radius_label(prefs.radius, prefs.unit_system),
+    }
+    if prefs.postal_code is None:
+        return {**info, "state": "unset"}, None
+    point = locate(prefs.postal_code, prefs.country)
+    if point is None:
+        return {**info, "state": "unknown"}, None
+    return {**info, "state": "known"}, Near(*point, radius_km(prefs.radius, prefs.unit_system))
+
+
 def _status_text(live: int, observed: int) -> str:
     if not observed:
         return f"{live} result{'' if live == 1 else 's'}"
@@ -164,8 +193,9 @@ def category(request, slug):
     selected_stores = {s for s in params.getlist("store") if s}
     stores = frozenset(selected_stores) if selected_stores else prefs.stores
     live_stores, chain_stores = split_stores(stores)
+    location, near = _location(prefs)
     result = browse(cat, spec, params.get("comparison"), live_stores, when)
-    obs = browse(cat, spec, params.get("comparison"), chain_stores, when, observed=True)
+    obs = browse(cat, spec, params.get("comparison"), chain_stores, when, observed=True, near=near)
 
     url = reverse("category", args=[cat.slug])
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
@@ -202,8 +232,11 @@ def category(request, slug):
         "observed_filtered_empty": (
             chain_stores is not None
             and obs.total_products == 0
+            and obs.hidden_far == 0
             and fresh_observed(when).filter(product__category=cat).exists()
         ),
+        "location": location,
+        "observed_hidden_far": obs.hidden_far,
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
@@ -315,11 +348,17 @@ def click(request):
     return HttpResponse(status=204)
 
 
+POSTAL_CODE_ERROR = "Enter a 5-digit US ZIP code, like 94043. Nothing was saved."
+
+
+@sensitive_post_parameters("postal_code")
 @require_http_methods(["GET", "POST"])
 def settings_page(request):
     prefs = get_prefs(request)
     when = now()
     codes = available_retailers(when)
+    postal_value = prefs.postal_code or ""
+    postal_error = None
     if request.method == "POST":
         system = request.POST.get("unit_system")
         if system not in ("imperial", "metric"):
@@ -330,13 +369,33 @@ def settings_page(request):
             stores = None
         else:
             stores = chosen or prefs.stores  # no/invalid selection keeps the previous one
-        save_prefs(request, Prefs(system, stores))
-        return HttpResponseRedirect(safe_next(request, request.POST.get("next")))
-    return render(
+        postal_code = prefs.postal_code
+        if "postal_code" in request.POST:  # absent: keep; blank: clear
+            postal_value = request.POST["postal_code"].strip()[:20]
+            postal_code = normalize_postal_code(postal_value) if postal_value else None
+            if postal_value and postal_code is None:
+                postal_error = POSTAL_CODE_ERROR
+        try:
+            radius = int(request.POST.get("radius", ""))
+        except ValueError:
+            radius = prefs.radius
+        if radius not in RADIUS_STEPS:
+            radius = prefs.radius
+        if postal_error is None:
+            save_prefs(request, Prefs(system, stores, postal_code=postal_code, radius=radius))
+            return HttpResponseRedirect(safe_next(request, request.POST.get("next")))
+    location, _near = _location(prefs)
+    response = render(
         request,
         "web/settings.html",
         {
-            "next": safe_next(request, request.GET.get("next")),
+            "next": safe_next(request, request.POST.get("next") if postal_error else request.GET.get("next")),
             "stores": _store_options(prefs, codes),
+            "location": location,
+            "postal_value": postal_value,
+            "postal_error": postal_error,
+            "radius_choices": radius_choices(prefs.unit_system),
         },
+        status=400 if postal_error else 200,
     )
+    return response

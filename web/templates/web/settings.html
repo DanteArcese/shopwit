@@ -10,6 +10,19 @@
     <label><input type="radio" name="unit_system" value="imperial"{% if prefs.unit_system == "imperial" %} checked{% endif %}> Imperial (fl oz, oz, lb)</label>
     <label><input type="radio" name="unit_system" value="metric"{% if prefs.unit_system == "metric" %} checked{% endif %}> Metric (mL, L, g, kg)</label>
   </fieldset>
+  <fieldset id="location">
+    <legend>Location for in-store prices</legend>
+    <p class="note">In-store prices are limited to stores near this ZIP code. Online prices are never filtered by distance. Kept only in your session.</p>
+    {% if postal_error %}<p class="error" id="postal-code-error" role="alert">{{ postal_error }}</p>{% endif %}
+    {% if location.state == "unknown" and not postal_error %}<p class="note" role="status">We don't have a location for ZIP code {{ location.postal_code }}, so in-store prices from all stores are shown.</p>{% endif %}
+    <label for="postal-code">ZIP code (US)</label>
+    <input type="text" id="postal-code" name="postal_code" value="{{ postal_value }}" inputmode="numeric" autocomplete="postal-code" maxlength="10" size="10"{% if postal_error %} aria-invalid="true" aria-describedby="postal-code-error"{% endif %}>
+    <label for="radius">Distance</label>
+    <select id="radius" name="radius">
+      {% for value, label in radius_choices %}<option value="{{ value }}"{% if value == prefs.radius %} selected{% endif %}>{{ label }}</option>{% endfor %}
+    </select>
+    <p class="note">Leave the ZIP code blank to see in-store prices from all stores.</p>
+  </fieldset>
   <fieldset>
     <legend>Stores</legend>
     <label><input type="checkbox" name="all_stores" value="1"{% if prefs.stores is None %} checked{% endif %}> All stores (overrides the selection below)</label>

@@ -12,9 +12,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
+from django.db.models import Q
+
 from normalize.compare import COMPARISONS
 
 from .freshness import fresh_observed, fresh_offers
+from .geo import Near, bounding_box, within
 from .models import Category, Offer, Product
 
 BRAND_TIERS = ("name_brand", "store_brand")
@@ -49,6 +52,7 @@ class BrowseResult:
     comparison: str
     total_products: int
     unranked_total: int = 0
+    hidden_far: int = 0  # products seen only at stores outside the radius (or unplaced)
 
 
 def _parse_value(attr, raw: str):
@@ -124,6 +128,28 @@ def _reason(offer: Offer, comparison: str) -> str:
     return f"can't compute price per {unit}"
 
 
+def _size_ok(measures: Mapping, key: str | None, spec: FilterSpec) -> bool:
+    if spec.size_min is None and spec.size_max is None:
+        return True
+    size = measures.get(key)
+    if size is None:
+        return False
+    if spec.size_min is not None and size < spec.size_min * (1 - SIZE_TOLERANCE):
+        return False
+    if spec.size_max is not None and size > spec.size_max * (1 + SIZE_TOLERANCE):
+        return False
+    return True
+
+
+def _in_box(near: Near) -> Q:
+    """Stores inside the radius's bounding box (coordinate-less stores never match)."""
+    min_lat, max_lat, min_lon, max_lon = bounding_box(near)
+    q = Q(store__lat__gte=min_lat, store__lat__lte=max_lat, store__lon__isnull=False)
+    if min_lon is not None:
+        q &= Q(store__lon__gte=min_lon, store__lon__lte=max_lon)
+    return q
+
+
 def browse(
     category: Category,
     spec: FilterSpec,
@@ -133,7 +159,15 @@ def browse(
     limit: int = 50,
     *,
     observed: bool = False,
+    near: Near | None = None,
 ) -> BrowseResult:
+    """Rank offers by unit price.
+
+    With ``near`` (observed offers only), offers from stores outside the radius
+    or without coordinates are left out and the products they alone carried
+    are counted in ``hidden_far``. A bounding box narrows rows in SQL; the
+    exact haversine check runs on what is left. Costs one extra query.
+    """
     allowed = [category.comparison_default, *category.comparison_alternates]
     if comparison not in allowed:
         comparison = category.comparison_default
@@ -147,23 +181,31 @@ def browse(
         qs = qs.filter(product__attributes__contains={"brand_tier": {"value": spec.brand_tier}})
 
     key = SIZE_KEYS.get(category.dimension)
+    near = near if observed else None  # live offers are never filtered by distance
+    far_products: set[int] = set()
+    if near is not None:
+        box = _in_box(near)
+        far_products = {
+            product_id
+            for product_id, measures in qs.exclude(box).values_list("product_id", "measures")
+            if _size_ok(measures, key, spec)
+        }
+        qs = qs.filter(box)
     offers = list(qs.select_related("product", "store") if observed else qs.select_related("product"))
-    if spec.size_min is not None or spec.size_max is not None:
-        sized = []
+    offers = [o for o in offers if _size_ok(o.measures, key, spec)]
+    if near is not None:
+        kept = []
         for o in offers:
-            size = o.measures.get(key)
-            if size is None:
-                continue
-            if spec.size_min is not None and size < spec.size_min * (1 - SIZE_TOLERANCE):
-                continue
-            if spec.size_max is not None and size > spec.size_max * (1 + SIZE_TOLERANCE):
-                continue
-            sized.append(o)
-        offers = sized
+            if within(near, o.store.lat, o.store.lon):
+                kept.append(o)
+            else:
+                far_products.add(o.product_id)
+        offers = kept
 
     by_product: dict[int, list[Offer]] = {}
     for o in offers:
         by_product.setdefault(o.product_id, []).append(o)
+    hidden_far = len(far_products - by_product.keys())
 
     attr_names = [a.name for a in category.attribute_defs.all()]
     ranked: list[Row] = []
@@ -189,4 +231,5 @@ def browse(
         unranked_total=len(unranked),
         comparison=comparison,
         total_products=len(ranked) + len(unranked),
+        hidden_far=hidden_far,
     )

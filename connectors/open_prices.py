@@ -7,6 +7,7 @@ floats, so responses are decoded with ``parse_float=Decimal`` to keep them exact
 from __future__ import annotations
 
 import json
+import math
 import re
 import time
 from collections.abc import Callable
@@ -40,6 +41,8 @@ class Location:
     postcode: str | None
     country_code: str | None
     type: str
+    lat: float | None = None
+    lon: float | None = None
 
     @property
     def code(self) -> str:
@@ -77,10 +80,23 @@ def _int(value: object) -> int | None:
     return value
 
 
+def _coordinate(value: object, limit: float) -> float | None:
+    """A finite number within [-limit, limit], else None (never coerced from text)."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, Decimal)):
+        return None
+    number = float(value)
+    if not math.isfinite(number) or abs(number) > limit:
+        return None
+    return number
+
+
 def _parse_location(data: object) -> Location | None:
     if not isinstance(data, dict):
         return None
     osm_id = _int(data.get("osm_id"))
+    lat, lon = _coordinate(data.get("osm_lat"), 90), _coordinate(data.get("osm_lon"), 180)
+    if lat is None or lon is None:
+        lat = lon = None  # half a position is no position
     return Location(
         osm_type=_text(data.get("osm_type")) or "",
         osm_id=osm_id if osm_id is not None else 0,
@@ -90,6 +106,8 @@ def _parse_location(data: object) -> Location | None:
         postcode=_text(data.get("osm_address_postcode")),
         country_code=_text(data.get("osm_address_country_code")),
         type=_text(data.get("type")) or "",
+        lat=lat,
+        lon=lon,
     )
 
 

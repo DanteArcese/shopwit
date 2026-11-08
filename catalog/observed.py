@@ -75,6 +75,8 @@ def _store_fields(obs: Observation) -> dict:
         "country_code": (loc.country_code or "").upper()[:2],
         "osm_type": loc.osm_type,
         "osm_id": loc.osm_id,
+        "lat": loc.lat,
+        "lon": loc.lon,
     }
 
 

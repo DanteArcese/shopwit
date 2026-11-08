@@ -25,8 +25,8 @@ UPC = "0811620020169"
 TITLE = "Horizon Organic Whole Milk"
 
 
-def loc(osm_id=1, name="Safeway", brand="Safeway", city="Mountain View"):
-    return Location("NODE", osm_id, name, brand, city, "94040", "US", "OSM")
+def loc(osm_id=1, name="Safeway", brand="Safeway", city="Mountain View", lat=37.4, lon=-122.1):
+    return Location("NODE", osm_id, name, brand, city, "94040", "US", "OSM", lat, lon)
 
 
 def obs(price_id=1, price="4.99", days=5, location=None, title=TITLE, upc=UPC, **kw):
@@ -333,6 +333,8 @@ def test_command_with_recordings(monkeypatch, capsys):
     run = IngestionRun.objects.get()
     assert run.status == "succeeded" and run.fetched > 0
     assert OpenPriceObservation.objects.count() == run.fetched
+    store = Store.objects.get(code="osm-w35603394")
+    assert (store.lat, store.lon) == (37.4031206, -122.079306)
 
 
 ASSISTED = "https://prices.openfoodfacts.org/experiments/price-tag"
@@ -407,3 +409,16 @@ def test_command_ignores_stale_running_row(monkeypatch):
     monkeypatch.setattr(open_prices_sync, "OpenPricesClient", lambda *a, **k: type("C", (), {"close": lambda s: None})())
     call_command("open_prices_sync", allow_deletions=True)
     assert seen == {"allow_deletions": True}
+
+
+def test_sync_records_store_coordinates():
+    sync(obs())
+    store = Store.objects.get(code="osm-n1")
+    assert (store.lat, store.lon) == (37.4, -122.1)
+
+
+def test_sync_clears_coordinates_upstream_dropped():
+    sync(obs())
+    sync(obs(location=loc(lat=None, lon=None)), now=NOW + timedelta(days=1))
+    store = Store.objects.get(code="osm-n1")
+    assert (store.lat, store.lon) == (None, None)

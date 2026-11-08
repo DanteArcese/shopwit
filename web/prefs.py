@@ -8,15 +8,44 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Literal
 
+from catalog.geo import KM_PER_MILE, normalize_postal_code
+
 UnitSystem = Literal["imperial", "metric"]
 
 IMPERIAL_REGIONS = frozenset({"US", "LR", "MM"})
+
+# Radius steps, stored by their size in miles. Metric viewers see (and are
+# filtered by) the round kilometre figure for the same step, so the distance
+# shown is always the distance used.
+RADIUS_STEPS = (10, 25, 50, 100)
+DEFAULT_RADIUS = 25
+METRIC_RADIUS_KM = {10: 16, 25: 40, 50: 80, 100: 160}
+DEFAULT_COUNTRY = "US"
 
 
 @dataclass(frozen=True)
 class Prefs:
     unit_system: UnitSystem
     stores: frozenset[str] | None = None  # None means all retailers
+    postal_code: str | None = None  # normalized; never logged or put in URLs
+    country: str = DEFAULT_COUNTRY
+    radius: int = DEFAULT_RADIUS  # one of RADIUS_STEPS
+
+
+def radius_km(radius: int, unit_system: UnitSystem) -> float:
+    if unit_system == "metric":
+        return float(METRIC_RADIUS_KM[radius])
+    return radius * KM_PER_MILE
+
+
+def radius_label(radius: int, unit_system: UnitSystem) -> str:
+    if unit_system == "metric":
+        return f"{METRIC_RADIUS_KM[radius]} km"
+    return f"{radius} mi"
+
+
+def radius_choices(unit_system: UnitSystem) -> list[tuple[int, str]]:
+    return [(step, radius_label(step, unit_system)) for step in RADIUS_STEPS]
 
 
 def default_unit_system(accept_language: str) -> UnitSystem:
@@ -42,16 +71,34 @@ def get_prefs(request) -> Prefs:
     if unit_system not in ("imperial", "metric"):
         unit_system = default
     stores = raw.get("stores")
-    if isinstance(stores, list) and stores and all(isinstance(s, str) for s in stores):
-        return Prefs(unit_system, frozenset(stores))
-    return Prefs(unit_system, None)
+    if not (isinstance(stores, list) and stores and all(isinstance(s, str) for s in stores)):
+        stores = None
+    country = raw.get("country", DEFAULT_COUNTRY)
+    postal_code = normalize_postal_code(raw.get("postal_code"), country)
+    radius = raw.get("radius", DEFAULT_RADIUS)
+    if isinstance(radius, bool) or radius not in RADIUS_STEPS:
+        radius = DEFAULT_RADIUS
+    return Prefs(
+        unit_system,
+        None if stores is None else frozenset(stores),
+        postal_code=postal_code,
+        country=country if postal_code else DEFAULT_COUNTRY,
+        radius=radius,
+    )
 
 
 def save_prefs(request, prefs: Prefs) -> None:
-    request.session["prefs"] = {
+    data = {
         "unit_system": prefs.unit_system,
         "stores": None if prefs.stores is None else sorted(prefs.stores),
     }
+    # Location keys only when set, so the session holds nothing it does not need.
+    if prefs.postal_code:
+        data["postal_code"] = prefs.postal_code
+        data["country"] = prefs.country
+    if prefs.radius != DEFAULT_RADIUS:
+        data["radius"] = prefs.radius
+    request.session["prefs"] = data
 
 
 def split_stores(stores: frozenset[str] | None) -> tuple[frozenset[str] | None, frozenset[str] | None]:
