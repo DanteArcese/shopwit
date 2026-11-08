@@ -1,0 +1,29 @@
+{% if has_amazon %}<p class="note amazon-associate">As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
+{% if near_misses %}
+<nav class="near-misses" aria-label="Related categories">
+  {% for m in near_misses %}<a href="{{ m.url }}">{{ m.name }}: more filters &rarr;</a>{% endfor %}
+</nav>
+{% endif %}
+{% if live_groups %}
+<p class="note">{{ page_note }}</p>
+{% for group in live_groups %}{% include "web/_generic_group.html" %}{% endfor %}
+{% endif %}
+{% if empty %}
+<p class="empty">No saved prices match &lsquo;{{ q }}&rsquo;. Try fewer words or <a href="{% url 'home' %}">browse a category</a>.</p>
+{% endif %}
+{% if observed_total > 0 or observed_hidden_far > 0 or observed_hidden_unplaced > 0 %}
+<section class="observed">
+  <h2>Seen in stores</h2>
+  {% include "web/_location.html" %}
+  <p class="note">Shelf prices people recorded in stores. Not live: prices may have changed since.</p>
+  {% if not observed_total %}{% if observed_hidden_far %}<p class="empty">No in-store prices within {{ location.radius }} of {{ location.postal_code }}.</p>{% else %}<p class="empty">No in-store prices from stores with a known location.</p>{% endif %}{% endif %}
+  {% for group in observed_groups %}{% include "web/_generic_group.html" %}{% endfor %}
+  {% if observed_hidden_far %}<p class="note hidden-far">{{ observed_hidden_far }} more from stores farther away</p>{% endif %}
+  {% if observed_hidden_unplaced %}<p class="note hidden-unplaced">{{ observed_hidden_unplaced }} more from stores with unknown location</p>{% endif %}
+  <p class="note attribution">Contains information from <a href="https://prices.openfoodfacts.org">Open Prices</a>, which is made available here under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License (ODbL)</a>.</p>
+</section>
+{% endif %}
+{% if oob %}
+{% include "web/_status.html" %}
+<a id="settings-link" hx-swap-oob="true" href="{% url 'settings' %}?next={{ request.get_full_path|urlencode }}">Settings</a>
+{% endif %}

@@ -4,7 +4,6 @@ from decimal import Decimal
 from urllib.parse import urlencode
 
 from django.conf import settings
-from django.contrib.postgres.search import SearchQuery, SearchRank, SearchVector
 from django.http import Http404, HttpResponse, HttpResponseRedirect
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
@@ -16,9 +15,9 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters
-from catalog.freshness import fresh_observed, fresh_offers
+from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
-from catalog.models import Category, ClickEvent, Offer, Product
+from catalog.models import Category, ClickEvent, Offer
 from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
 from catalog.units import DISPLAY, display_size, display_unit_price, format_money, size_to_canonical
 from normalize import load_categories
@@ -35,7 +34,6 @@ from .prefs import (
     split_stores,
 )
 
-SEARCH_LIMIT = 25
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
 SIZE_UNITS = {
@@ -282,53 +280,16 @@ def search(request):
     q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH].strip()
     if not q:
         return redirect("home")
-    resolution = resolve_query(q, _active_definitions())
+    definitions = _active_definitions()
+    resolution = resolve_query(q, definitions)
     if resolution.category is not None:
         target = reverse("category", args=[resolution.category])
         query = _redirect_query(resolution)
         return HttpResponseRedirect(f"{target}?{query}" if query else target)
 
-    prefs = get_prefs(request)
-    when = now()
-    offers = fresh_offers(when)
-    live_stores, _chains = split_stores(prefs.stores)
-    if live_stores is not None:
-        offers = offers.filter(retailer__in=live_stores)
-    query = SearchQuery(q, search_type="websearch")
-    vector = SearchVector("title")
-    products = (
-        Product.objects.filter(pk__in=offers.values("product_id"))
-        .annotate(rank=SearchRank(vector, query), match=vector)
-        .filter(match=query)
-        .order_by("-rank", "title")[:SEARCH_LIMIT]
-    )
-    products = list(products)
-    cheapest = {}
-    for offer in offers.filter(product__in=products):
-        best = cheapest.get(offer.product_id)
-        if best is None or (offer.price, offer.retailer) < (best.price, best.retailer):
-            cheapest[offer.product_id] = offer
-    results = [
-        {
-            "title": cheapest[p.pk].title or p.title,
-            "brand": cheapest[p.pk].brand or p.brand,
-            "price": format_money(cheapest[p.pk].price, cheapest[p.pk].currency),
-            "price_label": "price " + format_money(cheapest[p.pk].price, cheapest[p.pk].currency),
-            "retailer": display_name(cheapest[p.pk].retailer),
-            "offer": cheapest[p.pk],
-        }
-        for p in products
-        if p.pk in cheapest
-    ]
-    context = {
-        "q": q,
-        "results": results,
-        "has_outbound": bool(results),
-        "has_amazon": any(r["offer"].retailer == "amazon" for r in results),
-    }
-    response = render(request, "web/search_results.html", context)
-    patch_vary_headers(response, ["Accept-Language"])
-    return response
+    from .search import generic_results  # imported here: web.search uses helpers from this module
+
+    return generic_results(request, q, definitions=definitions)
 
 
 def disclosure(request):

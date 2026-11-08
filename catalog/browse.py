@@ -151,6 +151,43 @@ def _in_box(near: Near) -> Q:
     return q
 
 
+def _exact_radius(offers: list[Offer], near: Near) -> tuple[list[Offer], set[int]]:
+    """Offers at stores within the radius, and the products of those beyond it."""
+    kept: list[Offer] = []
+    far: set[int] = set()
+    for o in offers:
+        if o.store is not None and within(near, o.store.lat, o.store.lon):
+            kept.append(o)
+        else:
+            far.add(o.product_id)
+    return kept, far
+
+
+def limit_to_radius(offers: list[Offer], near: Near | None) -> tuple[list[Offer], int, int]:
+    """Keep offers at stores within the radius.
+
+    Returns (kept offers, hidden_far, hidden_unplaced) where the counts are products
+    left with no offer: hidden_far if any of its offers is at a placed store beyond
+    the radius, else hidden_unplaced (stores without coordinates, or no store).
+    Offers must have ``store`` loaded. With ``near`` None nothing is filtered.
+    """
+    if near is None:
+        return offers, 0, 0
+    kept: list[Offer] = []
+    far: set[int] = set()
+    unplaced: set[int] = set()
+    for o in offers:
+        store = o.store
+        if store is None or store.lat is None or store.lon is None:
+            unplaced.add(o.product_id)
+        elif within(near, store.lat, store.lon):
+            kept.append(o)
+        else:
+            far.add(o.product_id)
+    kept_products = {o.product_id for o in kept}
+    return kept, len(far - kept_products), len(unplaced - kept_products - far)
+
+
 def browse(
     category: Category,
     spec: FilterSpec,
@@ -201,13 +238,8 @@ def browse(
     offers = list(qs.select_related("product", "store") if observed else qs.select_related("product"))
     offers = [o for o in offers if _size_ok(o.measures, key, spec)]
     if near is not None:
-        kept = []
-        for o in offers:
-            if within(near, o.store.lat, o.store.lon):
-                kept.append(o)
-            else:
-                far_products.add(o.product_id)
-        offers = kept
+        offers, far_inside = _exact_radius(offers, near)
+        far_products |= far_inside
 
     by_product: dict[int, list[Offer]] = {}
     for o in offers:

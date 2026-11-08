@@ -77,7 +77,10 @@ def test_search_excludes_observed(client, milk_rows, observe):
     observe(title="Quokka Nectar")
     resp = client.get("/search?q=Quokka")
     assert resp.status_code == 200
-    assert "Quokka Nectar" not in resp.content.decode()
+    page = resp.content.decode()
+    # Search now shows observed prices, but only under "Seen in stores" (never as live rows).
+    assert "Seen in stores" in page
+    assert "Quokka Nectar" not in page[: page.index("Seen in stores")]
 
 
 def test_store_filter_chain_filters_only_observed(client, milk_rows, observe, stores):

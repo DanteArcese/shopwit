@@ -14,5 +14,6 @@
     {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
   </div>
   <a href="{{ row.source_url }}" rel="noopener noreferrer">Price on Open Prices</a>
+  {% if row.category_name %}<a class="category-link" href="{{ row.category_url }}">In {{ row.category_name }} &rarr;</a>{% endif %}
   <a class="report-link" href="{% url 'feedback' %}?type=wrong-data&amp;offer={{ row.offer.pk }}" rel="nofollow">Report a problem</a>
 </li>

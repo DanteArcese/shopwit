@@ -31,26 +31,26 @@ class Command(BaseCommand):
             raise CommandError("bench_search is for local use only; it refuses to run when DEBUG is off.")
         rng = random.Random(65)
         now = datetime.now(timezone.utc)
-        products, rows = [], []
-        for i in range(offers):
-            title = f"{rng.choice(BRAND)} {rng.choice(ADJ)} {rng.choice(NOUN)} {i % 997}"
-            products.append(Product(identity=f"{RETAILER}:{i}", title=title))
-        Product.objects.bulk_create(products, batch_size=5000)
-        ids = Product.objects.filter(identity__startswith=f"{RETAILER}:").values_list("identity", "id", "title")
-        for identity, pid, title in ids:
-            i = int(identity.split(":")[1])
-            dim, amount = DIMS[rng.randrange(4)]
-            price = Decimal(rng.randrange(100, 2000)) / 100
-            rows.append(
-                Offer(
-                    product_id=pid, retailer=RETAILER, retailer_item_id=str(i), price=price,
-                    currency=settings.SITE_CURRENCY, url="https://example.com/", title=title,
-                    last_seen_at=now, measure_dim=dim, measure_amount=amount,
-                    generic_unit_price=(price / Decimal(str(amount))).quantize(Decimal("0.000001")),
-                )
-            )
-        Offer.objects.bulk_create(rows, batch_size=5000)
         try:
+            products, rows = [], []
+            for i in range(offers):
+                title = f"{rng.choice(BRAND)} {rng.choice(ADJ)} {rng.choice(NOUN)} {i % 997}"
+                products.append(Product(identity=f"{RETAILER}:{i}", title=title))
+            Product.objects.bulk_create(products, batch_size=5000)
+            ids = Product.objects.filter(identity__startswith=f"{RETAILER}:").values_list("identity", "id", "title")
+            for identity, pid, title in ids:
+                i = int(identity.split(":")[1])
+                dim, amount = DIMS[rng.randrange(4)]
+                price = Decimal(rng.randrange(100, 2000)) / 100
+                rows.append(
+                    Offer(
+                        product_id=pid, retailer=RETAILER, retailer_item_id=str(i), price=price,
+                        currency=settings.SITE_CURRENCY, url="https://example.com/", title=title,
+                        last_seen_at=now, measure_dim=dim, measure_amount=amount,
+                        generic_unit_price=(price / Decimal(str(amount))).quantize(Decimal("0.000001")),
+                    )
+                )
+            Offer.objects.bulk_create(rows, batch_size=5000)
             times = []
             for phrase in PHRASES:
                 for _ in range(5):

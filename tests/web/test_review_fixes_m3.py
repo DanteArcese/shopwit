@@ -225,7 +225,8 @@ def test_search_banner(client, db):
 
     _product("Ginger Snaps Cookies", "3.00")
     assert "We may earn a commission" in client.get("/search", {"q": "ginger"}).content.decode()
-    assert "We may earn a commission" not in client.get("/search", {"q": "zzzqqq"}).content.decode()
+    # The generic page shows the banner on every full render, as category pages do.
+    assert "We may earn a commission" in client.get("/search", {"q": "zzzqqq"}).content.decode()
 
 
 def test_reason_prefers_quantity_over_attribute(milk, frozen_now):

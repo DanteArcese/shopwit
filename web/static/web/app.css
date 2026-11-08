@@ -195,3 +195,9 @@ a { color: var(--accent); }
 .feedback-form .hint { margin: 0; }
 .hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
 .report-link { font-size: 0.875rem; color: var(--muted); }
+
+/* Generic results page */
+.measure-group { display: grid; gap: 0.75rem; margin-top: 1rem; }
+.measure-group h2 { margin: 0; }
+.near-misses { display: flex; flex-wrap: wrap; gap: 0.5rem 1rem; margin: 0.5rem 0; }
+.near-misses a, .show-all, .result .category-link { display: inline-flex; align-items: center; min-height: 44px; }

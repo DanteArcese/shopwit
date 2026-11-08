@@ -165,3 +165,38 @@ def test_bench_search_runs_and_cleans_up(settings):
     call_command("bench_search", offers=300, stdout=out)
     assert "p50=" in out.getvalue() and "p95=" in out.getvalue()
     assert not Product.objects.filter(identity__startswith="bench:").exists()
+
+
+@pytest.mark.django_db
+def test_group_sort_is_none_safe_for_missing_unit_price():
+    make_generic_offer("Priced Milk", "3", dim="volume", amount=1000)
+    bad = make_generic_offer("Unpriced Milk", "1", dim="volume", amount=1000)
+    Offer.objects.filter(pk=bad.pk).update(generic_unit_price=None)
+    result = group_products(Offer.objects.select_related("product").all())
+    assert [r.product.title for r in result.groups[0].rows] == ["Priced Milk", "Unpriced Milk"]
+
+
+@pytest.mark.django_db
+def test_bench_search_cleans_up_when_seeding_is_interrupted(settings):
+    from django.core.management import call_command
+
+    from catalog.management.commands import bench_search
+
+    class Boom:
+        def __init__(self, **kwargs):
+            pass
+
+        class objects:
+            @staticmethod
+            def bulk_create(*args, **kwargs):
+                raise RuntimeError("interrupted")
+
+    settings.DEBUG = True
+    real = bench_search.Offer
+    bench_search.Offer = Boom
+    try:
+        with pytest.raises(RuntimeError):
+            call_command("bench_search", offers=20)
+    finally:
+        bench_search.Offer = real
+    assert not Product.objects.filter(identity__startswith="bench:").exists()

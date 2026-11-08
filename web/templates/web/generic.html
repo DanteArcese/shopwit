@@ -1,0 +1,9 @@
+{% extends "web/base.html" %}
+{% block title %}Search: {{ q }} - UnitPricer{% endblock %}
+{% block main %}
+<h1>Results for &lsquo;{{ q }}&rsquo;</h1>
+{% include "web/_status.html" %}
+<div id="results">
+{% include "web/_generic_results.html" %}
+</div>
+{% endblock %}

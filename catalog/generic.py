@@ -6,7 +6,7 @@ Rows order by generic unit price. Nothing here compares numbers across dimension
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -17,7 +17,8 @@ from django.db.models import Max
 from catalog.browse import _tie
 from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Offer, Product
-from normalize.generic import DIMENSION_ORDER
+from normalize.categories import CategoryDef
+from normalize.generic import DIMENSION_ORDER, trigram_similarity
 
 MATCH_CAP = 500
 FUZZY_BELOW = 5
@@ -133,7 +134,8 @@ def group_products(offers: Iterable[Offer]) -> GenericResult:
 
     def row_key(row: GenericRow) -> tuple:
         o = row.offer
-        return (row.unit_price, o.price, row.product.title, o.retailer, o.id)
+        unit = row.unit_price
+        return (unit is None, unit if unit is not None else Decimal(0), o.price, row.product.title, o.retailer, o.id)
 
     order = {d: i for i, d in enumerate(DIMENSION_ORDER)}
     groups = [
@@ -143,3 +145,53 @@ def group_products(offers: Iterable[Offer]) -> GenericResult:
     groups.sort(key=lambda g: (-g.total, order.get(g.dimension, len(order))))
     unknown.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer, r.offer.id))
     return GenericResult(groups=groups, unknown=unknown, total_products=len(by_product))
+
+
+NEAR_MISS_MIN_HELD = 2
+NEAR_MISS_SIMILARITY = 0.4
+NEAR_MISS_LIMIT = 3
+
+
+@dataclass(frozen=True)
+class NearMiss:
+    slug: str
+    name: str
+
+
+def near_misses(
+    folded_q: str,
+    offers: Iterable[Offer],
+    definitions: Mapping[str, CategoryDef],
+    names: Mapping[str, str],
+) -> list[NearMiss]:
+    """Categories worth offering instead of the generic list.
+
+    Held-result candidates (active categories with at least two matched products) come
+    first, by product count. Typo candidates follow, by similarity. Capped at 3.
+    """
+    products_by_slug: dict[str, set[int]] = {}
+    for offer in offers:
+        category = offer.product.category
+        if category is not None and category.slug in definitions:
+            products_by_slug.setdefault(category.slug, set()).add(offer.product_id)
+    held = sorted(
+        ((len(ids), slug) for slug, ids in products_by_slug.items() if len(ids) >= NEAR_MISS_MIN_HELD),
+        key=lambda t: (-t[0], t[1]),
+    )
+    typos: list[tuple[float, str]] = []
+    if folded_q:
+        for slug, definition in definitions.items():
+            best = max(
+                (trigram_similarity(folded_q, text) for text in (definition.name, *definition.include)),
+                default=0.0,
+            )
+            if best >= NEAR_MISS_SIMILARITY:
+                typos.append((best, slug))
+    typos.sort(key=lambda t: (-t[0], t[1]))
+    out: list[NearMiss] = []
+    seen: set[str] = set()
+    for slug in [s for _, s in held] + [s for _, s in typos]:
+        if slug not in seen:
+            seen.add(slug)
+            out.append(NearMiss(slug, names.get(slug, definitions[slug].name)))
+    return out[:NEAR_MISS_LIMIT]
