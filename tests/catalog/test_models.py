@@ -4,7 +4,7 @@ import pytest
 from django.db import IntegrityError, transaction
 from django.utils import timezone
 
-from catalog.models import Offer, Product, ReviewItem
+from catalog.models import Offer, Product, ReviewItem, Store
 
 
 def make_product(identity="p1"):
@@ -44,3 +44,14 @@ def test_one_open_review_item_per_detail():
     first.resolved_at = timezone.now()
     first.save()
     ReviewItem.objects.create(product=product, detail="attribute:fat:ambiguous")
+
+
+def test_store_display():
+    assert Store(name="Safeway", city="Mountain View").display == "Safeway, Mountain View"
+    assert Store(name="Safeway", city=None).display == "Safeway"
+
+
+@pytest.mark.django_db
+def test_offer_defaults_live():
+    offer = make_offer(make_product())
+    assert (offer.kind, offer.observed_on, offer.is_sale, offer.store) == ("live", None, False, None)

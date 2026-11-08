@@ -54,7 +54,32 @@ class Product(TimestampedModel):
         return self.title
 
 
+class Store(TimestampedModel):
+    """An Open Prices store location (one OSM node/way/relation)."""
+
+    code = models.CharField(max_length=50, unique=True)
+    name = models.CharField(max_length=200)
+    chain_code = models.CharField(max_length=50, db_index=True)
+    chain_name = models.CharField(max_length=200)
+    city = models.CharField(max_length=200, null=True, blank=True)
+    postcode = models.CharField(max_length=20, null=True, blank=True)
+    country_code = models.CharField(max_length=2)
+    osm_type = models.CharField(max_length=10)
+    osm_id = models.BigIntegerField()
+
+    def __str__(self):
+        return self.display
+
+    @property
+    def display(self) -> str:
+        return f"{self.name}, {self.city}" if self.city else self.name
+
+
 class Offer(TimestampedModel):
+    class Kind(models.TextChoices):
+        LIVE = "live"
+        OBSERVED = "observed"
+
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="offers")
     retailer = models.CharField(max_length=50)
     retailer_item_id = models.CharField(max_length=100)
@@ -70,6 +95,10 @@ class Offer(TimestampedModel):
     unresolved = models.JSONField(default=list)
     image_url = models.URLField(max_length=2000, null=True, blank=True)
     last_seen_at = models.DateTimeField(db_index=True)
+    kind = models.CharField(max_length=10, choices=Kind.choices, default=Kind.LIVE, db_index=True)
+    observed_on = models.DateField(null=True, blank=True)
+    is_sale = models.BooleanField(default=False)
+    store = models.ForeignKey(Store, null=True, blank=True, on_delete=models.SET_NULL)
 
     class Meta:
         constraints = [
@@ -141,3 +170,22 @@ class OffEntry(models.Model):
     quantity = models.CharField(max_length=200, null=True, blank=True)
     last_modified = models.DateTimeField(null=True, blank=True)
     fetched_at = models.DateTimeField(auto_now=True)
+
+
+class OpenPriceObservation(models.Model):
+    """One dated shelf price from Open Prices (ODbL data; kept apart from Offer)."""
+
+    price_id = models.BigIntegerField(primary_key=True)
+    store = models.ForeignKey(Store, on_delete=models.CASCADE, related_name="observations")
+    upc = models.CharField(max_length=14)
+    product_name = models.CharField(max_length=500)
+    brands = models.CharField(max_length=200, null=True, blank=True)
+    quantity = models.CharField(max_length=200, null=True, blank=True)
+    labels = models.JSONField(default=list)
+    price = models.DecimalField(max_digits=10, decimal_places=2)
+    currency = models.CharField(max_length=3)
+    is_sale = models.BooleanField(default=False)
+    observed_on = models.DateField(db_index=True)
+    proof_type = models.CharField(max_length=20, null=True, blank=True)
+    source = models.CharField(max_length=200, null=True, blank=True)
+    fetched_at = models.DateTimeField()

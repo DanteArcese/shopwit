@@ -102,6 +102,13 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 # unitpricer
 REFRESH_INTERVAL = timedelta(hours=float(env("UNITPRICER_REFRESH_HOURS", 12)))
 FRESHNESS_CUTOFF = timedelta(hours=float(env("UNITPRICER_FRESHNESS_HOURS", 24)))
+SITE_CURRENCY = env("UNITPRICER_CURRENCY", "USD")
+# Open Prices: dated in-store shelf prices, shown as "observed" offers.
+OBSERVED_MAX_AGE = timedelta(days=float(env("UNITPRICER_OBSERVED_MAX_AGE_DAYS", 90)))
+OPEN_PRICES_ENABLED = env("UNITPRICER_OPEN_PRICES", "0") == "1"
+OPEN_PRICES_COUNTRY = env("UNITPRICER_OPEN_PRICES_COUNTRY", "US")
+OPEN_PRICES_INTERVAL = timedelta(hours=float(env("UNITPRICER_OPEN_PRICES_HOURS", 24)))
+OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
     "sovrn_site_key": env("SOVRN_SITE_KEY"),
