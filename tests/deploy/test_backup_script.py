@@ -25,6 +25,7 @@ FAKES = {
         'if [ "$1" = copyto ] && [ ! -e "$2" ]; then :; fi\n'
         'if [ "$1" = copyto ]; then echo "$RCLONE_CONFIG_R2_ENDPOINT $RCLONE_CONFIG_R2_PROVIDER '
         '$RCLONE_CONFIG_R2_NO_CHECK_BUCKET $RCLONE_CONFIG_R2_TYPE" >> "$FAKE_LOG"; '
+        'echo "opts config=$RCLONE_CONFIG nochecksum=$RCLONE_CONFIG_R2_DISABLE_CHECKSUM" >> "$FAKE_LOG"; '
         'case "$2" in r2:*) echo dump > "$3" ;; esac; fi'
     ),
     "sleep": (
@@ -75,6 +76,7 @@ def test_backup_uploads_validated_dump(run):
     assert log.index("pg_restore --list") < log.index("rclone copyto")
     assert "pg_dump -Fc --no-owner" in log
     assert "https://acct1.r2.cloudflarestorage.com Cloudflare true s3" in log
+    assert "opts config=/dev/null nochecksum=true" in log
     assert list(run.work.iterdir()) == []
     assert len(list(run.store.glob("unitpricer-*.dump"))) == 1  # second copy
 

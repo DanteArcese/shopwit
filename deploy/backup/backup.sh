@@ -23,6 +23,13 @@ r2_env() {
   export RCLONE_CONFIG_R2_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
   export RCLONE_CONFIG_R2_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
   export RCLONE_CONFIG_R2_NO_CHECK_BUCKET=true
+  # R2 answers 501 NotImplemented to some optional S3 features rclone may send on
+  # the first attempt (checksum/trailer handling); disabling the extra upload
+  # checksum keeps the plain PutObject path. Paired with a pinned modern rclone
+  # in the Dockerfile.
+  export RCLONE_CONFIG_R2_DISABLE_CHECKSUM=true
+  # Config comes entirely from env; /dev/null silences the "config file not found" notice.
+  export RCLONE_CONFIG=/dev/null
 }
 
 rotate_local() {
