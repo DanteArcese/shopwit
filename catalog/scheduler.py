@@ -7,9 +7,10 @@ import signal
 import threading
 from contextlib import contextmanager
 from collections.abc import Callable, Mapping
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from django.conf import settings
+from django.core.management import call_command
 from django.utils import timezone
 
 from connectors import registry
@@ -22,6 +23,10 @@ from .ingest import ingest
 from .models import Category, IngestionRun
 
 logger = logging.getLogger(__name__)
+
+SESSION_CLEANUP_INTERVAL = timedelta(days=1)
+# Per-process marker: a restarted worker clears once more, which is harmless.
+_sessions_cleared_at: datetime | None = None
 
 
 def due(now: datetime, connectors: Mapping[str, Connector]) -> list[tuple[str, str]]:
@@ -100,7 +105,27 @@ def tick(now: datetime, connectors: Mapping[str, Connector] | None = None) -> li
             open_prices_due = False
         if open_prices_due:
             runs.extend(_open_prices(now))
+    clear_expired_sessions(now)
     return runs
+
+
+def clear_expired_sessions(now: datetime) -> bool:
+    """Run Django's clearsessions at most once per SESSION_CLEANUP_INTERVAL.
+
+    Expired sessions (and the settings in them, such as a saved postal code)
+    are deleted. Never raises; a failure waits for the next interval.
+    """
+    global _sessions_cleared_at
+    if _sessions_cleared_at is not None and now - _sessions_cleared_at < SESSION_CLEANUP_INTERVAL:
+        return False
+    _sessions_cleared_at = now
+    try:
+        call_command("clearsessions")
+    except Exception as exc:
+        logger.error("clearsessions failed: %s", type(exc).__name__)
+        return False
+    logger.info("clearsessions done")
+    return True
 
 
 def _open_prices(now: datetime) -> list[IngestionRun]:
