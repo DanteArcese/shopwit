@@ -6,13 +6,13 @@ RUN apt-get update \
     && install -d -o postgres -g postgres -m 700 /backups
 
 # Debian's packaged rclone is too old for R2 (first upload fails with 501), so
-# install a pinned upstream release, verified against the release's SHA256SUMS.
+# install a pinned upstream release, verified against a checksum pinned here
+# (from the release's SHA256SUMS). Bump both together.
 ARG RCLONE_VERSION=v1.76.0
+ARG RCLONE_SHA256=b00f00b3266c3764413afe599d3ec316f6f43b3e0ea8a0bc1d186d2133e46df7
 RUN cd /tmp \
     && curl -fsSLO "https://github.com/rclone/rclone/releases/download/${RCLONE_VERSION}/rclone-${RCLONE_VERSION}-linux-amd64.zip" \
-    && curl -fsSL "https://github.com/rclone/rclone/releases/download/${RCLONE_VERSION}/SHA256SUMS" \
-        | grep " rclone-${RCLONE_VERSION}-linux-amd64.zip\$" > rclone.sha256 \
-    && sha256sum -c rclone.sha256 \
+    && echo "${RCLONE_SHA256}  rclone-${RCLONE_VERSION}-linux-amd64.zip" | sha256sum -c - \
     && unzip -j "rclone-${RCLONE_VERSION}-linux-amd64.zip" "rclone-${RCLONE_VERSION}-linux-amd64/rclone" -d /usr/local/bin \
     && chmod 755 /usr/local/bin/rclone \
     && rm -f /tmp/rclone* \
