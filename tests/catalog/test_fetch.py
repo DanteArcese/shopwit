@@ -679,3 +679,41 @@ def test_off_prices_job_without_prices_still_updates_off(budgets, milk):
     j.refresh_from_db()
     assert (j.status, j.result_count) == ("succeeded", 0)
     assert OffEntry.objects.count() == 5 and OpenPriceObservation.objects.count() == 0
+
+
+# --- walmart end to end ----------------------------------------------------
+
+
+def test_walmart_job_end_to_end(budgets, milk):
+    import base64
+    from pathlib import Path
+
+    import httpx
+    from cryptography.hazmat.primitives import serialization
+    from cryptography.hazmat.primitives.asymmetric import rsa
+
+    from catalog.freshness import fresh_offers
+    from connectors.recording import recorded_transport
+    from connectors.walmart import WalmartConnector
+
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    der = key.private_bytes(
+        serialization.Encoding.DER,
+        serialization.PrivateFormat.PKCS8,
+        serialization.NoEncryption(),
+    )
+    root = Path(__file__).parent.parent / "connectors" / "recordings" / "walmart"
+    source = WalmartConnector(
+        "consumer", base64.b64encode(der).decode(), "1",
+        client=httpx.Client(transport=recorded_transport(root, strict=True)),
+    )
+    j = job("oat milk", source="walmart")
+    run_job(claim(NOW), {"walmart": source}, DbBudget(now=lambda: NOW), NOW)
+    j.refresh_from_db()
+    assert (j.status, j.result_count) == ("succeeded", 2), j.error
+    offers = Offer.objects.filter(retailer="walmart", kind="live")
+    assert offers.count() == 2 and all(o.last_seen_at == NOW for o in offers)
+    assert PriceHistory.objects.count() == 0
+    assert SourceBudget.objects.get(source="walmart").tokens < 5.0
+    assert fresh_offers(NOW).filter(retailer="walmart").count() == 2
+    assert fresh_offers(NOW + timedelta(hours=25)).filter(retailer="walmart").count() == 0

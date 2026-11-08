@@ -1,0 +1,6 @@
+{
+  "_source": "synthetic; 429 shape per walmart.io rate-limit docs (docs verified 2026-11-07)",
+  "status": 429,
+  "headers": {"Retry-After": "30"},
+  "json": {"errors": [{"code": 4429, "message": "Too Many Requests"}]}
+}

@@ -1,0 +1,40 @@
+{
+  "_source": "synthetic values in walmart.io documented response shape (docs verified 2026-11-07)",
+  "status": 200,
+  "json": {
+    "query": "oat milk",
+    "sort": "relevance",
+    "responseGroup": "full",
+    "totalResults": 2,
+    "start": 1,
+    "numItems": 2,
+    "items": [
+      {
+        "itemId": 20411,
+        "parentItemId": 20411,
+        "name": "Oatly Original Oat Milk, 64 fl oz",
+        "msrp": 5.48,
+        "salePrice": 4.98,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk/Plant-Based Milk",
+        "stock": "Available",
+        "availableOnline": true,
+        "upc": "094922000012",
+        "brandName": "Oatly",
+        "size": "64 fl oz"
+      },
+      {
+        "itemId": 20412,
+        "parentItemId": 20412,
+        "name": "Great Value Oat Milk, 32 oz",
+        "msrp": 3.28,
+        "salePrice": 2.98,
+        "categoryPath": "Food/Dairy, Eggs & Cheese/Milk/Plant-Based Milk",
+        "stock": "Available",
+        "availableOnline": true,
+        "upc": "078742000034",
+        "brandName": "Great Value",
+        "size": "32 oz"
+      }
+    ]
+  }
+}

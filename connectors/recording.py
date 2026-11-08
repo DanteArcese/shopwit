@@ -62,6 +62,6 @@ def recorded_transport(directory: Path, *, strict: bool = False) -> httpx.MockTr
                 raise AssertionError(f"No recording for request; expected file: {expected}")
             return httpx.Response(404, json={"error": "no recording"})
         data = json.loads(expected.read_text())
-        return httpx.Response(data["status"], json=data["json"])
+        return httpx.Response(data["status"], json=data["json"], headers=data.get("headers"))
 
     return httpx.MockTransport(handler)
