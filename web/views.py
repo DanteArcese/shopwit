@@ -138,7 +138,7 @@ def category(request, slug):
         ],
         "comparison": result.comparison,
         "stores": _store_options(prefs, available_retailers(when)),
-        "selected_stores": selected_stores,
+        "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - len(result.unranked),
         "ranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked],
         "unranked": [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked],
@@ -170,7 +170,7 @@ def _redirect_query(resolution) -> str:
 
 
 def search(request):
-    q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH]
+    q = request.GET.get("q", "").strip()[:MAX_QUERY_LENGTH].strip()
     if not q:
         return redirect("home")
     resolution = resolve_query(q, _active_definitions())
@@ -223,7 +223,10 @@ def settings_page(request):
             system = prefs.unit_system
         known = set(RETAILERS) | set(codes) | set(prefs.stores or ())
         chosen = frozenset(request.POST.getlist("stores")) & known
-        stores = None if request.POST.get("all_stores") or not chosen else chosen
+        if request.POST.get("all_stores"):
+            stores = None
+        else:
+            stores = chosen or prefs.stores  # no/invalid selection keeps the previous one
         save_prefs(request, Prefs(system, stores))
         return HttpResponseRedirect(safe_next(request, request.POST.get("next")))
     return render(

@@ -66,3 +66,8 @@ def test_search_query_length_capped(client, db):
     resp = client.get("/search", {"q": "x" * 5000})
     assert resp.status_code == 200
     assert "&lsquo;" + "x" * 200 + "&rsquo;" in resp.content.decode()
+
+
+def test_search_query_stripped_after_cap(client, db):
+    resp = client.get("/search", {"q": "x" * 199 + " " + "y" * 10})
+    assert "x" * 199 + "&rsquo;" in resp.content.decode()

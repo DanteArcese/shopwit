@@ -29,7 +29,7 @@ def test_settings_saves_and_rejects_external_next(client, offers):
     for bad in ("https://evil.example/", "//evil.example/x", "javascript:alert(1)", "evil"):
         resp = client.post("/settings", {"unit_system": "imperial", "next": bad})
         assert resp["Location"] == "/"
-    assert client.session["prefs"] == {"unit_system": "imperial", "stores": None}
+    assert client.session["prefs"] == {"unit_system": "imperial", "stores": ["walmart"]}
 
 
 def test_settings_ignores_unknown_stores_and_systems(client, offers):
@@ -64,3 +64,34 @@ def test_all_saved_stores_down_stays_selected(client, offers):
 def test_unknown_store_code_rejected(client, offers):
     client.post("/settings", {"unit_system": "metric", "stores": ["walmart", "bogus"]})
     assert client.session["prefs"]["stores"] == ["walmart"]
+
+
+def _saved(client, stores):
+    client.post("/settings", {"unit_system": "imperial", "stores": stores})
+
+
+def test_units_only_post_preserves_saved_stores(client, offers):
+    _saved(client, ["walmart", "costco"])
+    client.post("/settings", {"unit_system": "metric"})
+    assert client.session["prefs"] == {"unit_system": "metric", "stores": ["costco", "walmart"]}
+
+
+def test_only_invalid_codes_preserve_saved_stores(client, offers):
+    _saved(client, ["walmart"])
+    client.post("/settings", {"unit_system": "metric", "stores": ["bogus"]})
+    assert client.session["prefs"]["stores"] == ["walmart"]
+
+
+def test_explicit_all_stores_clears_selection(client, offers):
+    _saved(client, ["walmart"])
+    client.post("/settings", {"unit_system": "metric", "all_stores": "1", "stores": ["walmart"]})
+    assert client.session["prefs"]["stores"] is None
+
+
+def test_stale_saved_store_rendered_checked(client, offers):
+    import re
+
+    _saved(client, ["walmart", "costco"])
+    html = client.get("/settings").content.decode()
+    assert re.search(r'<input[^>]*name="stores"[^>]*value="costco"[^>]*checked', html)
+    assert not re.search(r'<input[^>]*name="all_stores"[^>]*checked', html)
