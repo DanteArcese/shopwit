@@ -153,3 +153,10 @@ def test_filtered_empty_category_keeps_clear_filters(client, db, settings):
     sync_categories(settings.CATEGORIES_DIR)
     body = client.get("/c/dairy/milk/?fat=skim").content.decode()
     assert "Clear the filters" in body and "coming:" not in body
+
+
+def test_laundry_size_unit_ignores_system():
+    from web.views import _size_system
+
+    assert _size_system("laundry", "loads", "metric") == "metric"
+    assert _size_system("laundry", "loads", "imperial") == "imperial"

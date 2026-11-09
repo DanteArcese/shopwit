@@ -10,10 +10,10 @@ from typing import Any, Literal, get_args
 
 import yaml
 
-Dimension = Literal["volume", "mass", "count", "paper"]
+Dimension = Literal["volume", "mass", "count", "paper", "laundry"]
 
 KNOWN_COMPARISONS: frozenset[str] = frozenset(
-    {"per_volume", "per_mass", "per_count", "area_x_ply", "per_100_sheets", "per_roll"}
+    {"per_volume", "per_mass", "per_count", "area_x_ply", "per_100_sheets", "per_roll", "per_load"}
 )
 
 _ATTR_TYPES = ("int", "enum", "bool")

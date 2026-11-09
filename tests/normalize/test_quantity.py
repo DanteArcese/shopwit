@@ -413,3 +413,52 @@ def test_nutrient_guard_exempts_descriptors():
 def test_count_before_size_still_unresolved_and_one_count_ok():
     assert _mass("Yogurt 12 ct, 8 oz") == {}
     assert _mass("Coffee 12 oz, 1 Count")["mass_g"] == _r(340.19)
+
+
+# --- laundry -----------------------------------------------------------------
+def test_laundry_liquid_loads_and_volume():
+    m = parse_measures(["Tide Original Liquid Laundry Detergent, 92 fl oz, 64 Loads"], "laundry")
+    assert m["loads"] == 64
+    assert m["volume_ml"] == _r(2720.76)
+    assert "mass_g" not in m
+
+
+def test_laundry_bare_oz_follows_form():
+    m = parse_measures(
+        ["Arm & Hammer Clean Burst Liquid Laundry Detergent, 105 oz, 70 Loads"], "laundry"
+    )
+    assert m["volume_ml"] == _r(3105.22) and "mass_g" not in m
+    m = parse_measures(["Tide Original Powder Laundry Detergent, 143 oz, 102 Loads"], "laundry")
+    assert m["mass_g"] == _r(4053.98) and "volume_ml" not in m
+    m = parse_measures(["Purex Laundry Detergent, Mountain Breeze, 50 oz, 33 Loads"], "laundry")
+    assert m == {"loads": 33}
+    m = parse_measures(["Liquid or Powder Laundry Detergent, 50 oz, 33 Loads"], "laundry")
+    assert m == {"loads": 33}
+
+
+def test_laundry_pods_count_is_not_loads():
+    m = parse_measures(["Tide PODS Laundry Detergent Pacs, Original, 81 Count"], "laundry")
+    assert m == {"count": 81}
+
+
+def test_laundry_merges_texts_earliest_wins():
+    m = parse_measures(["92 fl oz", "Tide Liquid 50 Loads, 64 fl oz"], "laundry")
+    assert m["volume_ml"] == _r(2720.76)
+    assert m["loads"] == 50
+
+
+def test_laundry_multipack_and_total():
+    m = parse_measures(["Tide Liquid, 46 fl oz, 32 Loads, Pack of 2"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+    assert parse_measures(["Tide Liquid, 2 Pack, 128 Total Loads"], "laundry")["loads"] == 128
+    assert parse_measures(["Tide Liquid, 2 Pack, 128 loads total"], "laundry")["loads"] == 128
+
+
+def test_laundry_mass_and_nutrient_strip():
+    m = parse_measures(["Dropps Laundry Powder, 3 lb, 48 Loads"], "laundry")
+    assert m["mass_g"] == _r(1360.78) and m["loads"] == 48
+
+
+def test_laundry_unparseable():
+    assert parse_measures(["Tide Laundry Detergent"], "laundry") == {}
+    assert parse_measures([], "laundry") == {}

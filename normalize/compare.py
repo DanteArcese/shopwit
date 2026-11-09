@@ -45,6 +45,7 @@ COMPARISONS: dict[str, Comparison] = {
         Comparison("area_x_ply", "m²·ply", _area_x_ply),
         Comparison("per_100_sheets", "100 sheets", _measure("sheets", 100.0)),
         Comparison("per_roll", "roll", _measure("rolls")),
+        Comparison("per_load", "load", _measure("loads")),
     )
 }
 

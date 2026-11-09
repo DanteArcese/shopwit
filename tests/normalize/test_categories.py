@@ -114,3 +114,12 @@ def test_search_defaults_to_name(tmp_path):
 def test_search_loaded(tmp_path):
     write(tmp_path, "dairy/milk.yaml", MINIMAL + 'search: ["2% milk", "whole milk"]\n')
     assert load_categories(tmp_path)["dairy/milk"].search == ("2% milk", "whole milk")
+
+
+def test_loads_laundry_dimension(tmp_path):
+    text = MINIMAL.replace("dimension: volume", "dimension: laundry")
+    text = text.replace("default: per_volume\n  alternates: []", "default: per_load\n  alternates: [per_volume]")
+    write(tmp_path, "household/laundry.yaml", text)
+    cat = load_categories(tmp_path)["household/laundry"]
+    assert cat.dimension == "laundry"
+    assert (cat.comparison_default, cat.comparison_alternates) == ("per_load", ("per_volume",))

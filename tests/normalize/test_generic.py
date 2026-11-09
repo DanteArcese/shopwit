@@ -146,3 +146,15 @@ def test_brand_tier_from_field():
     assert brand_tier_from_field("Chobani", stores).value == "name_brand"
     assert brand_tier_from_field(None, stores) is None
     assert brand_tier_from_field("  ", stores) is None
+
+
+def test_generic_loads_are_not_a_count():
+    # Loads are not in the closed count-noun set, so generic search never reads them as
+    # "count" (and never merges them with it): a loads-only title is size unknown, and a
+    # title with a volume/mass uses that size. Pods/pacs counts follow the generic rules.
+    m = generic_measure(["Tide Liquid Laundry Detergent, 64 Loads"])
+    assert (m.dimension, m.reason) == (None, "size unknown")
+    m = generic_measure(["Tide Liquid Laundry Detergent, 92 fl oz, 64 Loads"])
+    assert (m.dimension, m.amount) == ("volume", _r(2720.76))
+    m = generic_measure(["Tide Pods Laundry Detergent, 81 Count"])
+    assert (m.dimension, m.amount) == ("count", 81)

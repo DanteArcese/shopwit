@@ -39,6 +39,8 @@ DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
     ("per_100_sheets", "metric"): ("100 sheets", ONE),
     ("per_roll", "imperial"): ("roll", ONE),
     ("per_roll", "metric"): ("roll", ONE),
+    ("per_load", "imperial"): ("load", ONE),
+    ("per_load", "metric"): ("load", ONE),
     ("per_oz_labeled", "imperial"): ("oz (as labeled)", ONE),
     ("per_oz_labeled", "metric"): ("oz (as labeled)", ONE),
 }
@@ -147,6 +149,20 @@ def _paper(measures: dict) -> str:
     return " · ".join(parts)
 
 
+def _laundry(measures: dict, imperial: bool) -> str:
+    parts = []
+    loads = measures.get("loads")
+    if loads is not None:
+        parts.append(f"{_num(_dec(loads))} {'load' if _dec(loads) == 1 else 'loads'}")
+    if measures.get("volume_ml") is not None:
+        parts.append(_volume(_dec(measures["volume_ml"]), imperial))
+    if measures.get("mass_g") is not None:
+        parts.append(_mass(_dec(measures["mass_g"]), imperial))
+    if measures.get("count") is not None:
+        parts.append(f"{_num(_dec(measures['count']))} ct")
+    return " · ".join(parts)
+
+
 def display_size(measures: dict, dimension: str, unit_system: str) -> str:
     """Human-readable pack size, or "" when the relevant measure is missing.
 
@@ -158,6 +174,8 @@ def display_size(measures: dict, dimension: str, unit_system: str) -> str:
     imperial = unit_system == "imperial"
     if dimension == "paper":
         return _paper(measures)
+    if dimension == "laundry":
+        return _laundry(measures, imperial)
     key = {"volume": "volume_ml", "mass": "mass_g", "count": "count"}.get(dimension)
     raw = measures.get(key) if key else None
     if raw is None:

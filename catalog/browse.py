@@ -21,7 +21,7 @@ from .geo import Near, bounding_box, within
 from .models import Category, Offer, Product
 
 BRAND_TIERS = ("name_brand", "store_brand")
-SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2"}
+SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2", "laundry": "loads"}
 # Relative slack so float conversion noise never drops an exact-size match.
 SIZE_TOLERANCE = 1e-9
 # Attributes a comparison's unit price depends on, beyond quantity.

@@ -48,3 +48,9 @@ def test_per_100_sheets():
 
 def test_zero_denominator_skipped():
     assert unit_prices(Decimal("5.99"), cat("per_volume"), {"volume_ml": 0}, {}) == {}
+
+
+def test_per_load_price():
+    c = cat("per_load", dimension="laundry")
+    assert unit_prices(Decimal("12.97"), c, {"loads": 64}, {}) == {"per_load": Decimal("0.202656")}
+    assert unit_prices(Decimal("12.97"), c, {"count": 81}, {}) == {}

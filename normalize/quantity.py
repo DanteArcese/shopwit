@@ -264,6 +264,51 @@ def _paper(text: str) -> Measures:
     return out
 
 
+# --- laundry -----------------------------------------------------------------
+# Loads, an explicit volume or mass, and a pod/pac count are separate facts. Pods are not
+# loads. A bare "oz" follows the form named in the text, else it is skipped (never guess).
+_LOADS_RE = re.compile(
+    rf"{_NUM}\s*(?:(?P<pre>total)\s+)?(?:loads?|lds)\b(?P<post>\s+total\b)?", re.IGNORECASE
+)
+_L_VOLUME_UNITS = [u for u in _VOLUME_UNITS if u[0] != "oz"]
+_L_MASS_UNITS = [u for u in _MASS_UNITS if u[1] != "ounce"]
+_L_VOLUME_RE = _unit_regex(_L_VOLUME_UNITS)
+_L_MASS_RE = _unit_regex(_L_MASS_UNITS)
+_LIQUID_RE = re.compile(r"\bliquid\b", re.IGNORECASE)
+_POWDER_RE = re.compile(r"\bpowder(?:ed)?\b", re.IGNORECASE)
+
+
+def _laundry(text: str) -> Measures:
+    out: Measures = {}
+    m = _LOADS_RE.search(text)
+    if m and not _ambiguous_lead(text, m):
+        loads = _to_float(m.group(1))
+        if not (m.group("pre") or m.group("post")):
+            loads *= _multiplier(text, m.start())
+        if loads > 0:
+            out["loads"] = loads
+    ml = _measure(text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter")
+    if ml is not None:
+        out["volume_ml"] = ml
+    stripped = _strip_fl_oz(_NUTRIENT_RE.sub(" ", text))
+    g = _measure(stripped, _L_MASS_RE, _L_MASS_UNITS, "gram")
+    if g is not None:
+        out["mass_g"] = g
+    liquid, powder = _LIQUID_RE.search(text), _POWDER_RE.search(text)
+    if bool(liquid) != bool(powder):
+        # "105 oz" of liquid is fluid ounces; of powder it is weight. Explicit units win.
+        unit, key, target = (
+            ("fluid_ounce", "volume_ml", "milliliter") if liquid else ("ounce", "mass_g", "gram")
+        )
+        if key not in out:
+            units = [(r"oz|ounces?", unit)]
+            oz = _measure(stripped, _unit_regex(units), units, target)
+            if oz is not None:
+                out[key] = oz
+    out.update(_count(text))
+    return out
+
+
 _PARSERS = {"volume": _volume, "mass": _mass, "count": _count, "paper": _paper}
 _REQUIRED = {
     "volume": "volume_ml",
@@ -274,7 +319,15 @@ _REQUIRED = {
 
 
 def parse_measures(texts: Sequence[str], dimension: Dimension) -> Measures:
-    """Return canonical measures from the first text that yields the dimension's key."""
+    """Return canonical measures from the first text that yields the dimension's key
+    (laundry merges across texts instead)."""
+    if dimension == "laundry":
+        # Unlike the other dimensions, laundry merges: each key from the earliest text with it.
+        merged: Measures = {}
+        for text in texts:
+            for key, value in _laundry(fold(text or "")).items():
+                merged.setdefault(key, value)
+        return merged
     parse = _PARSERS[dimension]
     for text in texts:
         result = parse(fold(text or ""))

@@ -58,14 +58,17 @@ SIZE_UNITS = {
     "mass": {"imperial": ("oz", "oz"), "metric": ("kg", "kg")},
     "paper": {"imperial": ("sqft", "sq ft"), "metric": ("m2", "m²")},
     "count": {"imperial": ("ct", "ct"), "metric": ("ct", "ct")},
+    "laundry": {"imperial": ("loads", "loads"), "metric": ("loads", "loads")},
 }
+# Counted dimensions have one unit, so the URL code never picks a unit system.
+COUNTED_DIMENSIONS = frozenset({"count", "laundry"})
 
 
 def _size_system(dimension: str, code: str | None, viewer_system: str) -> str:
     """The unit system a size bound is written in: the URL's size_unit when valid
     for this dimension, else the viewer's."""
     for system, (known, _label) in SIZE_UNITS.get(dimension, {}).items():
-        if code == known and dimension != "count":
+        if code == known and dimension not in COUNTED_DIMENSIONS:
             return system
     return viewer_system
 
