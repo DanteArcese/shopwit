@@ -5,6 +5,7 @@ roll). This module converts them for display in the viewer's unit system and
 formats amounts. Money stays Decimal throughout.
 """
 
+from collections.abc import Mapping
 from decimal import ROUND_HALF_UP, Decimal
 
 from normalize.compare import COMPARISONS
@@ -175,3 +176,91 @@ def display_generic_size(dimension: str, amount: float, unit_system: str) -> str
         return f"{_num(_dec(amount))} oz"
     key = {"volume": "volume_ml", "mass": "mass_g", "count": "count"}[dimension]
     return display_size({key: amount}, dimension, unit_system)
+
+
+# ---- list targets: "I want N <unit>" ------------------------------------------------------
+
+TARGET_UNITS: dict[str, dict[str, tuple[str, str, Decimal]]] = {
+    "volume": {
+        "floz": ("fl oz", "volume_ml", ML_PER_FL_OZ),
+        "gal": ("gal", "volume_ml", ML_PER_FL_OZ * FL_OZ_PER_GAL),
+        "ml": ("mL", "volume_ml", Decimal(1)),
+        "l": ("L", "volume_ml", Decimal(1000)),
+    },
+    "mass": {
+        "oz": ("oz", "mass_g", G_PER_OZ),
+        "lb": ("lb", "mass_g", G_PER_OZ * OZ_PER_LB),
+        "g": ("g", "mass_g", Decimal(1)),
+        "kg": ("kg", "mass_g", Decimal(1000)),
+    },
+    "count": {"ct": ("ct", "count", Decimal(1))},
+    "paper": {
+        "rolls": ("rolls", "rolls", Decimal(1)),
+        "sheets": ("sheets", "sheets", Decimal(1)),
+    },
+}
+
+_TARGET_QUANTUM = Decimal("0.001")
+_TARGET_MAX = Decimal("1000000")
+
+_SYSTEM_UNITS = {
+    ("volume", "imperial"): ["floz", "gal"],
+    ("volume", "metric"): ["l", "ml"],
+    ("mass", "imperial"): ["oz", "lb"],
+    ("mass", "metric"): ["g", "kg"],
+}
+
+
+def target_units_for(dimension: str, unit_system: str) -> list[str]:
+    """Unit codes offered for a target in the viewer's unit system."""
+    if dimension == "count":
+        return ["ct"]
+    if dimension == "paper":
+        return ["rolls", "sheets"]
+    if dimension == "oz_labeled":
+        return ["oz"]
+    return list(_SYSTEM_UNITS.get((dimension, unit_system), []))
+
+
+def validated_canonical(amount: Decimal, factor: Decimal) -> Decimal:
+    if not isinstance(amount, Decimal):
+        amount = Decimal(str(amount))
+    if not amount.is_finite() or amount <= 0:
+        raise ValueError("amount must be a positive number")
+    try:
+        canonical = (amount * factor).quantize(_TARGET_QUANTUM, rounding=ROUND_HALF_UP)
+    except ArithmeticError as exc:
+        raise ValueError("amount out of range") from exc
+    if canonical <= 0 or canonical > _TARGET_MAX:
+        raise ValueError("amount out of range")
+    return canonical
+
+
+def target_to_canonical(amount: Decimal, unit_code: str, dimension: str) -> tuple[str, Decimal]:
+    """(measure key, canonical amount to 3 dp). Raises ValueError for anything invalid."""
+    try:
+        _label, key, factor = TARGET_UNITS[dimension][unit_code]
+    except KeyError as exc:
+        raise ValueError(f"unit {unit_code!r} is not valid for {dimension!r}") from exc
+    return key, validated_canonical(amount, factor)
+
+
+def default_target(
+    measures: Mapping[str, float], dimension: str, unit_system: str
+) -> tuple[Decimal, str] | None:
+    """One package of an offer in the viewer's first unit, to 2 dp, or None if unmeasured."""
+    if dimension == "paper":
+        codes = ["rolls", "sheets"]
+    else:
+        codes = target_units_for(dimension, unit_system)[:1]
+    for code in codes:
+        _label, key, factor = TARGET_UNITS[dimension][code]
+        raw = measures.get(key)
+        if raw is not None:
+            amount = (_dec(raw) / factor).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+            return amount, code
+    return None
+
+
+def display_target(measure_key: str, amount: Decimal, dimension: str, unit_system: str) -> str:
+    return display_size({measure_key: float(amount)}, dimension, unit_system)

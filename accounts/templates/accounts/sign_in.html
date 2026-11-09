@@ -1,0 +1,26 @@
+{% extends "web/base.html" %}
+{% block title %}Sign in - UnitPricer{% endblock %}
+{% block main %}
+<h1>Sign in</h1>
+<p class="note">No account? Enter your email for a sign-in link; that creates one.</p>
+<form class="account-form" method="post" action="{% url 'accounts:magic_request' %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <h2>Email me a sign-in link</h2>
+  {% if magic_error %}<p class="error" id="magic-email-error" role="alert">{{ magic_error }}</p>{% endif %}
+  <label for="magic-email">Email</label>
+  <input type="email" id="magic-email" name="email" autocomplete="email" maxlength="150" required{% if magic_error %} aria-invalid="true" aria-describedby="magic-email-error"{% endif %}>
+  <button type="submit">Email me a sign-in link</button>
+</form>
+<form class="account-form" method="post" action="{% url 'accounts:sign_in' %}">
+  {% csrf_token %}
+  <input type="hidden" name="next" value="{{ next }}">
+  <h2>Sign in with a password</h2>
+  {% if password_error %}<p class="error" id="password-error" role="alert">{{ password_error }}</p>{% endif %}
+  <label for="password-email">Email</label>
+  <input type="email" id="password-email" name="email" autocomplete="username" maxlength="150" required>
+  <label for="password">Password</label>
+  <input type="password" id="password" name="password" autocomplete="current-password" required{% if password_error %} aria-describedby="password-error"{% endif %}>
+  <button type="submit">Sign in</button>
+</form>
+{% endblock %}

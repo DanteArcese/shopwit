@@ -1,0 +1,21 @@
+{% extends "web/base.html" %}
+{% block title %}Your lists - UnitPricer{% endblock %}
+{% block main %}
+<h1>Your lists</h1>
+{% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if lists %}
+<ul class="list-index">
+  {% for spec, count in lists %}
+  <li><a href="{% url 'lists:detail' spec.id %}">{{ spec.name }}</a> <span class="hint">{{ count }} item{{ count|pluralize }}</span></li>
+  {% endfor %}
+</ul>
+{% else %}
+<p class="empty">No lists yet. Open a <a href="{% url 'home' %}">category</a>, pick the filters you want and choose &ldquo;Add to list&rdquo;.</p>
+{% endif %}
+<form class="list-form" method="post" action="{% url 'lists:create' %}">
+  {% csrf_token %}
+  <label for="new-list-name">New list</label>
+  <input type="text" id="new-list-name" name="name" maxlength="80" placeholder="My list">
+  <button type="submit">Create list</button>
+</form>
+{% endblock %}

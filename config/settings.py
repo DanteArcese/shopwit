@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     "web",
     "waitlist",
     "feedback",
+    "lists",
+    "accounts",
 ]
 
 MIDDLEWARE = [
@@ -218,6 +220,7 @@ SILENCED_SYSTEM_CHECKS = ["security.W021"]
 SESSION_COOKIE_SECURE = not DEBUG
 CSRF_COOKIE_SECURE = not DEBUG
 SESSION_COOKIE_HTTPONLY = True
+SESSION_COOKIE_AGE = 60 * 60 * 24 * 60
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
 CSRF_TRUSTED_ORIGINS = [
@@ -249,10 +252,17 @@ DAILY_EMAIL_CAP = int(env("UNITPRICER_DAILY_EMAIL_CAP", 100))
 WAITLIST_CONFIRM_RESERVE = 20
 WAITLIST_CONFIRM_MAX_AGE = timedelta(days=7)
 
+# Accounts: emailed sign-in links use SITE_URL (never the request's Host).
+MAGIC_LINK_TTL = timedelta(minutes=15)
+LOGIN_URL = "accounts:sign_in"
+
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "unitpricer_cache",
+        # Culling (a third of the rows once full) would reset rate-limit lockouts;
+        # keep the cap far above what rate-limited traffic can create.
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
     }
 }
 
@@ -260,11 +270,14 @@ LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
+    # Token paths (waitlist, magic links) are redacted from every record.
+    "filters": {"redact": {"()": "web.glogging.RedactFilter"}},
     "handlers": {
         "stdout": {
             "class": "logging.StreamHandler",
             "stream": "ext://sys.stdout",
             "formatter": "plain",
+            "filters": ["redact"],
         }
     },
     "root": {"handlers": ["stdout"], "level": env("DJANGO_LOG_LEVEL", "INFO")},

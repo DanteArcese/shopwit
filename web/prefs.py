@@ -5,7 +5,8 @@ Browsing sets no cookies; saving settings creates the session and CSRF cookies.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Literal
 
 from catalog.geo import KM_PER_MILE, normalize_postal_code
@@ -30,6 +31,7 @@ class Prefs:
     postal_code: str | None = None  # normalized; never logged or put in URLs
     country: str = DEFAULT_COUNTRY
     radius: int = DEFAULT_RADIUS  # one of RADIUS_STEPS
+    comparisons: Mapping[str, str] = field(default_factory=dict)  # category slug -> comparison
 
 
 def radius_km(radius: int, unit_system: UnitSystem) -> float:
@@ -62,9 +64,15 @@ def default_unit_system(accept_language: str) -> UnitSystem:
     return "metric"
 
 
-def get_prefs(request) -> Prefs:
-    raw = request.session.get("prefs")
-    default = default_unit_system(request.META.get("HTTP_ACCEPT_LANGUAGE", ""))
+def clean_comparisons(raw) -> dict[str, str]:
+    """A str -> str mapping; anything else is ignored."""
+    if not isinstance(raw, dict):
+        return {}
+    return {k: v for k, v in raw.items() if isinstance(k, str) and isinstance(v, str)}
+
+
+def parse_prefs(raw, default: UnitSystem) -> Prefs:
+    """Prefs from a stored dict (session or UserSettings); bad values fall back."""
     if not isinstance(raw, dict):
         return Prefs(default, None)
     unit_system = raw.get("unit_system")
@@ -84,20 +92,85 @@ def get_prefs(request) -> Prefs:
         postal_code=postal_code,
         country=country if postal_code else DEFAULT_COUNTRY,
         radius=radius,
+        comparisons=clean_comparisons(raw.get("comparisons")),
     )
 
 
+def _account_user(request):
+    user = getattr(request, "user", None)
+    return user if user is not None and user.is_authenticated else None
+
+
+_CACHE_ATTR = "_prefs"
+
+
+def get_prefs(request) -> Prefs:
+    """The visitor's prefs, read once per request (views and the context processor
+    share it); save_prefs drops the cached copy, and a sign-in mid-request (another
+    user) misses it."""
+    user = _account_user(request)
+    key = user.pk if user is not None else None
+    cached = getattr(request, _CACHE_ATTR, None)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    prefs = _read_prefs(request, user)
+    setattr(request, _CACHE_ATTR, (key, prefs))
+    return prefs
+
+
+def _read_prefs(request, user) -> Prefs:
+    default = default_unit_system(request.META.get("HTTP_ACCEPT_LANGUAGE", ""))
+    if user is not None:
+        from accounts.models import UserSettings
+
+        row = UserSettings.objects.filter(user=user).first()
+        if row is None:
+            return Prefs(default, None)
+        return parse_prefs(
+            {
+                "unit_system": row.unit_system,
+                "stores": row.stores,
+                "postal_code": row.postal_code,
+                "country": row.country,
+                "radius": row.radius,
+                "comparisons": row.comparisons,
+            },
+            default,
+        )
+    return parse_prefs(request.session.get("prefs"), default)
+
+
 def save_prefs(request, prefs: Prefs) -> None:
-    data = {
-        "unit_system": prefs.unit_system,
-        "stores": None if prefs.stores is None else sorted(prefs.stores),
-    }
-    # Location keys only when set, so the session holds nothing it does not need.
+    # The next get_prefs re-reads what was just saved (normalized, as later requests see it).
+    if hasattr(request, _CACHE_ATTR):
+        delattr(request, _CACHE_ATTR)
+    stores = None if prefs.stores is None else sorted(prefs.stores)
+    comparisons = clean_comparisons(dict(prefs.comparisons))
+    user = _account_user(request)
+    if user is not None:
+        from accounts.models import UserSettings
+
+        UserSettings.objects.update_or_create(
+            user=user,
+            defaults={
+                "unit_system": prefs.unit_system,
+                "stores": stores,
+                "postal_code": prefs.postal_code or "",
+                "country": prefs.country,
+                "radius": prefs.radius,
+                "comparisons": comparisons,
+            },
+        )
+        return
+    data = {"unit_system": prefs.unit_system, "stores": stores}
+    # Optional keys only when set, so the session holds nothing it does not need.
     if prefs.postal_code:
         data["postal_code"] = prefs.postal_code
         data["country"] = prefs.country
     if prefs.radius != DEFAULT_RADIUS:
         data["radius"] = prefs.radius
+    if comparisons:
+        data["comparisons"] = comparisons
     request.session["prefs"] = data
 
 

@@ -1,0 +1,64 @@
+{% extends "web/base.html" %}
+{% block title %}{{ list.name }} - UnitPricer{% endblock %}
+{% block main %}
+<h1>{{ list.name }}</h1>
+<p><a href="{% url 'lists:index' %}">All lists</a></p>
+{% if error and not error_item %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+{% if mixed %}<p class="error" role="alert">{{ mixed }}</p>{% endif %}
+{% if has_amazon %}<p class="note amazon-associate">As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
+
+{% if view.items %}
+<ol class="list-items">
+  {% for item in view.items %}{% include "lists/_item.html" %}{% endfor %}
+</ol>
+{% else %}
+<p class="empty">This list is empty. Open a <a href="{% url 'home' %}">category</a> and choose &ldquo;Add to list&rdquo;.</p>
+{% endif %}
+
+{% if view.unresolved_count and view.resolved_count %}<p class="note">{{ view.unresolved_count }} item{{ view.unresolved_count|pluralize }} without a price {{ view.unresolved_count|pluralize:"is,are" }} left out of the totals.</p>{% endif %}
+
+{% if view.totals %}
+<section class="list-totals">
+  <h2>Totals by store</h2>
+  <table>
+    <thead><tr><th scope="col">Store</th><th scope="col">Total</th><th scope="col">Missing</th></tr></thead>
+    <tbody>
+    {% for t in view.totals %}
+      <tr{% if t.single %} class="cheapest"{% endif %}><th scope="row">{{ t.store }}</th><td>{{ t.total }}</td><td>{% if t.missing %}missing {{ t.missing }}{% endif %}</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% if view.single %}
+  <p class="cheapest-single">Cheapest single store: <strong>{{ view.single.store }} {{ view.single.total }}</strong></p>
+  {% else %}
+  <p class="cheapest-single">No single store has every item</p>
+  {% endif %}
+  {% if view.split %}
+  <h2>Cheapest split{% if max_split %} (up to {{ max_split }} store{{ max_split|pluralize }}){% endif %}: {{ view.split.total }}</h2>
+  {% if view.split.saves %}<p class="note">saves {{ view.split.saves }}</p>{% endif %}
+  <ul class="split-stores">
+    {% for s in view.split.stores %}<li><strong>{{ s.store }}</strong>: {{ s.items|join:", " }}</li>{% endfor %}
+  </ul>
+  {% endif %}
+  <form class="split-form" method="get" action="{% url 'lists:detail' list.id %}">
+    {% for name, value in store_params %}<input type="hidden" name="{{ name }}" value="{{ value }}">{% endfor %}
+    <label for="split">Split across up to</label>
+    <select id="split" name="split">
+      {% for c in split_choices %}<option value="{{ c }}"{% if c == split_key %} selected{% endif %}>{% if c == "all" %}any number of stores{% else %}{{ c }} store{{ c|pluralize }}{% endif %}</option>{% endfor %}
+    </select>
+    <button type="submit">Update</button>
+  </form>
+  {% if oldest %}<p class="result-fine">Totals use prices as of {{ oldest|date:"M j, g:i A" }} UTC or later.</p>{% endif %}
+</section>
+{% endif %}
+
+<section class="list-manage">
+  <form class="list-form" method="post" action="{% url 'lists:rename' list.id %}">
+    {% csrf_token %}
+    <label for="rename">Rename list</label>
+    <input type="text" id="rename" name="name" maxlength="80" value="{{ list.name }}">
+    <button type="submit">Rename</button>
+  </form>
+  <p><a class="danger" href="{% url 'lists:delete' list.id %}">Delete list</a></p>
+</section>
+{% endblock %}

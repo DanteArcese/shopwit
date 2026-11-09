@@ -16,6 +16,7 @@ from decimal import Decimal
 from pathlib import Path
 
 import yaml
+from django.conf import settings
 from django.contrib.postgres.search import (
     SearchQuery,
     SearchRank,
@@ -27,7 +28,15 @@ from django.http import QueryDict
 from catalog.browse import BRAND_TIERS, SIZE_TOLERANCE, _tie
 from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Offer, Product
-from catalog.units import G_PER_OZ, ML_PER_FL_OZ, size_to_canonical
+from catalog.units import (
+    FL_OZ_PER_GAL,
+    G_PER_OZ,
+    ML_PER_FL_OZ,
+    OZ_PER_LB,
+    size_to_canonical,
+    validated_canonical,
+)
+from normalize import load_store_brands
 from normalize.categories import CategoryDef
 from normalize.generic import DIMENSION_ORDER, trigram_similarity
 from normalize.match import brand_tier_from_field
@@ -468,3 +477,56 @@ def facets(
                 Facet(key, [("min", _fmt(lo), products), ("max", _fmt(hi), products)], dimension in f.sizes)
             )
     return out
+
+
+def generic_matching_offers(
+    query: str,
+    facets: Mapping[str, list[str]],
+    dimension: str,
+    stores: frozenset[str] | None,
+    now: datetime,
+    *,
+    unit_system: str = "metric",
+) -> list[Offer]:
+    """Fresh live offers for a generic list item: text match, facets, one dimension.
+
+    Size facet bounds are read in ``unit_system`` like the search page's URL params.
+    Only offers whose ``measure_dim`` equals ``dimension`` are kept; nothing is read
+    from a title beyond the open-search text match.
+    """
+    params = QueryDict(mutable=True)
+    for key, values in facets.items():
+        params.setlist(key, list(values))
+    allowlist = load_label_allowlist(settings.LABELS_FILE)
+    store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
+    filters = parse_generic_filters(params, unit_system, allowlist)
+    offers = match_offers(query, now, stores=stores).offers
+    return [o for o in apply_filters(offers, filters, store_brands) if o.measure_dim == dimension]
+
+
+# dimension -> unit code -> (label, canonical amount per unit)
+GENERIC_TARGET_UNITS: dict[str, dict[str, tuple[str, Decimal]]] = {
+    "volume": {
+        "floz": ("fl oz", ML_PER_FL_OZ),
+        "gal": ("gal", ML_PER_FL_OZ * FL_OZ_PER_GAL),
+        "ml": ("mL", Decimal(1)),
+        "l": ("L", Decimal(1000)),
+    },
+    "mass": {
+        "oz": ("oz", G_PER_OZ),
+        "lb": ("lb", G_PER_OZ * OZ_PER_LB),
+        "g": ("g", Decimal(1)),
+        "kg": ("kg", Decimal(1000)),
+    },
+    "count": {"ct": ("ct", Decimal(1))},
+    "oz_labeled": {"oz": ("oz (as labeled)", Decimal(1))},
+}
+
+
+def generic_target_to_canonical(amount: Decimal, unit_code: str, dimension: str) -> Decimal:
+    """Canonical target amount to 3 dp (mL, g, count, labeled oz). Raises ValueError."""
+    try:
+        _label, factor = GENERIC_TARGET_UNITS[dimension][unit_code]
+    except KeyError as exc:
+        raise ValueError(f"unit {unit_code!r} is not valid for {dimension!r}") from exc
+    return validated_canonical(amount, factor)

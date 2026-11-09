@@ -235,6 +235,7 @@ def test_tick_survives_open_prices_due_error(cats, settings, monkeypatch, caplog
 def fresh_cleanup(monkeypatch):
     monkeypatch.setattr(scheduler, "_sessions_cleared_at", None)
     monkeypatch.setattr(scheduler, "_feedback_purged_at", None)
+    monkeypatch.setattr(scheduler, "_magic_purged_at", None)
 
 
 def test_tick_clears_expired_sessions_daily(cats, fresh_cleanup, monkeypatch):
@@ -491,3 +492,43 @@ def test_command_stop_event_records_sigterm_time():
     with scheduler.sigterm_stops(stop):
         signal.raise_signal(signal.SIGTERM)
     assert stop.is_set() and stop.set_at is not None
+
+
+def test_tick_purges_expired_magic_link_tokens_daily(cats, fresh_cleanup, monkeypatch):
+    from accounts.magic import issue_token
+    from accounts.models import MagicLinkToken
+
+    MagicLinkToken.objects.all().delete()
+    issue_token("old@example.com", "/lists/", NOW - timedelta(days=2))
+    issue_token("live@example.com", "/lists/", NOW)
+    scheduler.tick(NOW, {})
+    assert list(MagicLinkToken.objects.values_list("email", flat=True)) == ["live@example.com"]
+
+
+def test_tick_purges_expired_cache_rows(cats, fresh_cleanup, monkeypatch):
+    from django.core.cache import cache
+    from django.db import connection
+
+    cache.clear()
+    cache.set("gone", 1, timeout=60)
+    cache.set("kept", 1, timeout=3600)
+    with connection.cursor() as cur:
+        cur.execute("UPDATE unitpricer_cache SET expires = now() - interval '1 second' WHERE cache_key LIKE %s", ["%gone"])
+    scheduler.tick(NOW, {})
+    with connection.cursor() as cur:
+        cur.execute("SELECT cache_key FROM unitpricer_cache")
+        keys = [r[0] for r in cur.fetchall()]
+    assert len(keys) == 1 and keys[0].endswith("kept")
+
+
+def test_magic_purge_failure_never_stops_tick(cats, fresh_cleanup, monkeypatch, caplog):
+    import accounts.magic
+
+
+    def boom(now):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(accounts.magic, "purge_expired", boom)
+    assert scheduler.tick(NOW, {}) == []
+    assert "sign-in link purge failed: RuntimeError" in caplog.text
+    assert scheduler.purge_magic_tokens(NOW + timedelta(hours=1)) is False

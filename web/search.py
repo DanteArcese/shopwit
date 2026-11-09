@@ -18,6 +18,8 @@ from django.urls import reverse
 from django.utils.cache import patch_vary_headers
 
 from catalog.browse import limit_to_radius
+from catalog.demand import record_demand
+from catalog.fetch import enqueue
 from catalog.generic import (
     GROUP_PAGE,
     SIZE_PARAMS,
@@ -33,8 +35,6 @@ from catalog.generic import (
     near_misses,
     parse_generic_filters,
 )
-from catalog.demand import record_demand
-from catalog.fetch import enqueue
 from catalog.models import FetchJob
 from catalog.units import GENERIC_COMPARISON, display_generic_size
 from connectors.registry import live_source_info
@@ -326,7 +326,19 @@ def _present_row(row: GenericRow, *, observed: bool, unit_system: str, names: di
     return out
 
 
-def _groups(result: GenericResult, *, section: str, observed: bool, unit_system: str, names, expand: str | None):
+def _add_url(q: str, dimension: str, get) -> str | None:
+    """"Add to list" for a live measure group: the phrase, the dimension and the facets in use."""
+    if dimension not in GENERIC_COMPARISON:
+        return None
+    keep = {p for ps in FACET_PARAMS.values() for p in ps}
+    facet_pairs = [(k, v) for k, values in get.lists() if k in keep for v in values if v.strip()]
+    return f"{reverse('lists:add')}?{urlencode([('kind', 'generic'), ('q', q), ('dim', dimension), *facet_pairs])}"
+
+
+def _groups(
+    result: GenericResult, *, section: str, observed: bool, unit_system: str, names, expand: str | None,
+    q: str = "", get=None,
+):
     entries = [(g.dimension, g.rows, g.total) for g in result.groups]
     if result.unknown:
         entries.append(("unknown", result.unknown, len(result.unknown)))
@@ -339,6 +351,7 @@ def _groups(result: GenericResult, *, section: str, observed: bool, unit_system:
                 "section": section,
                 "observed": observed,
                 "dom_id": f"group-{section}-{dimension}",
+                "add_url": None if observed or get is None else _add_url(q, dimension, get),
                 "heading": f"{HEADINGS[dimension]} ({total})",
                 "total": total,
                 "more": total > len(shown),
@@ -387,7 +400,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
 
     live_groups = _groups(
         live_result, section="live", observed=False, unit_system=prefs.unit_system, names=names,
-        expand=show if show_section == "live" else None,
+        expand=show if show_section == "live" else None, q=q, get=request.GET,
     )
     seen_groups = _groups(
         seen_result, section="observed", observed=True, unit_system=prefs.unit_system, names=names,

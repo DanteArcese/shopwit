@@ -12,7 +12,7 @@ errorlog = "-"
 access_log_format = '%(t)s %(m)s %(U)s %(s)s %(B)s %(M)sms'
 # gunicorn 26's control socket needs $HOME, which the container user lacks.
 control_socket_disable = True
-# Waitlist tokens in URL paths are redacted from the access log.
+# Waitlist and sign-in tokens in URL paths are redacted from the access log.
 logger_class = "web.glogging.RedactingLogger"
 
 

@@ -32,6 +32,9 @@ APP_ROUTES = [
     ("post", "/click", {}),
     ("get", "/feedback", {}),
     ("post", "/feedback", {}),
+    ("get", "/lists/", {}),
+    ("post", "/lists/new", {}),
+    ("get", "/lists/add?category=dairy%2Fmilk", {}),
 ]
 
 
@@ -118,3 +121,16 @@ def test_ratelimit_window():
     window = timedelta(minutes=1)
     assert [allow("t", "a", 3, window) for _ in range(4)] == [True, True, True, False]
     assert allow("t", "b", 3, window) is True
+
+
+def test_ratelimit_exceeded_peeks_without_counting():
+    from web.ratelimit import allow, exceeded
+
+    window = timedelta(minutes=1)
+    assert exceeded("p", "a", 2, window) is False
+    assert exceeded("p", "a", 2, window) is False  # peeking never counts
+    allow("p", "a", 2, window)
+    assert exceeded("p", "a", 2, window) is False
+    allow("p", "a", 2, window)
+    assert exceeded("p", "a", 2, window) is True
+    assert exceeded("p", "b", 2, window) is False
