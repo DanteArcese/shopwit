@@ -118,3 +118,35 @@ def test_scrub_tolerates_sparse_and_odd_events():
 def test_scrub_never_raises(monkeypatch):
     monkeypatch.setattr(sentry, "_scrub_value", lambda v: 1 / 0)
     assert scrub_event({"message": "x"}, {}) is None
+
+
+def test_init_failure_returns_false_and_hides_dsn(monkeypatch, caplog):
+    def boom(*a, **k):
+        raise ValueError("Unsupported scheme in https://secretkey@o0.ingest.sentry.io/1")
+
+    monkeypatch.setattr(sentry.sentry_sdk, "init", boom)
+    dsn = "https://secretkey@o0.ingest.sentry.io/1"
+    with caplog.at_level("WARNING"):
+        assert init_sentry(dsn) is False
+    assert caplog.records, "a warning is logged"
+    assert "secretkey" not in caplog.text and dsn not in caplog.text
+
+
+def test_bad_dsn_does_not_break_manage_check(prod_env, run_prod):
+    out = run_prod({**prod_env, "SENTRY_DSN": "not-a-dsn"}, "manage.py", "check")
+    assert out.returncode == 0, out.stderr
+    assert "not-a-dsn" not in out.stdout + out.stderr
+
+
+@pytest.mark.parametrize("text", ["near 94110 today", "zip=94110-1234", "ZIP 02139."])
+def test_scrub_removes_zip_like_tokens(text):
+    out = scrub_event({"message": text}, {})
+    assert "[zip]" in out["message"]
+    for digits in ("94110", "1234", "02139"):
+        assert digits not in out["message"]
+
+
+def test_scrub_keeps_other_numbers():
+    out = scrub_event({"message": "took 1234 ms, id 123456", "lineno": 94110}, {})
+    assert out["message"] == "took 1234 ms, id 123456"
+    assert out["lineno"] == 94110
