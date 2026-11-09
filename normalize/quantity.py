@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import pint
 
@@ -120,7 +120,11 @@ def _unit_name(m: re.Match[str], units: list[tuple[str, str]]) -> str:
 
 
 def _measure(
-    text: str, rx: re.Pattern[str], units: list[tuple[str, str]], target: str
+    text: str,
+    rx: re.Pattern[str],
+    units: list[tuple[str, str]],
+    target: str,
+    multiplier: Callable[[str, int], int] = _multiplier,
 ) -> float | None:
     m = rx.search(text)
     if not m or _ambiguous_lead(text, m):
@@ -137,7 +141,7 @@ def _measure(
         if (unit, second) not in _COMPOUNDS:
             return None
         value = value + _to_float(part.group(1)) * _ureg(second)
-    mult = _multiplier(text, m.start())
+    mult = multiplier(text, m.start())
     if mult == 1:
         bare = _BARE_COUNT_RE.search(text)
         if bare and int(bare.group(1)) > 1:
@@ -278,20 +282,40 @@ _LIQUID_RE = re.compile(r"\bliquid\b", re.IGNORECASE)
 _POWDER_RE = re.compile(r"\bpowder(?:ed)?\b", re.IGNORECASE)
 
 
+_UP_TO_RE = re.compile(r"\bup[\s-]*to\s*$", re.IGNORECASE)
+# "2 x 92 fl oz": a count and "x" directly before a size unit is a multipack. A bare
+# "2X"/"3X" elsewhere ("Tide 2X 64 Loads") is concentration, not a multiplier.
+_L_SIZE_UNITS = _L_VOLUME_UNITS + _L_MASS_UNITS + [(r"oz|ounces?", "ounce")]
+_L_X_SIZE_RE = re.compile(
+    rf"(?<![\w.])(\d+)\s*x\s*(?=(?:{_NUM})\s*-?\s*(?:{'|'.join(p for p, _ in _L_SIZE_UNITS)})(?![A-Za-z]))",
+    re.IGNORECASE,
+)
+
+
+def _laundry_multiplier(text: str, start: int = 0) -> int:
+    m = _PACK_OF.search(text) or _PACK_N.search(text) or _CONTAINERS_RE.search(text)
+    if m:
+        return int(m.group(1))
+    m = _L_X_SIZE_RE.search(text)
+    return int(m.group(1)) if m else 1
+
+
 def _laundry(text: str) -> Measures:
     out: Measures = {}
     m = _LOADS_RE.search(text)
+    if m and _UP_TO_RE.search(text[: m.start()]):
+        m = None  # "up to 64 loads" is a marketing maximum, never the count
     if m and not _ambiguous_lead(text, m):
         loads = _to_float(m.group(1))
         if not (m.group("pre") or m.group("post")):
-            loads *= _multiplier(text, m.start())
+            loads *= _laundry_multiplier(text)
         if loads > 0:
             out["loads"] = loads
-    ml = _measure(text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter")
+    ml = _measure(text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter", _laundry_multiplier)
     if ml is not None:
         out["volume_ml"] = ml
     stripped = _strip_fl_oz(_NUTRIENT_RE.sub(" ", text))
-    g = _measure(stripped, _L_MASS_RE, _L_MASS_UNITS, "gram")
+    g = _measure(stripped, _L_MASS_RE, _L_MASS_UNITS, "gram", _laundry_multiplier)
     if g is not None:
         out["mass_g"] = g
     liquid, powder = _LIQUID_RE.search(text), _POWDER_RE.search(text)
@@ -302,7 +326,7 @@ def _laundry(text: str) -> Measures:
         )
         if key not in out:
             units = [(r"oz|ounces?", unit)]
-            oz = _measure(stripped, _unit_regex(units), units, target)
+            oz = _measure(stripped, _unit_regex(units), units, target, _laundry_multiplier)
             if oz is not None:
                 out[key] = oz
     out.update(_count(text))

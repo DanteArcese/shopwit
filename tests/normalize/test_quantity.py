@@ -507,3 +507,26 @@ def test_tissue_ply_not_a_count():
 def test_tissue_bare_count_single_box_and_zero():
     assert _tissue("Facial Tissue 200 ct") == {"sheets": 200}
     assert _tissue("Facial Tissue, 0 Tissues") == {}
+
+
+def test_laundry_concentration_is_not_a_multiplier():
+    m = parse_measures(["Tide Liquid HE 2X 64 loads"], "laundry")
+    assert m == {"loads": 64}
+    m = parse_measures(["Tide 2x 64 Loads 92 fl oz"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+    m = parse_measures(["Tide Ultra 3X Concentrated 64 Loads, 92 fl oz"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+
+
+def test_laundry_explicit_pack_context_still_multiplies():
+    m = parse_measures(["Tide Liquid 2 x 92 fl oz bottles, 64 Loads"], "laundry")
+    assert m["volume_ml"] == _r(2 * 2720.76) and m["loads"] == 128
+    m = parse_measures(["Tide Liquid 2X, 92 fl oz, 64 Loads, 2 Pack"], "laundry")
+    assert m["volume_ml"] == _r(2 * 2720.76) and m["loads"] == 128
+
+
+def test_laundry_up_to_loads_never_guessed():
+    m = parse_measures(["Tide up to 64 loads, 92 fl oz"], "laundry")
+    assert "loads" not in m and m["volume_ml"] == _r(2720.76)
+    assert "loads" not in parse_measures(["Up to 64 loads Tide"], "laundry")
+    assert "loads" not in parse_measures(["Tide up-to 64 loads"], "laundry")

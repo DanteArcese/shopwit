@@ -823,3 +823,23 @@ def test_list_view_passes_raw_client_ip_as_key(client, db, sources, monkeypatch)
     spec = seed(client, generic_item(1))
     client.get(detail_url(spec), REMOTE_ADDR="203.0.113.9")
     assert seen == ["203.0.113.9"]  # allow() salts and hashes it, as for search
+
+
+@pytest.mark.parametrize(
+    ("dimension", "measure"), [("laundry", "loads"), ("tissue", "sheets")]
+)
+def test_add_item_for_new_dimensions(client, db, dimension, measure):
+    from catalog.models import Category
+
+    Category.objects.create(
+        slug=f"household/{dimension}-x", name="X", dimension=dimension,
+        comparison_default="per_load" if dimension == "laundry" else "sheets_x_ply",
+    )
+    resp = client.post(
+        "/lists/add",
+        {"category": f"household/{dimension}-x", "amount": "64", "unit": measure, "list": "new"},
+    )
+    assert resp.status_code == 302
+    (spec,) = SessionListStore(client.session).lists()
+    (item,) = spec.items
+    assert item.target_measure == measure and item.target_amount == 64
