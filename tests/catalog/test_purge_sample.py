@@ -90,6 +90,7 @@ def test_purge_covers_generic_offers(loaded_sample):
     loaded = set(Offer.objects.values_list("retailer_item_id", flat=True))
     unloaded = sorted(sample_item_ids(RECORDINGS) - loaded)[0]
     g = make_offer(item=unloaded, category=None)  # uncategorized sample offer
+    Offer.objects.filter(pk=g.pk).update(url=f"https://www.walmart.com/ip/{unloaded}")
     run("--apply")
     assert not Offer.objects.filter(pk=g.pk).exists()
 
@@ -112,3 +113,34 @@ def test_purge_unpins_account_items_and_drops_review_items(loaded_sample, django
 def test_purge_missing_dir_errors(db, tmp_path):
     with pytest.raises(CommandError):
         call_command("purge_sample_data", recordings=str(tmp_path / "nope"))
+
+
+def test_purge_remerges_surviving_products(loaded_sample):
+    sample = Offer.objects.filter(retailer="walmart").first()
+    product = sample.product
+    observed = make_offer(product=product, retailer="op-safeway", item="u@n2", kind="observed")
+    Offer.objects.filter(pk=observed.pk).update(
+        title="Real observed title",
+        category=sample.category,
+        measures=sample.measures,
+        attributes={"fat": {"value": "2", "source": "title"}},
+        unit_prices={"stale": "1"},
+    )
+    product.title = sample.title
+    product.save()
+    out = run("--apply")
+    assert "products_remerged=" in out and "pins_cleared=" in out
+    product.refresh_from_db()
+    assert product.title == "Real observed title"
+    observed.refresh_from_db()
+    assert observed.unit_prices and "stale" not in observed.unit_prices
+    assert "Great Value" not in (product.brand or "")
+
+
+def test_purge_keeps_colliding_real_offer(loaded_sample):
+    loaded = set(Offer.objects.values_list("retailer_item_id", flat=True))
+    unloaded = sorted(sample_item_ids(RECORDINGS) - loaded)[0]
+    real = make_offer(item=unloaded)
+    Offer.objects.filter(pk=real.pk).update(title="Totally different cereal", url="https://www.walmart.com/ip/other-thing")
+    run("--apply")
+    assert Offer.objects.filter(pk=real.pk).exists()
