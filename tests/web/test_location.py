@@ -402,10 +402,10 @@ def test_privacy_page_mentions_postal_code(client):
     html = client.get("/privacy").content.decode()
     collect = html[html.index(">What we collect<") : html.index(">Why<")]
     assert (
-        "Beta app: the ZIP code and distance you choose in Settings. They are saved on our server "
+        "ZIP code and distance you choose in Settings. They are stored on our server "
         "in your session record (linked to your browser by a session cookie, expiring 60 days after "
-        "you last save your settings or lists), used only to show in-store prices from nearby stores, and "
-        "never logged. Clear the ZIP code in Settings to remove it."
+        "you last save your settings or lists) or, if you have an account, with your account. The ZIP code is used only to show in-store prices from nearby stores and "
+        "is never logged. Clear it in Settings to remove it."
     ) in collect
 
 

@@ -330,7 +330,8 @@ def test_live_status_messages():
     assert both == "checking Open Food Facts and Walmart…"
 
 
-def test_disclosure_sentence(client):
+def test_disclosure_sentence(client, settings):
+    settings.LIVE_OFF_ENABLED = True
     body = client.get("/disclosure").content.decode()
     assert "When you search for something we haven&#x27;t seen" in body or "haven't seen" in body
     assert "We send only the search words." in body

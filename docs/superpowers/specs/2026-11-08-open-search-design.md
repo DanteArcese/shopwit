@@ -397,7 +397,7 @@ Postal-code radius (#63) and the feedback form (#57) are unaffected and can proc
 
 ### 14.5 Apex host
 
-Unaffected. The apex serves `config/urls_public.py` (waitlist, privacy, health), which has no search route. The generic page, polling and the admin list exist only on the app host. Demand is recorded only from app-host searches. The worker's fetch loop is host-independent.
+Superseded by the limited public launch (#77): the apex now serves the full app (`config/urls_public.py`, everything except `/admin/`), so anonymous apex searches enqueue live fetches and record demand, bounded by the per-source budgets, bot exclusion, robots.txt and the Cloudflare rate rule (`docs/launch.md`). Browsing GETs stay cookie-free. The worker's fetch loop is host-independent.
 
 ## 15. Testing
 

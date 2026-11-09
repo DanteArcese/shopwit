@@ -6,8 +6,8 @@
   {% for row in ranked %}{% include "web/_row.html" %}{% endfor %}
 </ol>
 {% elif not unranked %}
-{% if not filters_active and observed_total > 0 %}
-<p class="empty">No live online prices yet.</p>
+{% if not filters_active %}
+<p class="empty">No live prices yet{% if coming_soon %} — coming: {{ coming_soon }}{% endif %}.</p>
 {% else %}
 <p class="empty">No fresh prices match these filters. <a href="{{ category_url }}">Clear the filters</a></p>
 {% endif %}

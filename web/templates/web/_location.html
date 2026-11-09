@@ -2,7 +2,7 @@
 {% if location.state == "known" %}
 <p class="near">Near {{ location.postal_code }} · {{ location.radius }} · <a href="{{ settings_url }}?next={{ request.get_full_path|urlencode }}#location" aria-label="Change ZIP code or distance">change</a></p>
 {% elif location.state == "unknown" %}
-<p class="note near">We don't have a location for ZIP code {{ location.postal_code }}, so prices from all stores are shown. <a href="{{ settings_url }}?next={{ request.get_full_path|urlencode }}#location">Change ZIP code</a></p>
+<p class="note near">We don't have a location for ZIP code {{ location.postal_code }}, so {% if location_context == "home" %}we can't show stores near you{% else %}prices from all stores are shown{% endif %}. <a href="{{ settings_url }}?next={{ request.get_full_path|urlencode }}#location">Change ZIP code</a></p>
 {% else %}
 <p class="note near">Set your ZIP code to see stores near you. <a href="{{ settings_url }}?next={{ request.get_full_path|urlencode }}#location">Set ZIP code</a></p>
 {% endif %}

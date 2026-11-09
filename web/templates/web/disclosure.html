@@ -1,10 +1,15 @@
 {% extends "web/base.html" %}
+{% block description %}How UnitPricer is funded, which affiliate programs it uses, and where its prices come from.{% endblock %}
 {% block title %}Disclosure - UnitPricer{% endblock %}
 {% block main %}
 <h1>Disclosure</h1>
 <h2>Affiliate links</h2>
-<p>We may earn a commission when you buy through links on this site. UnitPricer participates in affiliate programs, including the Amazon Associates Program, Walmart's affiliate program through Impact, and Sovrn Commerce. Links to those retailers may carry our affiliate tracking, and are marked as sponsored.</p>
-<p>As an Amazon Associate I earn from qualifying purchases.</p>
+{% if has_programs %}
+<p>We may earn a commission when you buy through links on this site. UnitPricer participates in {{ programs }}. Links to those retailers may carry our affiliate tracking, and are marked as sponsored.</p>
+{% if amazon_tag %}<p>As an Amazon Associate I earn from qualifying purchases.</p>{% endif %}
+{% else %}
+<p>UnitPricer does not currently participate in any affiliate program. Links go straight to the retailer and earn us nothing.</p>
+{% endif %}
 <h2>Ranking is commission-blind</h2>
 <p>Products are ranked only by unit price (ties are broken by price, then product title, then retailer). Whether a retailer pays a commission never affects ranking or which products are shown.</p>
 <h2>Price freshness</h2>
@@ -12,7 +17,7 @@
 <h2>Links</h2>
 <p>Links go directly to the retailer or the affiliate network's own tracking address; there is no UnitPricer redirect. We count outbound clicks anonymously, recording only the product offer, the retailer and the time. No personal data is stored.</p>
 <h2>Live search</h2>
-<p>When you search for something we haven't seen, we ask Walmart and Open Food Facts for it. We send only the search words.</p>
+{% if live_names %}<p>When you search for something we haven't seen, we ask {{ live_names }} for it. We send only the search words.</p>{% else %}<p>We do not currently ask other services for products when you search.</p>{% endif %}
 <h2>Data sources</h2>
 <p>Some product data from Open Food Facts, available under the ODbL.</p>
 <p>Contains information from <a href="https://prices.openfoodfacts.org">Open Prices</a>, which is made available here under the <a href="https://opendatacommons.org/licenses/odbl/1-0/">Open Database License (ODbL)</a>.</p>

@@ -64,7 +64,7 @@ jobs:
           -e UNITPRICER_PUBLIC_HOST=unitpricer.com
           -e UNITPRICER_APP_HOST=beta.unitpricer.com
           -e UNITPRICER_PUBLIC_URL=https://unitpricer.com
-          -e UNITPRICER_SITE_URL=https://beta.unitpricer.com
+          -e UNITPRICER_SITE_URL=https://unitpricer.com
           -e CF_ACCESS_TEAM_DOMAIN=unitpricer.cloudflareaccess.com
           -e CF_ACCESS_AUD=ci-smoke-aud
           -e DATABASE_URL=postgres://x:y@localhost:5432/z

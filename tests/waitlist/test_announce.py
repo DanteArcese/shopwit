@@ -19,7 +19,7 @@ def conf(settings):
     settings.DAILY_EMAIL_CAP = 10
     settings.WAITLIST_CONFIRM_RESERVE = 3
     settings.POSTAL_ADDRESS = "PO Box 1, Boston MA"
-    settings.SITE_URL = "https://beta.unitpricer.com"
+    settings.SITE_URL = "https://unitpricer.com"
 
 
 def make(n, confirmed=True, prefix="u"):
@@ -141,9 +141,10 @@ def test_announce_email_footer():
     make(1)
     run()
     m = mail.outbox[0]
-    assert "You're receiving this because you joined the UnitPricer waitlist at unitpricer.com.\n" in m.body
+    assert "You're receiving this because you signed up for UnitPricer store announcements at unitpricer.com.\n" in m.body
     assert "\nUnsubscribe: https://unitpricer.com/waitlist/unsubscribe/" in m.body
     assert m.body.rstrip().endswith("PO Box 1, Boston MA")
-    assert "https://beta.unitpricer.com" in m.body
+    assert "https://unitpricer.com" in m.body and "beta." not in m.body
     assert m.extra_headers["List-Unsubscribe"].startswith("<https://unitpricer.com/waitlist/unsubscribe/")
+    assert "waitlist" not in m.body.replace("/waitlist/", "")
     assert m.extra_headers["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"

@@ -44,7 +44,8 @@ def test_unexpected_exception_marks_run_failed_without_message(milk):
     assert not IngestionRun.objects.filter(status="running").exists()
 
 
-def test_refresh_all_categories_with_partial_recordings(milk, monkeypatch):
+def test_refresh_all_categories_with_partial_recordings(milk, monkeypatch, settings):
+    settings.DEBUG = True
     for var in ("WALMART_CONSUMER_ID", "WALMART_PRIVATE_KEY", "WALMART_KEY_VERSION"):
         monkeypatch.delenv(var, raising=False)
     from io import StringIO
@@ -63,7 +64,8 @@ def test_refresh_all_categories_with_partial_recordings(milk, monkeypatch):
     assert counts() == before
 
 
-def test_refresh_exits_nonzero_when_all_fail(milk, tmp_path):
+def test_refresh_exits_nonzero_when_all_fail(milk, tmp_path, settings):
+    settings.DEBUG = True
     with pytest.raises(CommandError):
         call_command("refresh", recordings=str(tmp_path), category="dairy/milk")
     assert IngestionRun.objects.get().status == "failed"

@@ -20,17 +20,19 @@ def _get_jwks_client():
 
 
 class CloudflareAccessMiddleware:
-    """Reject app-host requests that lack a valid Cloudflare Access token."""
+    """Reject non-public-host requests that lack a valid Cloudflare Access token."""
 
     def __init__(self, get_response):
         self.get_response = get_response
 
     def __call__(self, request):
-        if not settings.CF_ACCESS_AUD:
+        if not settings.CF_ACCESS_AUD and (settings.DEBUG or not settings.APP_HOST):
+            # Dev or a single-host setup: no Access in front of the app.
             return self.get_response(request)
         host = normalize_host(request)
         public = settings.PUBLIC_HOST
-        # Fail closed: every host except the public ones needs a token.
+        # Fail closed: every host except the public ones needs a token. The apex is the
+        # public app (no admin: config.urls_public); beta and any other host need Access.
         if (public and host in (public, f"www.{public}")) or (
             request.path == "/healthz"
             # In-container probe is plain HTTP; via the tunnel it carries this header.
@@ -38,7 +40,8 @@ class CloudflareAccessMiddleware:
         ):
             return self.get_response(request)
         token = request.META.get("HTTP_CF_ACCESS_JWT_ASSERTION")
-        if not token:
+        if not token or not settings.CF_ACCESS_AUD:
+            # No audience configured in production (E022): refuse rather than open beta.
             return HttpResponseForbidden("Access required")
         try:
             key = _get_jwks_client().get_signing_key_from_jwt(token).key

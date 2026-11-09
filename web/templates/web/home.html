@@ -9,6 +9,21 @@
     <button type="submit">Search</button>
   </form>
 </section>
+<section class="nearby">
+  <h2>Seen in stores near you</h2>
+  {% include "web/_location.html" with location_context="home" %}
+  {% if location.state == "known" %}
+  {% if nearby %}
+  <ul class="category-list">
+    {% for item in nearby %}
+    <li><a href="{% url 'category' item.category.slug %}">{{ item.category.name }} · {{ item.count }} price{{ item.count|pluralize }}</a></li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <p class="empty">No recorded in-store prices within {{ location.radius }} of {{ location.postal_code }} yet.</p>
+  {% endif %}
+  {% endif %}
+</section>
 <section>
   <h2>Browse categories</h2>
   <ul class="category-list">
@@ -17,4 +32,6 @@
     {% endfor %}
   </ul>
 </section>
+{% include "web/_coverage.html" %}
+{% include "waitlist/_notify.html" %}
 {% endblock %}

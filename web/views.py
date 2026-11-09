@@ -16,10 +16,18 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters, spec_params
+from catalog.coverage import nearby_categories, stores_we_cover
 from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
+from catalog.links import affiliate_programs
 from catalog.models import Category, ClickEvent, Offer
-from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
+from catalog.retailers import (
+    RETAILERS,
+    available_retailers,
+    chain_names,
+    display_name,
+    is_chain_code,
+)
 from catalog.units import (
     DISPLAY,
     display_size,
@@ -27,6 +35,7 @@ from catalog.units import (
     format_money,
     size_to_canonical,
 )
+from connectors.registry import live_source_info
 from normalize import load_categories
 from normalize.query import resolve_query
 
@@ -40,6 +49,7 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
+from .seo import category_description
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -65,7 +75,22 @@ def now():
 
 
 def home(request):
-    response = render(request, "web/home.html")
+    when = now()
+    prefs = get_prefs(request)  # reads the session only if a cookie came in; never creates one
+    location, near = _location(prefs)
+    nearby = [
+        {"category": c, "count": n} for c, n in (nearby_categories(when, near) if near else [])
+    ]
+    response = render(
+        request,
+        "web/home.html",
+        {
+            "coverage": stores_we_cover(when),
+            "coming_soon": settings.COMING_SOON,
+            "location": location,
+            "nearby": nearby,
+        },
+    )
     patch_vary_headers(response, ["Accept-Language"])
     return response
 
@@ -205,6 +230,7 @@ def category(request, slug):
     obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near)
 
     url = reverse("category", args=[cat.slug])
+    available = available_retailers(when, cat)
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
     unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
     context = {
@@ -215,6 +241,7 @@ def category(request, slug):
         "add_url": reverse("lists:add") + "?" + urlencode({"category": cat.slug, **spec_params(spec)}),
         "category": cat,
         "category_url": url,
+        "coming_soon": settings.COMING_SOON,
         "controls": _controls(cat, params),
         "brand_tiers": BRAND_TIERS,
         "brand_tier": params.get("brand_tier", ""),
@@ -227,7 +254,12 @@ def category(request, slug):
             for c in [cat.comparison_default, *cat.comparison_alternates]
         ],
         "comparison": result.comparison,
-        "stores": _store_options(prefs, available_retailers(when, cat)),
+        "stores": _store_options(prefs, available),
+        "meta_description": category_description(
+            cat.name,
+            DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
+            [display_name(c) for c in available if not is_chain_code(c)],
+        ),
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,
@@ -319,8 +351,38 @@ def search(request):
     return generic_results(request, q, definitions=definitions)
 
 
+_LIVE_SOURCE_LABELS = {"walmart": "Walmart", "off-prices": "Open Food Facts"}
+
+
+def _join(items: list[str]) -> str:
+    if len(items) <= 2:
+        return " and ".join(items)
+    return ", ".join(items[:-1]) + ", and " + items[-1]
+
+
 def disclosure(request):
-    return render(request, "web/disclosure.html", {"observed_days": settings.OBSERVED_MAX_AGE.days})
+    programs = affiliate_programs(settings.AFFILIATE)
+    live = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+    live_names = [label for key, label in _LIVE_SOURCE_LABELS.items() if key in live]
+    return render(
+        request,
+        "web/disclosure.html",
+        {
+            "observed_days": settings.OBSERVED_MAX_AGE.days,
+            "programs": _join(programs),
+            "has_programs": bool(programs),
+            "amazon_tag": bool(settings.AFFILIATE.get("amazon_associates_tag")),
+            "live_names": _join(live_names),
+        },
+    )
+
+
+def terms(request):
+    return render(request, "web/terms.html")
+
+
+def about(request):
+    return render(request, "web/about.html")
 
 
 @csrf_exempt

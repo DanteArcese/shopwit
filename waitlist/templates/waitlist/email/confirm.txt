@@ -1,6 +1,6 @@
 {% autoescape off %}Hi,
 
-Someone (hopefully you) asked to join the UnitPricer waitlist with this address. Confirm it here:
+Someone (hopefully you) asked to get UnitPricer store announcements at this address. Confirm it here:
 
 {{ confirm_url }}
 

@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% block title %}UnitPricer{% endblock %}</title>
+  <meta name="description" content="{% block description %}Compare groceries and household goods by price per unit, ranked only by unit price. Free and open source.{% endblock %}">
+  {% block canonical %}<link rel="canonical" href="{{ public_origin }}{% block canonical_path %}{{ request.path }}{% endblock %}">{% endblock %}
+  {% block robots %}{% endblock %}
   <link rel="icon" href="{% static 'web/favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
   <script src="{% static 'web/htmx.min.js' %}" defer></script>
@@ -27,8 +30,10 @@
     {% block main %}{% endblock %}
   </main>
   <footer class="site-footer">
-    <a href="{% url 'disclosure' %}">Disclosure</a>
+    <a href="{% url 'about' %}">About</a>
+    <a href="{% url 'terms' %}">Terms</a>
     <a href="{% url 'privacy' %}">Privacy</a>
+    <a href="{% url 'disclosure' %}">Disclosure</a>
     <a href="{% url 'feedback' %}">Feedback</a>
     <a href="https://github.com/DanteArcese/unitpricer">Source code</a>
     <a id="settings-link" href="{% url 'settings' %}?next={% if settings_next %}{{ settings_next|urlencode }}{% else %}{{ request.get_full_path|urlencode }}{% endif %}">Settings</a>

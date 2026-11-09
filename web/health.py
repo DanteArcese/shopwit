@@ -21,10 +21,16 @@ def healthz(request):
     return response
 
 
+# Pages that start live fetches or are per-visitor; crawlers must not spend budgets on them.
+PUBLIC_DISALLOW = ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click", "/feedback")
+
+
 def robots_txt(request):
     host = normalize_host(request)
     if settings.PUBLIC_HOST and host == settings.PUBLIC_HOST:
-        body = "User-agent: *\nAllow: /\n"
+        disallow = "".join(f"Disallow: {p}\n" for p in PUBLIC_DISALLOW)
+        origin = (settings.PUBLIC_URL or f"https://{host}").rstrip("/")
+        body = f"User-agent: *\nAllow: /\n{disallow}\nSitemap: {origin}/sitemap.xml\n"
     else:
         body = "User-agent: *\nDisallow: /\n"
     return HttpResponse(body, content_type="text/plain")

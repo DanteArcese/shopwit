@@ -134,3 +134,22 @@ def test_cap_notice(client, milk_rows, monkeypatch):
     monkeypatch.setattr("web.views.browse", lambda *a, **k: real(*a, limit=2))
     html = client.get("/c/dairy/milk/").content.decode()
     assert "Showing the top 2 of 3" in html
+
+
+def test_empty_category_says_coming(client, db, settings):
+    from catalog.categories_sync import sync_categories
+
+    sync_categories(settings.CATEGORIES_DIR)
+    settings.COMING_SOON = "Walmart (December)"
+    assert "No live prices yet — coming: Walmart (December)." in client.get("/c/dairy/milk/").content.decode()
+    settings.COMING_SOON = ""
+    body = client.get("/c/dairy/milk/").content.decode()
+    assert "No live prices yet." in body and "coming:" not in body
+
+
+def test_filtered_empty_category_keeps_clear_filters(client, db, settings):
+    from catalog.categories_sync import sync_categories
+
+    sync_categories(settings.CATEGORIES_DIR)
+    body = client.get("/c/dairy/milk/?fat=skim").content.decode()
+    assert "Clear the filters" in body and "coming:" not in body

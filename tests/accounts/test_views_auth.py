@@ -341,7 +341,8 @@ def test_header_shows_sign_in_or_account(client):
 
 
 @pytest.mark.django_db
-def test_account_routes_404_on_apex(client, settings):
+def test_account_routes_served_on_apex(client, settings):
+    # Launch (#77): the apex is the public app, so accounts work there too (admin does not).
     settings.PUBLIC_HOST = "unitpricer.com"
     settings.APP_HOST = "beta.unitpricer.com"
     for method, path in [
@@ -355,9 +356,11 @@ def test_account_routes_404_on_apex(client, settings):
         ("post", "/account/magic/x"),
         ("post", "/account/sign-out"),
     ]:
-        r = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
-        assert r.status_code == 404, path
-    assert client.get("/account/sign-in", HTTP_HOST="beta.unitpricer.com").status_code == 200
+        apex = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
+        beta = getattr(client, method)(path, HTTP_HOST="beta.unitpricer.com")
+        assert apex.status_code != 404 and apex.status_code == beta.status_code, path
+    assert client.get("/account/sign-in", HTTP_HOST="unitpricer.com").status_code == 200
+    assert client.get("/admin/login/", HTTP_HOST="unitpricer.com").status_code == 404
 
 
 @pytest.mark.django_db
@@ -464,5 +467,54 @@ def test_password_change_fields_are_sensitive(client):
 
 def test_privacy_page_names_the_cookies(client):
     html = client.get("/privacy").content.decode()
-    assert "Beta app: a session cookie and a security (CSRF) cookie." in html
+    assert "<code>__Host-sessionid</code>" in html and "<code>__Host-csrftoken</code>" in html
+    assert "Browsing sets no cookies from us." in html
     assert "settings cookie" not in html
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("kind", ["superuser", "staff", "inactive"])
+def test_privileged_or_inactive_password_sign_in_fails_on_apex(client, settings, kind):
+    """#77: the public apex never mints a staff session; admin login stays on beta."""
+    from django.core.cache import cache
+
+    settings.PUBLIC_HOST = "unitpricer.com"
+    settings.APP_HOST = "beta.unitpricer.com"
+    email = "root@example.com"
+    if kind == "superuser":
+        User.objects.create_superuser(email, email, PASSWORD)
+    else:
+        user = _user(email)
+        user.is_staff = kind == "staff"
+        user.is_active = kind != "inactive"
+        user.save()
+    wrong = client.post("/account/sign-in", {"email": email, "password": "wrong-pass-1"}, HTTP_HOST="unitpricer.com")
+    cache.clear()
+    r = client.post("/account/sign-in", {"email": email, "password": PASSWORD}, HTTP_HOST="unitpricer.com")
+    assert r.status_code == 200
+    assert "Email or password is incorrect." in r.content.decode()
+    assert _body(r) == _body(wrong)  # indistinguishable from a wrong password
+    assert settings.SESSION_COOKIE_NAME not in r.cookies
+    assert "_auth_user_id" not in client.session
+    # Counted as a failure: the per-email lockout applies.
+    for _ in range(5):
+        client.post("/account/sign-in", {"email": email, "password": PASSWORD}, HTTP_HOST="unitpricer.com")
+    from web.ratelimit import exceeded
+    from accounts.views import SIGNIN_EMAIL_LIMIT
+
+    assert exceeded("signin-fail-email", email, *SIGNIN_EMAIL_LIMIT)
+
+
+@pytest.mark.django_db
+def test_superuser_admin_login_still_works_on_beta(client, settings):
+    settings.PUBLIC_HOST = "unitpricer.com"
+    settings.APP_HOST = "beta.unitpricer.com"
+    User.objects.create_superuser("root@example.com", "root@example.com", PASSWORD)
+    r = client.post(
+        "/admin/login/?next=/admin/",
+        {"username": "root@example.com", "password": PASSWORD, "next": "/admin/"},
+        HTTP_HOST="beta.unitpricer.com",
+    )
+    assert r.status_code == 302 and r["Location"] == "/admin/"
+    assert client.get("/admin/", HTTP_HOST="beta.unitpricer.com").status_code == 200
+    assert client.get("/admin/", HTTP_HOST="unitpricer.com").status_code == 404

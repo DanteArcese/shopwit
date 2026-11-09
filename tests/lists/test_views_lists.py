@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import Client
@@ -126,7 +127,7 @@ def test_generic_group_has_add_link(client, db):
 def test_add_page_sets_session_only_on_post(client, milk_offers):
     resp = client.get("/lists/add?category=dairy%2Fmilk&fat=2")
     assert resp.status_code == 200
-    assert "sessionid" not in resp.cookies
+    assert django_settings.SESSION_COOKIE_NAME not in resp.cookies
 
 
 def test_add_page_prefills_from_top_offer(client, milk_offers):
@@ -649,7 +650,8 @@ def test_list_page_query_count_is_bounded(client, milk, load):
 # ---- hosts ---------------------------------------------------------------------------------
 
 
-def test_lists_routes_404_on_apex(client, settings, db):
+def test_lists_routes_served_on_apex(client, settings, db):
+    # Launch (#77): the apex is the public app; lists answer exactly as on beta.
     settings.PUBLIC_HOST = "unitpricer.com"
     settings.APP_HOST = "beta.unitpricer.com"
     settings.ALLOWED_HOSTS = ["unitpricer.com", "beta.unitpricer.com"]
@@ -660,10 +662,10 @@ def test_lists_routes_404_on_apex(client, settings, db):
         ("post", "/lists/new"),
         ("get", f"/lists/{'a' * 32}/"),
     ]:
-        assert (
-            getattr(client, method)(path, HTTP_HOST="unitpricer.com").status_code == 404
-        ), path
-    assert client.get("/lists/", HTTP_HOST="beta.unitpricer.com").status_code == 200
+        apex = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
+        beta = getattr(client, method)(path, HTTP_HOST="beta.unitpricer.com")
+        assert apex.status_code == beta.status_code, path
+    assert client.get("/lists/", HTTP_HOST="unitpricer.com").status_code == 200
 
 
 # ---- final review fixes --------------------------------------------------------------------

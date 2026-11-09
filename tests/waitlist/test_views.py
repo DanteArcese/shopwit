@@ -29,21 +29,87 @@ def signup(client, email="Person@Example.com", **extra):
     return client.post("/waitlist/", data, HTTP_HOST=PUBLIC, **extra)
 
 
-def test_landing_has_form_and_no_external_assets(client):
+def confirm_url_from(message):
+    return re.search(r"https://unitpricer\.com(/waitlist/confirm/\S+)", message.body).group(1)
+
+
+def test_home_has_notify_block(client):
+    body = client.get("/", HTTP_HOST=PUBLIC).content.decode()
+    assert "Notify me about new stores" in body and 'action="/waitlist/"' in body
+    assert 'name="email"' in body and 'name="website"' in body
+    assert "csrfmiddlewaretoken" not in body
+
+
+def test_home_sets_no_cookies(client):
+    r = client.get("/", HTTP_HOST=PUBLIC)
+    assert not r.cookies
+
+
+def test_home_signup_still_needs_confirm(client, mailoutbox):
+    client.post("/waitlist/", {"email": "a@example.com"}, HTTP_HOST=PUBLIC)
+    sub = Subscriber.objects.get(email="a@example.com")
+    assert sub.confirmed_at is None and len(mailoutbox) == 1
+    client.get(confirm_url_from(mailoutbox[0]), HTTP_HOST=PUBLIC)
+    sub.refresh_from_db()
+    assert sub.confirmed_at is None  # GET never confirms
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"HTTP_ORIGIN": "https://evil.example"},
+        {"HTTP_ORIGIN": "null"},
+        {"HTTP_ORIGIN": "http://unitpricer.com"},
+        {"HTTP_REFERER": "https://evil.example/page"},
+        {"HTTP_REFERER": "https://unitpricer.com.evil.example/"},
+    ],
+)
+def test_signup_rejects_foreign_origin_or_referer(client, extra):
+    r = client.post("/waitlist/", {"email": "a@example.com"}, HTTP_HOST=PUBLIC, **extra)
+    assert r.status_code == 403 and not Subscriber.objects.exists()
+    assert mail.outbox == []
+
+
+@pytest.mark.parametrize(
+    "extra",
+    [
+        {"HTTP_ORIGIN": "https://unitpricer.com"},
+        {"HTTP_REFERER": "https://unitpricer.com/"},
+        {},
+    ],
+)
+def test_signup_same_origin_or_no_origin_ok(client, extra):
+    r = client.post("/waitlist/", {"email": "b@example.com"}, HTTP_HOST=PUBLIC, **extra)
+    assert r.status_code == 200
+
+
+def test_signup_works_with_csrf_enforced_and_no_cookie():
+    c = Client(enforce_csrf_checks=True)
+    r = c.post("/waitlist/", {"email": "a@example.com"}, HTTP_HOST=PUBLIC)
+    assert r.status_code == 200 and Subscriber.objects.count() == 1
+
+
+def test_invalid_email_reshows_form(client):
+    body = client.post("/waitlist/", {"email": "nope"}, HTTP_HOST=PUBLIC).content.decode()
+    assert "Enter a valid email address." in body and 'action="/waitlist/"' in body
+
+
+def test_landing_page_retired(client):
+    from django.template import TemplateDoesNotExist
+    from django.template.loader import get_template
+
     r = client.get("/", HTTP_HOST=PUBLIC)
     assert r.status_code == 200
-    html = r.content.decode()
-    assert "<h1>UnitPricer</h1>" in html
-    assert "Fair price per unit, by spec, not by brand." in html
-    assert 'action="/waitlist/"' in html
-    assert 'type="email"' in html and 'name="website"' in html
-    assert 'rel="canonical" href="https://unitpricer.com/"' in html
-    assert "csrfmiddlewaretoken" in html
-    urls = re.findall(r'(?:src|href)="(https?://[^"]*)"', html)
-    assert set(urls) <= {
-        "https://github.com/DanteArcese/unitpricer",
-        "https://unitpricer.com/",
-    }
+    used = {t.name for t in r.templates}
+    # The apex home is the app (search + notify block), not the old landing page.
+    assert "web/home.html" in used and "waitlist/_notify.html" in used
+    assert not any(name.startswith("waitlist/landing") for name in used)
+    body = r.content.decode()
+    assert "Join the waitlist" not in body and 'name="q"' in body
+    with pytest.raises(TemplateDoesNotExist):
+        get_template("waitlist/landing.html")
+    # /waitlist/ is the POST endpoint only; a GET does not render a page.
+    assert client.get("/waitlist/", HTTP_HOST=PUBLIC).status_code == 405
 
 
 def test_signup_creates_pending_and_sends_confirm(client):
@@ -80,7 +146,7 @@ def test_honeypot_stores_and_sends_nothing(client):
 
 
 @pytest.mark.parametrize("email", ["nope", "", "a@b", "x" * 250 + "@example.com"])
-def test_invalid_email_rerenders_landing(client, email):
+def test_invalid_email_rerenders_form(client, email):
     r = signup(client, email)
     assert r.status_code == 200
     assert "Enter a valid email address." in r.content.decode()
@@ -143,7 +209,7 @@ def test_confirm_post_confirms_idempotent(client):
     url = f"/waitlist/confirm/{confirm_token(sub)}"
     r = client.post(url, HTTP_HOST=PUBLIC)
     assert r.status_code == 200
-    assert "You're on the list." in r.content.decode()
+    assert "You're signed up for UnitPricer store announcements." in r.content.decode()
     sub.refresh_from_db()
     first = sub.confirmed_at
     assert first is not None
@@ -199,12 +265,6 @@ def test_bad_unsubscribe_signature_404(client):
     )
 
 
-def test_signup_requires_csrf():
-    c = Client(enforce_csrf_checks=True)
-    r = c.post("/waitlist/", {"email": "a@example.com"}, HTTP_HOST=PUBLIC)
-    assert r.status_code == 403
-
-
 def test_signup_is_post_only(client):
     assert client.get("/waitlist/", HTTP_HOST=PUBLIC).status_code == 405
 
@@ -215,7 +275,7 @@ def test_privacy_on_both_hosts(client, host):
     assert r.status_code == 200
     html = r.content.decode()
     assert "hello@unitpricer.com" in html and "Resend" in html
-    assert "Last updated: 2026-11-08" in html
+    assert "Last updated: 2026-11-09" in html
     for heading in (
         "What we collect",
         "Why",
@@ -224,8 +284,39 @@ def test_privacy_on_both_hosts(client, host):
         "How long",
         "Your choices",
         "Changes",
+        "Accounts and lists",
+        "Feedback",
+        "Logs",
     ):
         assert f">{heading}<" in html
+    for name in ("DigitalOcean", "Cloudflare", "Resend", "R2", "GitHub", "Sentry"):
+        assert name in html
+    for needle in ("__Host-sessionid", "__Host-csrftoken", "ZIP code", "dante@unitpricer.com", "no IP addresses"):
+        assert needle in html
+    assert "Beta app" not in html and "the beta" not in html.lower().replace("staging", "")
+
+
+def test_token_pages_say_store_announcements(client):
+    sub = Subscriber.objects.create(email="p@example.com")
+    pages = [
+        client.get(f"/waitlist/confirm/{confirm_token(sub)}", HTTP_HOST=PUBLIC),
+        client.post(f"/waitlist/confirm/{confirm_token(sub)}", HTTP_HOST=PUBLIC),
+        client.get(f"/waitlist/unsubscribe/{unsubscribe_token(sub)}", HTTP_HOST=PUBLIC),
+    ]
+    for r in pages:
+        assert r.status_code == 200
+        main = r.content.decode().split("<main", 1)[1].split("</main>", 1)[0]
+        assert "UnitPricer store announcements" in main
+        assert "waitlist" not in main.replace("/waitlist/", "").lower()
+
+
+def test_privacy_states_backups_demand_and_breadcrumbs(client):
+    html = client.get("/privacy", HTTP_HOST=PUBLIC).content.decode()
+    assert "once enabled" not in html
+    assert "Cloudflare R2 (kept 30 days)" in html
+    assert "deleted 30 days after it was last searched for" in html
+    assert "breadcrumbs" in html and "query templates" in html
+    assert "ZIP code (those are replaced before sending)" in html
 
 
 def test_send_failure_shows_busy_page_and_removes_row(client, monkeypatch, caplog):

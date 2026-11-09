@@ -1,15 +1,16 @@
-{% extends "waitlist/base_public.html" %}
+{% extends "web/base.html" %}
+{% block description %}What UnitPricer stores about you, who handles it, and how to have it deleted.{% endblock %}
 {% block title %}Privacy | UnitPricer{% endblock %}
-{% block description %}What UnitPricer collects, who handles it and how long it is kept.{% endblock %}
-{% block canonical %}/privacy{% endblock %}
 {% block main %}
 <h1>Privacy</h1>
+<p>UnitPricer is a free, open-source price comparison site run by Dante Arcese. This page says what it stores about you, who handles it and how to have it deleted. There are no analytics, no ads and no tracking pixels.</p>
 <h2>What we collect</h2>
 <ul>
-  <li>Waitlist: your email address and the times you signed up, confirmed and were sent the launch announcement.</li>
-  <li>Beta app: a session cookie and a security (CSRF) cookie.</li>
-  <li>Beta app: the ZIP code and distance you choose in Settings. They are saved on our server in your session record (linked to your browser by a session cookie, expiring 60 days after you last save your settings or lists), used only to show in-store prices from nearby stores, and never logged. Clear the ZIP code in Settings to remove it.</li>
-  <li>No analytics, no ads and no tracking pixels.</li>
+  <li>Browsing (home, categories, search, product pages): nothing is stored about you and no cookies are set. Search terms are used to find products; phrases we do not yet cover may be counted anonymously (the phrase and a tally, with no link to you), and each phrase is deleted 30 days after it was last searched for.</li>
+  <li>Store announcements ("Notify me about new stores"): your email address and the times you signed up, confirmed and were last sent an email. Nothing else; there is one list.</li>
+  <li>Saved settings: the units, stores, ZIP code and distance you choose in Settings. They are stored on our server in your session record (linked to your browser by a session cookie, expiring 60 days after you last save your settings or lists) or, if you have an account, with your account. The ZIP code is used only to show in-store prices from nearby stores and is never logged. Clear it in Settings to remove it.</li>
+  <li>Accounts and lists, described below.</li>
+  <li>Feedback, described below.</li>
 </ul>
 <h2>Accounts and lists</h2>
 <ul>
@@ -20,37 +21,43 @@
 </ul>
 <h2>Feedback</h2>
 <ul>
-  <li>The feedback form on the beta app stores what you send: the type, your message, a store name and website for store requests, the product you reported (if any) and, only if you give it, an email address for a reply. We do not store your IP address; it is used only, in hashed form, to limit how many messages one visitor can send per hour.</li>
+  <li>The feedback form stores what you send: the type, your message, a store name and website for store requests, the product you reported (if any) and, only if you give it, an email address for a reply. We do not store your IP address; it is used only, in hashed form, to limit how many messages one visitor can send per hour.</li>
   <li>Your reply email is deleted when we close or reject your item, and in any case 90 days after you sent it.</li>
   <li>Nothing is published without our review. Approved bug reports, ideas and other feedback may be posted publicly as issues on our <a href="https://github.com/DanteArcese/unitpricer">GitHub repository</a> (your message text, with email addresses and links made inert), and approved store requests as a public request count for that store. Your email address is never posted. Reports of a wrong price or size stay private.</li>
 </ul>
 <h2>Why</h2>
-<p>To confirm your signup and to send you one launch email, to sign you in and keep your lists and settings, and to read and act on feedback you send (including replying if you asked us to). Nothing else.</p>
+<p>To confirm your signup and tell you when a new store goes live, to sign you in and keep your lists and settings, to show prices near you, to keep the site safe from abuse, and to read and act on feedback you send (including replying if you asked us to). Nothing else.</p>
 <h2>Who handles it</h2>
 <ul>
   <li>DigitalOcean (New York): hosting.</li>
-  <li>Cloudflare: network, security and access control for the beta.</li>
-  <li>Resend: email delivery.</li>
+  <li>Cloudflare: network, security and rate limiting for the whole site, and access control for the staging site.</li>
+  <li>Resend: delivery of confirmation, sign-in and announcement emails.</li>
+  <li>Cloudflare R2: off-site copies of database backups.</li>
   <li>GitHub: public issues for approved feedback (never your email address).</li>
-  <li>Database backups: nightly dumps kept on our server (newest 7) and DigitalOcean's daily server backups (kept 7 days); off-site Cloudflare R2 copies kept 30 days once enabled.</li>
+  <li>Sentry: error reports, only if switched on. Each report has the error type and message, the code lines where it happened (no variable values), breadcrumbs (the most recent server log lines and database query templates before the error, scrubbed the same way), the page address without anything after a <code>?</code>, your browser type, the time, and the software versions the site runs on. It never has cookies, form data, search words, your IP address, any sign-in or signup link token, any email address or ZIP code (those are replaced before sending).</li>
+  <li>Backups: nightly dumps kept on our server (newest 7), DigitalOcean's daily server backups (kept 7 days) and off-site copies in Cloudflare R2 (kept 30 days).</li>
 </ul>
+<p>We do not sell your data or share it with anyone else. If you follow a link to a store, that store's own privacy policy applies from there.</p>
 <h2>Cookies</h2>
 <ul>
-  <li><code>csrftoken</code>: on forms only, to protect them from forgery.</li>
-  <li>Cloudflare security cookies.</li>
-  <li>Beta app: <code>CF_Authorization</code> and <code>sessionid</code>.</li>
+  <li>Browsing sets no cookies from us.</li>
+  <li><code>__Host-sessionid</code>: starts only when you save settings, use a list, sign in or send feedback. It keeps your lists, settings and sign-in. It expires 60 days after last use.</li>
+  <li><code>__Host-csrftoken</code>: set only when you open a page with a form that needs protecting from forgery (settings, lists, sign-in, feedback, confirm and unsubscribe pages). The "Notify me about new stores" form on the home page has no token and sets no cookie.</li>
+  <li>Cloudflare may set its own security cookies. <code>CF_Authorization</code> applies only to the staging site, not to unitpricer.com.</li>
 </ul>
+<h2>Logs</h2>
+<p>Server logs hold no IP addresses, email addresses, search terms or ZIP codes. Cloudflare, which sits in front of the site, sees IP addresses as part of delivering and protecting it, under its own privacy policy.</p>
 <h2>How long</h2>
 <ul>
   <li>Unconfirmed signups are deleted after 7 days.</li>
-  <li>Confirmed signups are kept until you unsubscribe or we close the waitlist.</li>
+  <li>Confirmed signups are kept until you unsubscribe.</li>
   <li>Feedback reply emails: deleted when the item is closed or rejected, or after 90 days. The rest of a feedback item is kept until we delete it.</li>
-  <li>Accounts, with their lists and settings, are kept until you delete them.</li>
+  <li>Accounts, with their lists and settings, are kept until you delete them. Session records expire 60 days after last use.</li>
+  <li>Search phrases we do not yet cover: deleted 30 days after last seen.</li>
   <li>Backups age out as described above.</li>
-  <li>Server logs hold no IP addresses.</li>
 </ul>
 <h2>Your choices</h2>
-<p>Use the unsubscribe link in any email we send, which deletes your address. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> to see or delete your data.</p>
+<p>Use the unsubscribe link in any email we send, which deletes your address. Delete your account from the Account page. Clear your ZIP code in Settings. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> to see or delete your data. Questions to <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> or the maintainer at <a href="mailto:dante@unitpricer.com">dante@unitpricer.com</a>.</p>
 <h2>Changes</h2>
-<p>Last updated: 2026-11-08</p>
+<p>Last updated: 2026-11-09</p>
 {% endblock %}

@@ -1,0 +1,20 @@
+{% extends "web/base.html" %}
+{% block description %}About UnitPricer: a free, open-source price-per-unit grocery comparison run by one person.{% endblock %}
+{% block title %}About - UnitPricer{% endblock %}
+{% block main %}
+<h1>About UnitPricer</h1>
+<h2>Who runs it</h2>
+<p>UnitPricer is run by one person, Dante Arcese, as a free side project.</p>
+<h2>What it does</h2>
+<p>It compares grocery and household products by price per unit (per ounce, per count, per litre), so a bigger pack is not mistaken for a better deal. Prices show when they were last seen.</p>
+<h2>Why</h2>
+<p>Fair unit prices, ranked only by price per unit and never by commission. No AI ranks results or writes product or price text.</p>
+<h2>How it is funded</h2>
+<p>Through affiliate links, where configured. See the <a href="{% url 'disclosure' %}">disclosure</a>.</p>
+<h2>Where the data comes from</h2>
+<p>See "Stores we cover" on the <a href="{% url 'home' %}">home page</a>, and the data sources listed in the <a href="{% url 'disclosure' %}">disclosure</a>.</p>
+<h2>Open source</h2>
+<p>The code is open source under the AGPL-3.0: <a href="https://github.com/DanteArcese/unitpricer">github.com/DanteArcese/unitpricer</a>.</p>
+<h2>Contact</h2>
+<p>General: <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a>. Maintainer: <a href="mailto:dante@unitpricer.com">dante@unitpricer.com</a>.</p>
+{% endblock %}

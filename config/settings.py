@@ -108,6 +108,9 @@ REFRESH_INTERVAL = timedelta(hours=float(env("UNITPRICER_REFRESH_HOURS", 12)))
 FRESHNESS_CUTOFF = timedelta(hours=float(env("UNITPRICER_FRESHNESS_HOURS", 24)))
 SITE_CURRENCY = env("UNITPRICER_CURRENCY", "USD")
 # Open Prices: dated in-store shelf prices, shown as "observed" offers.
+# Shown on empty categories: "No live prices yet — coming: <this>." No default: set it
+# explicitly in app.env; unset or empty drops the "coming" clause.
+COMING_SOON = os.environ.get("UNITPRICER_COMING_SOON", "").strip()
 OBSERVED_MAX_AGE = timedelta(days=float(env("UNITPRICER_OBSERVED_MAX_AGE_DAYS", 90)))
 OPEN_PRICES_ENABLED = env("UNITPRICER_OPEN_PRICES", "0") == "1"
 OPEN_PRICES_COUNTRY = env("UNITPRICER_OPEN_PRICES_COUNTRY", "US")
@@ -223,13 +226,19 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 60
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+# No default list: Django already accepts a same-host Origin (the scheme comes from
+# SECURE_PROXY_SSL_HEADER), and listing every host would let beta pages POST to the
+# apex and back. Only an explicit override is honoured.
 CSRF_TRUSTED_ORIGINS = [
-    o.strip()
-    for o in env(
-        "DJANGO_CSRF_TRUSTED_ORIGINS", ",".join(f"https://{h}" for h in ALLOWED_HOSTS)
-    ).split(",")
-    if o.strip()
+    o.strip() for o in env("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
+# Host-only cookies: no Domain, so apex and beta never share a session or CSRF token.
+# In production the __Host- prefix makes browsers enforce that (Secure, Path=/, no
+# Domain). Plain-http dev cannot set Secure cookies, so it keeps the default names.
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
+SESSION_COOKIE_NAME = "sessionid" if DEBUG else "__Host-sessionid"
+CSRF_COOKIE_NAME = "csrftoken" if DEBUG else "__Host-csrftoken"
 
 # Email (production: Resend over STARTTLS on port 2587; DigitalOcean blocks 25/465/587).
 EMAIL_BACKEND = env(
@@ -287,3 +296,11 @@ LOGGING = {
         "django.security.DisallowedHost": {"level": "CRITICAL", "propagate": True},
     },
 }
+
+# Error reporting: off unless SENTRY_DSN is set. See config/sentry.py. Web (wsgi) and
+# worker (run_scheduler) both load these settings, so both report.
+SENTRY_DSN = env("SENTRY_DSN")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", "development" if DEBUG else "production")
+from config.sentry import init_sentry  # noqa: E402
+
+init_sentry(SENTRY_DSN, SENTRY_ENVIRONMENT)

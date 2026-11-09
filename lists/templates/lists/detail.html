@@ -1,4 +1,6 @@
 {% extends "web/base.html" %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block canonical %}{% endblock %}
 {% block title %}{{ list.name }} - UnitPricer{% endblock %}
 {% block main %}
 <h1>{{ list.name }}</h1>
