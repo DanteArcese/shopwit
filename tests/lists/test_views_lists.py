@@ -649,7 +649,8 @@ def test_list_page_query_count_is_bounded(client, milk, load):
 # ---- hosts ---------------------------------------------------------------------------------
 
 
-def test_lists_routes_404_on_apex(client, settings, db):
+def test_lists_routes_served_on_apex(client, settings, db):
+    # Launch (#77): the apex is the public app; lists answer exactly as on beta.
     settings.PUBLIC_HOST = "unitpricer.com"
     settings.APP_HOST = "beta.unitpricer.com"
     settings.ALLOWED_HOSTS = ["unitpricer.com", "beta.unitpricer.com"]
@@ -660,10 +661,10 @@ def test_lists_routes_404_on_apex(client, settings, db):
         ("post", "/lists/new"),
         ("get", f"/lists/{'a' * 32}/"),
     ]:
-        assert (
-            getattr(client, method)(path, HTTP_HOST="unitpricer.com").status_code == 404
-        ), path
-    assert client.get("/lists/", HTTP_HOST="beta.unitpricer.com").status_code == 200
+        apex = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
+        beta = getattr(client, method)(path, HTTP_HOST="beta.unitpricer.com")
+        assert apex.status_code == beta.status_code, path
+    assert client.get("/lists/", HTTP_HOST="unitpricer.com").status_code == 200
 
 
 # ---- final review fixes --------------------------------------------------------------------

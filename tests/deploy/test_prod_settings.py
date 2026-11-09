@@ -150,3 +150,24 @@ def test_check_deploy_flags_missing_access_aud(prod_env, run_prod):
     out = run_prod(prod_env, "manage.py", "check", "--deploy", "--fail-level", "WARNING")
     assert out.returncode != 0
     assert "unitpricer.E022" in out.stdout + out.stderr
+
+
+def test_check_deploy_flags_beta_site_url(prod_env, run_prod):
+    prod_env["UNITPRICER_SITE_URL"] = "https://beta.unitpricer.com"
+    out = run_prod(prod_env, "manage.py", "check", "--deploy", "--fail-level", "WARNING")
+    assert out.returncode != 0
+    assert "unitpricer.E023" in out.stdout + out.stderr
+
+
+def test_prod_cookies_host_only(prod_env, run_prod):
+    # A Domain attribute would share apex sessions/CSRF tokens with beta (and back).
+    code = (
+        "import os, django;"
+        "os.environ['DJANGO_SETTINGS_MODULE']='config.settings';"
+        "django.setup();"
+        "from django.conf import settings as s;"
+        "print(repr(s.SESSION_COOKIE_DOMAIN), repr(s.CSRF_COOKIE_DOMAIN), repr(s.SITE_URL), repr(s.PUBLIC_URL))"
+    )
+    out = run_prod(prod_env, "-c", code)
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.split() == ["None", "None", "'https://unitpricer.com'", "'https://unitpricer.com'"]

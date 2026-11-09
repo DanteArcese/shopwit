@@ -29,6 +29,7 @@ def signup(client, email="Person@Example.com", **extra):
     return client.post("/waitlist/", data, HTTP_HOST=PUBLIC, **extra)
 
 
+@pytest.mark.xfail(strict=True, reason="Task 4: the apex home replaces the landing page")
 def test_landing_has_form_and_no_external_assets(client):
     r = client.get("/", HTTP_HOST=PUBLIC)
     assert r.status_code == 200

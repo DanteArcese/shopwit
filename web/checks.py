@@ -40,3 +40,17 @@ def check_access(app_configs, **kwargs):
             id="unitpricer.E022",
         )
     ]
+
+
+@register(Tags.security, deploy=True)
+def check_site_url(app_configs, **kwargs):
+    """The apex serves the app, so emailed links (magic links, announcements) go there."""
+    if settings.DEBUG or not settings.PUBLIC_HOST or settings.SITE_URL == settings.PUBLIC_URL:
+        return []
+    return [
+        Error(
+            "SITE_URL must equal PUBLIC_URL: emailed links point at the public host.",
+            hint="Set UNITPRICER_SITE_URL to the same value as UNITPRICER_PUBLIC_URL, e.g. https://unitpricer.com.",
+            id="unitpricer.E023",
+        )
+    ]

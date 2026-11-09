@@ -19,30 +19,91 @@ def hosts(settings):
     settings.CACHES = {"default": {"BACKEND": "django.core.cache.backends.locmem.LocMemCache"}}
 
 
-# Every route the app serves, including the HTMX partial of the category page.
-APP_ROUTES = [
+@pytest.fixture
+def categories(db):
+    from django.conf import settings as dj
+
+    from catalog.categories_sync import sync_categories
+
+    sync_categories(dj.CATEGORIES_DIR)
+
+
+# Every non-admin route the apex serves, incl. M4's lists and account pages and the
+# HTMX partial of the category page. test_access.py mirrors this list.
+APEX_ROUTES = [
+    ("get", "/", {}),
     ("get", "/c/dairy/milk/", {}),
     ("get", "/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
-    ("get", "/search?q=milk", {}),
+    ("get", "/search?q=green+tea", {}),
     ("get", "/settings", {}),
-    ("post", "/settings", {}),
     ("get", "/disclosure", {}),
-    ("get", "/admin/", {}),
-    ("get", "/admin/login/", {}),
-    ("post", "/click", {}),
     ("get", "/feedback", {}),
-    ("post", "/feedback", {}),
+    ("get", "/privacy", {}),
     ("get", "/lists/", {}),
-    ("post", "/lists/new", {}),
-    ("get", "/lists/add?category=dairy%2Fmilk", {}),
+    ("get", "/account/sign-in", {}),
 ]
 
 
-@pytest.mark.parametrize("method,path,extra", APP_ROUTES)
-def test_every_app_route_404s_on_apex(client, method, path, extra):
-    response = getattr(client, method)(path, HTTP_HOST=PUBLIC, **extra)
-    assert response.status_code == 404
-    assert "Page not found" in response.content.decode()
+@pytest.mark.parametrize("method,path,extra", APEX_ROUTES)
+def test_apex_app_routes_indexable(client, categories, method, path, extra):
+    r = getattr(client, method)(path, HTTP_HOST=PUBLIC, **extra)
+    assert r.status_code == 200 and "X-Robots-Tag" not in r
+
+
+ADMIN_PATHS = ["/admin/", "/admin/login/", "/admin/login/?next=/admin/", "/admin"]
+
+
+@pytest.mark.parametrize("path", ADMIN_PATHS)
+@pytest.mark.parametrize("host", [PUBLIC, PUBLIC + ".", "UnitPricer.COM", "UNITPRICER.COM.", PUBLIC + ":443"])
+def test_admin_404s_on_apex(client, settings, path, host):
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, PUBLIC + "."]
+    r = client.get(path, HTTP_HOST=host)
+    # A 404, never a redirect to the admin login form.
+    assert r.status_code == 404
+    assert "X-Robots-Tag" not in r
+
+
+def test_admin_on_beta(client):
+    r = client.get("/admin/login/", HTTP_HOST=APP)
+    assert r.status_code == 200
+    assert r["X-Robots-Tag"] == "noindex, nofollow"
+
+
+def test_robots_per_host(client):
+    apex = client.get("/robots.txt", HTTP_HOST=PUBLIC).content.decode()
+    assert "Allow: /" in apex and "Sitemap: https://unitpricer.com/sitemap.xml" in apex
+    for p in ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click"):
+        assert f"Disallow: {p}" in apex
+    assert "Disallow: /\n" not in apex
+    assert client.get("/robots.txt", HTTP_HOST=APP).content.decode() == "User-agent: *\nDisallow: /\n"
+
+
+def test_robots_apex_exact(client):
+    body = client.get("/robots.txt", HTTP_HOST=PUBLIC).content.decode()
+    assert body == (
+        "User-agent: *\n"
+        "Allow: /\n"
+        "Disallow: /search\n"
+        "Disallow: /settings\n"
+        "Disallow: /lists/\n"
+        "Disallow: /account/\n"
+        "Disallow: /waitlist/\n"
+        "Disallow: /click\n"
+        "\n"
+        "Sitemap: https://unitpricer.com/sitemap.xml\n"
+    )
+
+
+@pytest.mark.parametrize("host", [PUBLIC, APP])
+def test_cookies_are_host_only(client, host):
+    """A cookie set on one host must not be sent to the other: no Domain attribute."""
+    from django.conf import settings as dj
+
+    assert dj.SESSION_COOKIE_DOMAIN is None and dj.CSRF_COOKIE_DOMAIN is None
+    r = client.get("/account/sign-in", HTTP_HOST=host)
+    assert r.status_code == 200
+    assert "csrftoken" in r.cookies
+    assert r.cookies["csrftoken"]["domain"] == ""
 
 
 @pytest.mark.parametrize("path", ["/", "/privacy", "/healthz", "/robots.txt"])
@@ -134,3 +195,36 @@ def test_ratelimit_exceeded_peeks_without_counting():
     allow("p", "a", 2, window)
     assert exceeded("p", "a", 2, window) is True
     assert exceeded("p", "b", 2, window) is False
+
+
+@pytest.mark.parametrize("request_host", [PUBLIC, APP])
+def test_magic_link_points_at_apex_and_signs_in_there(client, settings, request_host):
+    """Production: SITE_URL == PUBLIC_URL, so emailed links land on the apex whatever host asked."""
+    import re
+
+    from django.core import mail
+
+    settings.PUBLIC_URL = settings.SITE_URL = "https://unitpricer.com"
+    r = client.post("/account/magic-link", {"email": "new@example.com"}, HTTP_HOST=request_host)
+    assert r.status_code == 200
+    body = mail.outbox[-1].body
+    assert "beta." not in body
+    path = re.search(r"https://unitpricer\.com(/account/magic/\S+)", body).group(1)
+    assert client.get(path, HTTP_HOST=PUBLIC).status_code == 200
+    r = client.post(path, HTTP_HOST=PUBLIC)
+    assert r.status_code == 302
+    session = r.cookies["sessionid"]
+    assert session.value and session["domain"] == ""  # host-only: never sent to beta
+    assert client.get("/account/", HTTP_HOST=PUBLIC).status_code == 200
+
+
+def test_waitlist_links_use_apex(client, settings):
+    import re
+
+    from django.core import mail
+
+    settings.PUBLIC_URL = "https://unitpricer.com"
+    client.post("/waitlist/", {"email": "a@example.com", "website": ""}, HTTP_HOST=APP)
+    body = mail.outbox[-1].body
+    assert re.search(r"https://unitpricer\.com/waitlist/confirm/\S+", body)
+    assert "beta." not in body

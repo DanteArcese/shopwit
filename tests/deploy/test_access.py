@@ -39,6 +39,15 @@ def access(settings, monkeypatch, private_key):
     monkeypatch.setattr(web.access, "_jwks_client", StubJWKS(private_key.public_key()))
 
 
+@pytest.fixture
+def categories(db):
+    from django.conf import settings as dj
+
+    from catalog.categories_sync import sync_categories
+
+    sync_categories(dj.CATEGORIES_DIR)
+
+
 def make_token(private_key, **overrides):
     claims = {
         "aud": [AUD],
@@ -124,9 +133,12 @@ def test_token_without_exp_403(client, private_key):
 
 
 @pytest.mark.django_db
-def test_trailing_dot_public_hosts(client, settings):
+def test_trailing_dot_public_hosts(client, settings, categories):
     settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP]
-    assert get(client, path="/c/dairy/milk/", host=PUBLIC + ".").status_code == 404
+    # The apex is the public app (no token), but the admin never reaches it.
+    assert get(client, path="/c/dairy/milk/", host=PUBLIC + ".").status_code == 200
+    assert get(client, path="/admin/", host=PUBLIC + ".").status_code == 404
+    assert get(client, path="/admin/login/", host=PUBLIC.upper()).status_code == 404
     assert get(client, host=PUBLIC + ".").status_code == 200
     r = get(client, host=f"www.{PUBLIC}.")
     assert r.status_code == 301
@@ -146,3 +158,70 @@ def time_now():
     from django.utils import timezone
 
     return timezone.now()
+
+
+# Mirrors APEX_ROUTES in test_hosts.py: every non-admin route the apex serves.
+APEX_PATHS = [
+    ("get", "/", {}),
+    ("get", "/c/dairy/milk/", {}),
+    ("get", "/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
+    ("get", "/search?q=green+tea", {}),
+    ("get", "/settings", {}),
+    ("get", "/disclosure", {}),
+    ("get", "/feedback", {}),
+    ("get", "/privacy", {}),
+    ("get", "/lists/", {}),
+    ("get", "/account/sign-in", {}),
+]
+BETA_ROUTES = APEX_PATHS + [
+    ("get", "/admin/", {}),
+    ("get", "/admin/login/", {}),
+    ("post", "/admin/login/", {}),
+    ("post", "/waitlist/", {}),
+    ("post", "/settings", {}),
+    ("post", "/click", {}),
+    ("post", "/feedback", {}),
+    ("post", "/lists/new", {}),
+    ("post", "/account/sign-in", {}),
+    ("post", "/account/magic-link", {}),
+    ("get", "/robots.txt", {}),
+]
+BETA_HOSTS = [APP, APP + ".", APP.upper()]
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("host", BETA_HOSTS)
+@pytest.mark.parametrize("method,path,extra", BETA_ROUTES)
+@pytest.mark.parametrize("failure", ["none", "bad_audience", "jwks_error"])
+def test_beta_routes_need_token(client, settings, private_key, monkeypatch, host, method, path, extra, failure):
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, APP + "."]
+    if failure == "none":
+        token = None
+    elif failure == "bad_audience":
+        token = make_token(private_key, aud=["other"])
+    else:
+        token = make_token(private_key)
+        err = jwt.PyJWKClientConnectionError("down")
+        monkeypatch.setattr(web.access, "_jwks_client", StubJWKS(None, error=err))
+    headers = {"HTTP_CF_ACCESS_JWT_ASSERTION": token} if token else {}
+    r = getattr(client, method)(path, HTTP_HOST=host, **extra, **headers)
+    assert r.status_code == 403
+    assert r.content == b"Access required"
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("method,path,extra", APEX_PATHS)
+def test_apex_routes_need_no_token(client, categories, method, path, extra):
+    r = getattr(client, method)(path, HTTP_HOST=PUBLIC, **extra)
+    assert r.status_code == 200
+
+
+@pytest.mark.django_db
+def test_admin_on_beta_with_token(client, private_key):
+    assert get(client, make_token(private_key), path="/admin/login/").status_code == 200
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("path", ["/", "/admin/", "/search?q=green+tea"])
+def test_unknown_host_still_400(client, path):
+    assert client.get(path, HTTP_HOST="evil.example").status_code == 400

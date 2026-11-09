@@ -173,11 +173,18 @@ def test_htmx_swap_is_partial_with_vary(client, db):
     )
 
 
-def test_apex_has_no_search(client, db, settings):
+def test_apex_serves_search(client, db, settings):
     settings.PUBLIC_HOST = "unitpricer.com"
-    settings.ALLOWED_HOSTS = ["unitpricer.com"]
-    assert client.get("/search?q=x", HTTP_HOST="unitpricer.com").status_code == 404
-    assert client.get("/search?q=x&show=mass", HTTP_HOST="unitpricer.com", HTTP_HX_REQUEST="true").status_code == 404
+    settings.APP_HOST = "beta.unitpricer.com"
+    settings.ALLOWED_HOSTS = ["unitpricer.com", "beta.unitpricer.com"]
+    settings.SECURE_SSL_REDIRECT = False
+    make_generic_offer("Apex Tea", "2", dim="mass", amount=100)
+    full = client.get("/search?q=apex+tea", HTTP_HOST="unitpricer.com")
+    assert full.status_code == 200 and "Apex Tea" in full.content.decode()
+    assert "X-Robots-Tag" not in full
+    partial = client.get("/search?q=apex+tea&show=mass", HTTP_HOST="unitpricer.com", HTTP_HX_REQUEST="true")
+    assert partial.status_code == 200 and "<html" not in partial.content.decode()
+    assert not full.cookies and not partial.cookies
 
 
 @pytest.mark.parametrize("q", ["the", "!!!", '"milk', "-", "a", "🥛", "x" * 200])

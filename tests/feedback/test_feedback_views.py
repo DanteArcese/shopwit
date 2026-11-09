@@ -32,9 +32,12 @@ def test_form_renders_on_app_host(client):
 
 
 @pytest.mark.parametrize("method", ["get", "post"])
-def test_not_reachable_on_apex(client, method):
-    r = getattr(client, method)("/feedback", HTTP_HOST=PUBLIC)
-    assert r.status_code == 404
+def test_reachable_on_apex(client, method):
+    # Launch (#77): the apex is the public app, feedback included; same answer as beta.
+    apex = getattr(client, method)("/feedback", HTTP_HOST=PUBLIC)
+    beta = getattr(client, method)("/feedback", HTTP_HOST=APP)
+    assert apex.status_code == beta.status_code
+    assert apex.status_code != 404
 
 
 def test_footer_links_to_feedback(client):

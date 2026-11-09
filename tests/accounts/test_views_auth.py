@@ -341,7 +341,8 @@ def test_header_shows_sign_in_or_account(client):
 
 
 @pytest.mark.django_db
-def test_account_routes_404_on_apex(client, settings):
+def test_account_routes_served_on_apex(client, settings):
+    # Launch (#77): the apex is the public app, so accounts work there too (admin does not).
     settings.PUBLIC_HOST = "unitpricer.com"
     settings.APP_HOST = "beta.unitpricer.com"
     for method, path in [
@@ -355,9 +356,11 @@ def test_account_routes_404_on_apex(client, settings):
         ("post", "/account/magic/x"),
         ("post", "/account/sign-out"),
     ]:
-        r = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
-        assert r.status_code == 404, path
-    assert client.get("/account/sign-in", HTTP_HOST="beta.unitpricer.com").status_code == 200
+        apex = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
+        beta = getattr(client, method)(path, HTTP_HOST="beta.unitpricer.com")
+        assert apex.status_code != 404 and apex.status_code == beta.status_code, path
+    assert client.get("/account/sign-in", HTTP_HOST="unitpricer.com").status_code == 200
+    assert client.get("/admin/login/", HTTP_HOST="unitpricer.com").status_code == 404
 
 
 @pytest.mark.django_db

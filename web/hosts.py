@@ -8,7 +8,7 @@ def normalize_host(request):
 
 
 class HostRoutingMiddleware:
-    """Serve the public site on PUBLIC_HOST and the full app everywhere else."""
+    """Serve the public app on PUBLIC_HOST and the app plus admin elsewhere (noindex on APP_HOST)."""
 
     def __init__(self, get_response):
         self.get_response = get_response

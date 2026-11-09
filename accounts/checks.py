@@ -10,7 +10,7 @@ def check_site_url(app_configs, **kwargs):
     return [
         Error(
             "settings.SITE_URL is unset or not https://.",
-            hint="Set UNITPRICER_SITE_URL to the app origin, e.g. https://beta.unitpricer.com.",
+            hint="Set UNITPRICER_SITE_URL to the app origin, e.g. https://unitpricer.com.",
             id="unitpricer.E010",
         )
     ]
