@@ -34,7 +34,7 @@
   <li>Resend: delivery of confirmation, sign-in and announcement emails.</li>
   <li>Cloudflare R2: off-site copies of database backups.</li>
   <li>GitHub: public issues for approved feedback (never your email address).</li>
-  <li>Sentry: error reports, only if switched on. They are scrubbed of cookies, form data, email addresses and IP addresses before they are sent.</li>
+  <li>Sentry: error reports, only if switched on. Each report has the error type and message, the code lines where it happened (no variable values), the page address without anything after a <code>?</code>, your browser type, the time, and the software versions the site runs on. It never has cookies, form data, search words, your IP address, any sign-in or signup link token, or any email address (those are replaced before sending).</li>
   <li>Backups: nightly dumps kept on our server (newest 7), DigitalOcean's daily server backups (kept 7 days) and off-site R2 copies (kept 30 days, once enabled).</li>
 </ul>
 <p>We do not sell your data or share it with anyone else. If you follow a link to a store, that store's own privacy policy applies from there.</p>

@@ -143,3 +143,7 @@ Keep a second session open while changing rules; the DigitalOcean web console is
 - **Django `SECRET_KEY`:** put the old key (comma-separated if several) in `DJANGO_SECRET_KEY_FALLBACKS` in `app.env` (read into Django's `SECRET_KEY_FALLBACKS`), set the new `DJANGO_SECRET_KEY`, run `docker compose up -d web worker`, and remove the fallback after sessions and tokens have aged out (waitlist tokens: 7 days).
 - **Resend key:** create a new key in Resend, update `DJANGO_EMAIL_HOST_PASSWORD` in `app.env`, `docker compose up -d web worker`, delete the old key.
 - **Tunnel token:** rotate in Cloudflare Zero Trust (Networks > Tunnels > `unitpricer-prod`), update `TUNNEL_TOKEN` in `.env`, `docker compose up -d cloudflared`.
+
+## Error reporting (Sentry, optional)
+
+Off unless `SENTRY_DSN` is set in `app.env` (blank in `.env.example`). Set `SENTRY_ENVIRONMENT` (default `production`; `development` when `DJANGO_DEBUG=1`), then `docker compose up -d web worker`; both processes load the settings and report. `config/sentry.py` sends no PII (`send_default_pii` off, no local variables, no request body, no performance tracing) and `scrub_event` strips cookies, all headers except `User-Agent`, query strings, form data, user info, emails and sign-in/signup tokens before sending. In the Sentry project, also enable "Prevent storing of IP addresses". If you change what is sent, change the Sentry line on the privacy page to match.

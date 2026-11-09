@@ -296,3 +296,11 @@ LOGGING = {
         "django.security.DisallowedHost": {"level": "CRITICAL", "propagate": True},
     },
 }
+
+# Error reporting: off unless SENTRY_DSN is set. See config/sentry.py. Web (wsgi) and
+# worker (run_scheduler) both load these settings, so both report.
+SENTRY_DSN = env("SENTRY_DSN")
+SENTRY_ENVIRONMENT = env("SENTRY_ENVIRONMENT", "development" if DEBUG else "production")
+from config.sentry import init_sentry  # noqa: E402
+
+init_sentry(SENTRY_DSN, SENTRY_ENVIRONMENT)
