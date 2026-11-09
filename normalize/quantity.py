@@ -292,12 +292,28 @@ _L_X_SIZE_RE = re.compile(
 )
 
 
-def _laundry_multiplier(text: str, start: int = 0) -> int:
+_L_X_CONTAINER_RE = re.compile(
+    rf"(?<![\w.])(\d+)\s+x\s+(?:{_NUM})\s*-?\s*(?:{'|'.join(p for p, _ in _L_SIZE_UNITS)})"
+    r"(?![A-Za-z])\s+(?:bottles?|jugs?|boxe?s?|tubs?)\b",
+    re.IGNORECASE,
+)
+_TWIN_PACK_RE = re.compile(r"\btwin[\s-]*pack\b", re.IGNORECASE)
+
+
+def _laundry_pack(text: str) -> int | None:
+    """The multipack count from explicit wording only: pack/pk, "pack of N", "N bottles",
+    "twin pack", or the spaced "N x <size> <bottles|jugs|boxes|tubs>"."""
     m = _PACK_OF.search(text) or _PACK_N.search(text) or _CONTAINERS_RE.search(text)
     if m:
         return int(m.group(1))
-    m = _L_X_SIZE_RE.search(text)
-    return int(m.group(1)) if m else 1
+    if _TWIN_PACK_RE.search(text):
+        return 2
+    m = _L_X_CONTAINER_RE.search(text)
+    return int(m.group(1)) if m else None
+
+
+def _laundry_multiplier(text: str, start: int = 0) -> int:
+    return _laundry_pack(text) or 1
 
 
 def _laundry(text: str) -> Measures:
@@ -311,15 +327,22 @@ def _laundry(text: str) -> Measures:
             loads *= _laundry_multiplier(text)
         if loads > 0:
             out["loads"] = loads
-    ml = _measure(text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter", _laundry_multiplier)
+    # Any other "NX <size>" ("Tide 2X 92 fl oz") is concentration or a pack: ambiguous, so
+    # no volume or mass at all rather than a guess either way.
+    ambiguous = _laundry_pack(text) is None and _L_X_SIZE_RE.search(text) is not None
+    ml = None if ambiguous else _measure(
+        text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter", _laundry_multiplier
+    )
     if ml is not None:
         out["volume_ml"] = ml
     stripped = _strip_fl_oz(_NUTRIENT_RE.sub(" ", text))
-    g = _measure(stripped, _L_MASS_RE, _L_MASS_UNITS, "gram", _laundry_multiplier)
+    g = None if ambiguous else _measure(
+        stripped, _L_MASS_RE, _L_MASS_UNITS, "gram", _laundry_multiplier
+    )
     if g is not None:
         out["mass_g"] = g
     liquid, powder = _LIQUID_RE.search(text), _POWDER_RE.search(text)
-    if bool(liquid) != bool(powder):
+    if bool(liquid) != bool(powder) and not ambiguous:
         # "105 oz" of liquid is fluid ounces; of powder it is weight. Explicit units win.
         unit, key, target = (
             ("fluid_ounce", "volume_ml", "milliliter") if liquid else ("ounce", "mass_g", "gram")

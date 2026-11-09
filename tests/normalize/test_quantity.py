@@ -530,3 +530,20 @@ def test_laundry_up_to_loads_never_guessed():
     assert "loads" not in m and m["volume_ml"] == _r(2720.76)
     assert "loads" not in parse_measures(["Up to 64 loads Tide"], "laundry")
     assert "loads" not in parse_measures(["Tide up-to 64 loads"], "laundry")
+
+
+def test_laundry_ambiguous_nx_before_size_is_dropped():
+    m = parse_measures(["Tide 2X 92 fl oz"], "laundry")
+    assert m == {}
+    m = parse_measures(["Tide Liquid 2X 92 fl oz, 64 Loads"], "laundry")
+    assert m == {"loads": 64}
+    assert "mass_g" not in parse_measures(["Tide Powder 2x 3 lb, 48 Loads"], "laundry")
+    assert parse_measures(["Tide Liquid HE 2X 64 loads"], "laundry") == {"loads": 64}
+
+
+def test_laundry_explicit_pack_wording_multiplies():
+    m = parse_measures(["Tide 2 x 92 fl oz bottles"], "laundry")
+    assert m == {"volume_ml": _r(2 * 2720.76)}
+    assert parse_measures(["Tide 92 fl oz, 2 pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
+    assert parse_measures(["Tide 92 fl oz, Twin Pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
+    assert parse_measures(["Tide 92 fl oz, Pack of 3"], "laundry")["volume_ml"] == _r(3 * 2720.76)
