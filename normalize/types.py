@@ -27,6 +27,15 @@ class RawOffer:
 
 
 @dataclass(frozen=True)
+class Nutrition:
+    """OFF nutriments, per basis as OFF gives them (basis: "100g", "100ml", "serving" or None)."""
+
+    basis: str | None
+    protein: float | None
+    kcal: float | None
+
+
+@dataclass(frozen=True)
 class OffProduct:
     """Open Food Facts product data; labels are OFF tags such as "en:organic"."""
 
@@ -34,6 +43,7 @@ class OffProduct:
     quantity: str | None = None
     categories: tuple[str, ...] = ()
     quantity_unit: str | None = None
+    nutrition: Nutrition | None = None  # None: never fetched with nutriments
 
 
 @dataclass(frozen=True)
