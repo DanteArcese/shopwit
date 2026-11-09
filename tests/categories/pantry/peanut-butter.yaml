@@ -8,3 +8,4 @@
 - {title: 'Reese''s Peanut Butter Cups, Milk Chocolate, 1.5 oz', expect: {category: null}}
 - {title: 'PB2 Powdered Peanut Butter, 6.5 oz', expect: {category: null}}
 - {title: 'Ritz Peanut Butter Cracker Sandwiches, 8 ct', expect: {category: null}}
+- {title: 'Peanut butter', expect: {category: pantry/peanut-butter}}

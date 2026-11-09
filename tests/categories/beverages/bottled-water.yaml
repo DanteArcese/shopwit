@@ -7,3 +7,5 @@
 - {title: 'Arrowhead Mountain Spring Water, 101.4 fl oz', expect: {category: beverages/bottled-water, attributes: {water_type: spring}, measures: {volume_ml: 2998.76}}}
 - {title: 'PUR Plus Drinking Water Filter Pitcher, 11 Cup', expect: {category: null}}
 - {title: 'Dog Drinking Water Fountain, 2.4 L', expect: {category: null}}
+- {title: 'Evian Natural Spring Mineral Water, 1 L', brand: Evian, expect: {category: beverages/bottled-water, measures: {volume_ml: 1000}}}
+- {title: 'Evian Mineral Water, 500 mL', brand: Evian, expect: {category: beverages/bottled-water, measures: {volume_ml: 500}}}

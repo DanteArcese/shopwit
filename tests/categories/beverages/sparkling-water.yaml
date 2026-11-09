@@ -8,3 +8,4 @@
 - {title: 'Bubly Sparkling Water, Grapefruit, 12 fl oz Cans, 8 Pack', expect: {category: beverages/sparkling-water, measures: {volume_ml: 2839.06}}}
 - {title: 'White Claw Hard Seltzer Variety Pack, 12 fl oz, 12 ct', expect: {category: null}}
 - {title: SodaStream Terra Sparkling Water Maker, expect: {category: null}}
+- {title: 'Gerolsteiner Sparkling Mineral Water, 750 mL', brand: Gerolsteiner, expect: {category: beverages/sparkling-water, measures: {volume_ml: 750}}}

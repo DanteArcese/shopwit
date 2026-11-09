@@ -2,7 +2,7 @@ name: Sugar
 dimension: mass
 match:
   include: [granulated sugar, demerara sugar, caster sugar, cane sugar, white sugar, brown sugar, powdered sugar, confectioners sugar, confectioners' sugar, turbinado sugar, baking sugar]
-  exclude: [oatmeal, pop-tarts, pop tarts, cereal, syrup, candy, bacon, ham, glaze, seasoning, rub, scrub, lip, cinnamon, maple, blend, stevia, monk fruit, sweetener, substitute, cookies, cookie, frosted, icing, frosting, gum, sugar free, sugar-free, zero sugar, no sugar, keto, wax, packets, sprinkles, pearls, sauce, barbecue, bubble, boba, milk tea]
+  exclude: [oatmeal, pop-tarts, pop tarts, cereal, syrup, candy, bacon, ham, glaze, seasoning, rub, scrub, lip, cinnamon, maple, blend, stevia, monk fruit, sweetener, substitute, cookies, cookie, frosted, icing, frosting, gum, sugar free, sugar-free, zero sugar, no sugar, keto, wax, packets, sprinkles, pearls, sauce, barbecue, bubble, boba, milk tea, kinder's, kinders]
 attributes:
   type: {type: enum, values: [granulated, brown, powdered, raw], synonyms: {granulated: [granulated, white sugar, extra fine], brown: [brown sugar, light brown, dark brown], powdered: [powdered, confectioners, confectioners', 10x], raw: [turbinado, raw cane, demerara, raw sugar]}}
   organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
