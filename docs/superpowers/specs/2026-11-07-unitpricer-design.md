@@ -185,7 +185,7 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 ## 12. Hosting
 
 - Local development: Docker Compose (web, worker, Postgres).
-- Production: a DigitalOcean droplet running Docker Compose (web, worker, Postgres, backup) behind a Cloudflare Tunnel; no published ports. The apex serves a public waitlist; the app host is a gated beta behind Cloudflare Access. Runbook: `docs/deploy.md`.
+- Production: a DigitalOcean droplet running Docker Compose (web, worker, Postgres, backup) behind a Cloudflare Tunnel; no published ports. The apex serves the public app (no admin; a cookie-free notify-me block replaces the waitlist page); the beta host serves the same app plus the admin, gated by Cloudflare Access. Runbook: `docs/deploy.md`.
 
 ## 13. Error handling and observability
 

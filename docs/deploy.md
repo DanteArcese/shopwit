@@ -4,7 +4,7 @@ First deploy and day-to-day operations. Files: `compose.prod.yaml`, `deploy/clou
 
 ## Topology
 
-One DigitalOcean droplet (Ubuntu 24.04, `s-1vcpu-2gb`, `nyc3`) running Docker Compose: `db` (Postgres 17), `web` (gunicorn), `worker` (`run_scheduler`), `cloudflared` and `backup`. No container publishes a port. Traffic arrives through the Cloudflare tunnel **`unitpricer-prod`** (remotely managed; ingress is the apex `unitpricer.com` and `beta.unitpricer.com` only, both to `http://web:8000`; `www.unitpricer.com` is a Cloudflare 301 redirect rule to the apex, and the app's own www redirect is only a fallback). The DigitalOcean firewall is named **`unitpricer`**. The app host `beta.unitpricer.com` sits behind the Cloudflare Access application **"UnitPricer beta"**; its allow-list is managed in Cloudflare Zero Trust (Access > Applications), not in this repo.
+One DigitalOcean droplet (Ubuntu 24.04, `s-1vcpu-2gb`, `nyc3`) running Docker Compose: `db` (Postgres 17), `web` (gunicorn), `worker` (`run_scheduler`), `cloudflared` and `backup`. No container publishes a port. Traffic arrives through the Cloudflare tunnel **`unitpricer-prod`** (remotely managed; ingress is the apex `unitpricer.com` and `beta.unitpricer.com` only, both to `http://web:8000`; the apex serves the public app without `/admin/`, and beta serves the same app plus `/admin/` behind Access with `noindex`; `www.unitpricer.com` is a Cloudflare 301 redirect rule to the apex, and the app's own www redirect is only a fallback). The DigitalOcean firewall is named **`unitpricer`**. The app host `beta.unitpricer.com` sits behind the Cloudflare Access application **"UnitPricer beta"**; its allow-list is managed in Cloudflare Zero Trust (Access > Applications), not in this repo.
 
 Create the droplet with `deploy/cloud-init.yaml` as user data, your SSH key attached, daily backups and monitoring on.
 
@@ -13,7 +13,7 @@ Create the droplet with `deploy/cloud-init.yaml` as user data, your SSH key atta
 Both live in `/srv/unitpricer`, mode `600`, owner `deploy`. Never commit them.
 
 - `.env` (compose interpolation): `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all optional until R2 is enabled), `BACKUP_HEARTBEAT_URL` (optional), `UNITPRICER_IMAGE_TAG` (written by `deploy.sh`).
-- `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL`, `UNITPRICER_SITE_URL`, `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`.
+- `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL` and `UNITPRICER_SITE_URL` (both `https://unitpricer.com` in production; check E023), `UNITPRICER_COMING_SOON` (set explicitly, for example `Walmart (December)`), `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`.
 - Open search (optional, in `app.env`): `UNITPRICER_LIVE_OFF=1` turns on the Open Food Facts → Open Prices live source (default off). `UNITPRICER_FETCH_THREADS` (1 or 2, default 1) sets the worker's fetch threads, and `UNITPRICER_WARM_HOURS` (default 12) the warm-refresh interval.
 - Source budgets (optional, in `app.env`): `UNITPRICER_BUDGET_<OFF_SEARCH|OPENPRICES|WALMART>_{CAPACITY,REFILL_PER_SECOND,DAILY_LIMIT}`. They seed a budget row only when it is first created; later changes go in the admin. `_DAILY_LIMIT` unset or blank keeps the default cap (Walmart 5000 per day, the others none), a number sets the cap, and `unlimited` (any case) removes it. Any other value stops startup with a configuration error. `_CAPACITY` must be at least 1. Open Prices defaults to capacity 1 at 1 per second (no burst), the pace the daily sync has always kept; a 429, 503 or transport error from it blocks the shared row with backoff.
 
@@ -89,6 +89,21 @@ docker compose run --rm -T web python manage.py open_prices_sync </dev/null
 ```
 
 Confirm the `ingest connector=openprices category=all status=succeeded` log line shows `fetched` of about 10,500 (about 5,000 with assisted entries off), and that `/c/dairy/milk/` on the beta host shows "Seen in stores". The ODbL export for a data request: `docker compose run --rm -T web python manage.py export_open_prices --out /tmp/open-prices.jsonl.gz </dev/null` (write to a mounted path to keep the file). The public site has no dump link yet; that waits for the public launch.
+
+### Purge sample data
+
+Run before enabling a real Walmart key, and on any database that ever held recorded data (dry run first, then `--apply`):
+
+```bash
+docker compose run --rm -T web python manage.py purge_sample_data </dev/null
+docker compose run --rm -T web python manage.py purge_sample_data --apply </dev/null
+```
+
+`refresh --recordings` and `demo_data` refuse to run when `DEBUG` is off.
+
+### Uptime monitoring
+
+Monitor `https://unitpricer.com/healthz` (5 minutes, expects `"status": "ok"`) and the backup heartbeat. Cloudflare Bot Fight Mode and the rate rule are described in `docs/launch.md`; confirm the monitor still gets 200 after enabling them.
 
 ## Backups and restore
 

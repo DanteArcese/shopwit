@@ -24,7 +24,7 @@ Open Prices: `uv run --env-file .env python manage.py open_prices_sync [--record
 
 Open-ended search: after migrating (through catalog 0010), run `uv run --env-file .env python manage.py backfill_generic` once to give existing offers their generic phrase and measure. `manage.py bench_search` (DEBUG only) is a local p95 check of the search path. `UNITPRICER_LIVE_OFF=1` turns on the OFF → Open Prices live source (off by default). Budgets live in the admin; a changed `UNITPRICER_BUDGET_*` setting applies only to new rows. The worker also runs the fetch thread(s) (`UNITPRICER_FETCH_THREADS`).
 
-Try it locally (needs `DJANGO_DEBUG=1`, migrations applied): `uv run --env-file .env python manage.py demo_data` loads categories and recorded Walmart milk offers offline (no `WALMART_*` vars), then `uv run --env-file .env python manage.py runserver` and open `/c/dairy/milk/` on it. `demo_data` refuses to run when `DEBUG` is off.
+Try it locally (needs `DJANGO_DEBUG=1`, migrations applied): `uv run --env-file .env python manage.py demo_data` loads categories and recorded Walmart milk offers offline (no `WALMART_*` vars), then `uv run --env-file .env python manage.py runserver` and open `/c/dairy/milk/` on it. `demo_data` refuses to run when `DEBUG` is off, as does `refresh --recordings`. In production run `purge_sample_data` (dry run, then `--apply`) before enabling a real Walmart key; see `docs/launch.md`.
 
 Tests need real Postgres. With `DATABASE_URL` unset, `tests/postgres_plugin.py` starts a throwaway cluster in `.pytest-pg/` from system binaries (one-time `sudo apt install postgresql` required). CI uses a postgres:17 service.
 

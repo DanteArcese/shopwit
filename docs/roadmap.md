@@ -159,9 +159,9 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 | # | Task |
 |---|---|
 | 6.1 | ✅ Done after M2: rename shopwit → UnitPricer (#26) |
-| 6.2 | Production hardening: uptime checks, alerting, restore drill for backups |
-| 6.3 | Legal pages: privacy policy, terms, affiliate disclosure (FTC and each program's required wording) |
-| 6.4 | SEO: indexable category landing pages ("cheapest 2-ply toilet paper"), sitemap, structured data, canonical URLs for filter combinations |
+| 6.2 | Production hardening: uptime checks, alerting, restore drill for backups (runbook: `docs/launch.md`, plan `docs/superpowers/plans/2026-11-08-limited-public-launch.md`) |
+| 6.3 | Legal pages: privacy policy, terms, affiliate disclosure (FTC and each program's required wording). Partly done: pages written (#77); Terms draft banner and legal gates remain in `docs/launch.md` |
+| 6.4 | SEO: indexable category landing pages ("cheapest 2-ply toilet paper"), sitemap, structured data, canonical URLs for filter combinations. Partly done: sitemap, canonical and noindex shipped (#77); structured data remains |
 | 6.5 | Polish the open-source repo: README screenshots, contributing guide, "good first category" issues |
 | 6.6 | Soft launch to frugal and personal-finance communities; collect feedback as issues |
 
