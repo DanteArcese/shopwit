@@ -24,7 +24,11 @@ def _clock(monkeypatch):
 
 def _expiry_seconds():
     with connection.cursor() as cur:
-        cur.execute("SELECT EXTRACT(EPOCH FROM (expires - now())) FROM unitpricer_cache")
+        # clock_timestamp(), not now(): now() is the (test) transaction's start time,
+        # which can be well before the row was written.
+        cur.execute(
+            "SELECT EXTRACT(EPOCH FROM (expires - clock_timestamp())) FROM unitpricer_cache"
+        )
         return [float(r[0]) for r in cur.fetchall()]
 
 
@@ -32,7 +36,7 @@ def test_stored_expiry_is_the_full_window_after_incr():
     for _ in range(3):
         allow("x", "k", 10, HOUR)
     (remaining,) = _expiry_seconds()
-    assert 3500 < remaining <= 3600  # not Django's default 300 s
+    assert 3500 < remaining <= 3601  # not Django's default 300 s (1 s for rounding)
 
 
 def test_limit_holds_beyond_five_minutes_within_window(_clock):

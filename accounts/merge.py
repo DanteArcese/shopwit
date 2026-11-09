@@ -7,17 +7,21 @@ that are not in them yet. Logs carry nothing (no ZIP, names or ids).
 
 from __future__ import annotations
 
+import logging
 from dataclasses import dataclass, replace
 
 from django.contrib import messages
 from django.contrib.auth import get_user_model
 from django.db import transaction
 
-from lists.spec import MAX_ITEMS, MAX_LISTS
+from catalog.models import Product
+from lists.spec import MAX_ITEMS, MAX_LISTS, ListSpec
 from lists.store import AccountListStore, SessionListStore
 from web.prefs import DEFAULT_RADIUS, RADIUS_STEPS, clean_comparisons
 
 from .models import UserSettings
+
+logger = logging.getLogger(__name__)
 
 LIMIT_MESSAGE = (
     "Some lists from this device didn't fit in your account "
@@ -32,12 +36,32 @@ class MergeResult:
     lists_skipped: int  # lists (or parts of lists) that hit a limit
 
 
+def _without_dangling_pins(specs: list[ListSpec]) -> list[ListSpec]:
+    """Unpin items whose pinned product no longer exists (one query for all of them)."""
+    pinned = {i.pinned_product for s in specs for i in s.items if i.pinned_product is not None}
+    if not pinned:
+        return specs
+    live = set(Product.objects.filter(pk__in=pinned).values_list("pk", flat=True))
+    return [
+        replace(
+            s,
+            items=tuple(
+                i if i.pinned_product is None or i.pinned_product in live
+                else replace(i, pinned_product=None)
+                for i in s.items
+            ),
+        )
+        for s in specs
+    ]
+
+
 def _merge_lists(session, user) -> MergeResult:
     store = AccountListStore(user)
     mine = {s.id: s for s in store.lists()}
     lists_added = items_added = lists_skipped = 0
+    incoming = _without_dangling_pins(SessionListStore(session).lists())
     # Oldest first, so the limits keep the lists the visitor made first.
-    for spec in reversed(SessionListStore(session).lists()):
+    for spec in reversed(incoming):
         existing = mine.get(spec.id)
         if existing is None:
             if len(mine) >= MAX_LISTS:
@@ -128,6 +152,12 @@ def merge_session_into_account(session, user) -> MergeResult:
 def on_user_logged_in(sender, request, user, **kwargs):
     if request is None or not hasattr(request, "session"):
         return
-    result = merge_session_into_account(request.session, user)
+    try:
+        result = merge_session_into_account(request.session, user)
+    except Exception as exc:
+        # Fail soft: the sign-in stands and the session keeps its lists for a
+        # later merge. The type name only; the message could carry user data.
+        logger.error("Session merge on sign-in failed: %s", type(exc).__name__)
+        return
     if result.lists_skipped:
         messages.warning(request, LIMIT_MESSAGE, fail_silently=True)

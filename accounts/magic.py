@@ -95,7 +95,10 @@ def send_magic_link(email: str, next_path: str, now: datetime) -> bool:
         to=[email],
     )
     try:
-        sent = send_budgeted(message, kind="magic", now=now)
+        # Leave the waitlist-confirmation reserve alone, as announcements do.
+        sent = send_budgeted(
+            message, kind="magic", now=now, reserve=settings.WAITLIST_CONFIRM_RESERVE
+        )
     except BaseException:
         MagicLinkToken.objects.filter(token_hash=_hash(raw)).delete()
         raise

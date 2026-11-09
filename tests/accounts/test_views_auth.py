@@ -350,6 +350,9 @@ def test_account_routes_404_on_apex(client, settings):
         ("post", "/account/sign-in"),
         ("post", "/account/magic-link"),
         ("get", f"/account/magic/{'a' * 43}"),
+        ("post", f"/account/magic/{'a' * 43}"),
+        ("get", "/account/magic/x"),
+        ("post", "/account/magic/x"),
         ("post", "/account/sign-out"),
     ]:
         r = getattr(client, method)(path, HTTP_HOST="unitpricer.com")
@@ -423,3 +426,43 @@ def test_confirm_page_names_the_account(client):
     _request_link(client, "Who@Example.com")
     html = client.get(f"/account/magic/{_token_from_outbox()}").content.decode()
     assert "Sign in as" in html and "who@example.com" in html
+
+
+@pytest.mark.django_db
+def test_magic_links_leave_the_confirmation_reserve(client, settings):
+    from waitlist.mail import send_budgeted
+    from waitlist.models import EmailSend
+    from django.core.mail import EmailMessage
+
+    settings.DAILY_EMAIL_CAP = 5
+    settings.WAITLIST_CONFIRM_RESERVE = 2
+    now = timezone.now()
+    for _ in range(3):
+        EmailSend.objects.create(sent_at=now, kind="announce")
+    r = _request_link(client, "new@example.com")
+    assert r.status_code == 503 and len(mail.outbox) == 0
+    # The reserve is still there for waitlist confirmations.
+    assert send_budgeted(EmailMessage(to=["w@example.com"]), "confirm", now) is True
+
+
+@pytest.mark.django_db
+def test_sign_in_password_is_sensitive(client):
+    r = client.post("/account/sign-in", {"email": "x@example.com", "password": "hunter2-hunter2"})
+    assert r.wsgi_request.sensitive_post_parameters == ("password",)
+
+
+@pytest.mark.django_db
+def test_password_change_fields_are_sensitive(client):
+    client.force_login(_user())
+    r = client.post("/account/password", {"old_password": "x", "new_password1": "y", "new_password2": "y"})
+    assert set(r.wsgi_request.sensitive_post_parameters) == {
+        "old_password",
+        "new_password1",
+        "new_password2",
+    }
+
+
+def test_privacy_page_names_the_cookies(client):
+    html = client.get("/privacy").content.decode()
+    assert "Beta app: a session cookie and a security (CSRF) cookie." in html
+    assert "settings cookie" not in html

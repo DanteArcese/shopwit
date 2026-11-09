@@ -24,6 +24,7 @@ from django.urls import reverse
 from django.utils import timezone
 from django.utils.http import url_has_allowed_host_and_scheme
 from django.views.decorators.cache import never_cache
+from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
 from web.net import client_ip
@@ -72,6 +73,7 @@ def _sign_in_page(request, next_path, status=200, **context):
     )
 
 
+@sensitive_post_parameters("password")
 @never_cache
 @require_http_methods(["GET", "POST"])
 def sign_in(request):
@@ -205,6 +207,7 @@ def account(request):
     return _account_page(request)
 
 
+@sensitive_post_parameters("old_password", "new_password1", "new_password2")
 @never_cache
 @login_required
 @require_POST

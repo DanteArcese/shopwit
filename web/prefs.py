@@ -101,9 +101,25 @@ def _account_user(request):
     return user if user is not None and user.is_authenticated else None
 
 
+_CACHE_ATTR = "_prefs"
+
+
 def get_prefs(request) -> Prefs:
-    default = default_unit_system(request.META.get("HTTP_ACCEPT_LANGUAGE", ""))
+    """The visitor's prefs, read once per request (views and the context processor
+    share it); save_prefs drops the cached copy, and a sign-in mid-request (another
+    user) misses it."""
     user = _account_user(request)
+    key = user.pk if user is not None else None
+    cached = getattr(request, _CACHE_ATTR, None)
+    if cached is not None and cached[0] == key:
+        return cached[1]
+    prefs = _read_prefs(request, user)
+    setattr(request, _CACHE_ATTR, (key, prefs))
+    return prefs
+
+
+def _read_prefs(request, user) -> Prefs:
+    default = default_unit_system(request.META.get("HTTP_ACCEPT_LANGUAGE", ""))
     if user is not None:
         from accounts.models import UserSettings
 
@@ -125,6 +141,9 @@ def get_prefs(request) -> Prefs:
 
 
 def save_prefs(request, prefs: Prefs) -> None:
+    # The next get_prefs re-reads what was just saved (normalized, as later requests see it).
+    if hasattr(request, _CACHE_ATTR):
+        delattr(request, _CACHE_ATTR)
     stores = None if prefs.stores is None else sorted(prefs.stores)
     comparisons = clean_comparisons(dict(prefs.comparisons))
     user = _account_user(request)

@@ -210,3 +210,30 @@ def test_deleting_account_deletes_settings():
     UserSettings.objects.create(user=u, unit_system="metric")
     u.delete()
     assert not UserSettings.objects.exists()
+
+
+@pytest.mark.django_db
+def test_category_page_reads_saved_settings_once(tp_offers):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    u = make_user()
+    UserSettings.objects.create(user=u, unit_system="metric")
+    c = sign_in(Client())
+    with CaptureQueriesContext(connection) as ctx:
+        assert c.get("/c/household/toilet-paper/").status_code == 200
+    reads = [q for q in ctx if 'FROM "accounts_usersettings"' in q["sql"]]
+    assert len(reads) == 1, [q["sql"][:80] for q in reads]
+
+
+@pytest.mark.django_db
+def test_settings_rerender_shows_saved_values(retailers):
+    u = make_user()
+    UserSettings.objects.create(user=u, unit_system="imperial")
+    c = sign_in(Client())
+    c.get("/settings")
+    r = c.post("/settings", {"unit_system": "metric", "postal_code": "nope", "radius": "50"})
+    assert r.status_code == 200
+    assert r.context["prefs"].unit_system == "metric"
+    assert r.context["prefs"].radius == 50
+    assert 'name="unit_system" value="metric" checked' in r.content.decode()

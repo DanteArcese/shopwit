@@ -202,3 +202,31 @@ def test_merge_without_session_prefs_creates_no_settings_row():
     assert not UserSettings.objects.exists()
 
 
+
+
+@pytest.mark.django_db
+def test_merge_drops_dangling_pin():
+    u = user()
+    spec = lst("Pins", item(1, pinned_product=987654321))
+    merge_session_into_account(session_with(spec), u)
+    (got,) = AccountListStore(u).get(spec.id).items
+    assert got.pinned_product is None
+
+
+@pytest.mark.django_db
+def test_merge_failure_keeps_sign_in(monkeypatch, caplog):
+    import logging
+
+    u = user()
+
+    def boom(session, user):
+        raise RuntimeError("secret detail u@example.com")
+
+    monkeypatch.setattr("accounts.merge.merge_session_into_account", boom)
+    c = Client()
+    with caplog.at_level(logging.DEBUG):
+        r = c.post("/account/sign-in", {"email": u.email, "password": PASSWORD})
+    assert r.status_code == 302
+    assert c.session["_auth_user_id"] == str(u.pk)
+    assert "RuntimeError" in caplog.text
+    assert "secret detail" not in caplog.text and "u@example.com" not in caplog.text
