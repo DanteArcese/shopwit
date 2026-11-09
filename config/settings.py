@@ -185,6 +185,8 @@ SOURCE_BUDGETS = {
     # Capacity 1: no burst, a steady 1 req/s, the etiquette the daily sync always kept.
     "openprices": _budget("openprices", 1, 1.0, None),
     "walmart": _budget("walmart", 5, 1.0, 5000),
+    # OFF product reads for observed offers' sizes: 1 per second, at most 300 a day.
+    "off-product": _budget("off-product", 1, 1.0, 300),
 }
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {

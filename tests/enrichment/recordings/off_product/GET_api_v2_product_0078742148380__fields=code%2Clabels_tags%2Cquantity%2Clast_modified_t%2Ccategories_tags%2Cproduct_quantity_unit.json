@@ -1,0 +1,20 @@
+{
+ "status": 200,
+ "json": {
+  "code": "0078742148380",
+  "product": {
+   "categories_tags": [
+    "en:eggs-and-their-products",
+    "en:farming-products",
+    "en:eggs",
+    "en:chicken-eggs"
+   ],
+   "code": "0078742148380",
+   "labels_tags": [],
+   "last_modified_t": 1757031651,
+   "quantity": "12"
+  },
+  "status": 1,
+  "status_verbose": "product found"
+ }
+}
