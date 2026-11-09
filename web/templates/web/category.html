@@ -1,4 +1,6 @@
 {% extends "web/base.html" %}
+{% block description %}{{ meta_description }}{% endblock %}
+{% block canonical_path %}{{ category_url }}{% endblock %}
 {% block title %}{{ category.name }} - UnitPricer{% endblock %}
 {% block main %}
 <h1>{{ category.name }}</h1>

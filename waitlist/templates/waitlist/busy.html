@@ -1,4 +1,6 @@
 {% extends "web/base.html" %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block canonical %}{% endblock %}
 {% block title %}{% if rate_limited %}Too many requests{% else %}Try again tomorrow{% endif %} | UnitPricer{% endblock %}
 {% block main %}
 {% if rate_limited %}

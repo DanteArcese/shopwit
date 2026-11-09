@@ -21,7 +21,13 @@ from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
 from catalog.links import affiliate_programs
 from catalog.models import Category, ClickEvent, Offer
-from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
+from catalog.retailers import (
+    RETAILERS,
+    available_retailers,
+    chain_names,
+    display_name,
+    is_chain_code,
+)
 from catalog.units import (
     DISPLAY,
     display_size,
@@ -43,6 +49,7 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
+from .seo import category_description
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -223,6 +230,7 @@ def category(request, slug):
     obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near)
 
     url = reverse("category", args=[cat.slug])
+    available = available_retailers(when, cat)
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
     unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
     context = {
@@ -246,7 +254,12 @@ def category(request, slug):
             for c in [cat.comparison_default, *cat.comparison_alternates]
         ],
         "comparison": result.comparison,
-        "stores": _store_options(prefs, available_retailers(when, cat)),
+        "stores": _store_options(prefs, available),
+        "meta_description": category_description(
+            cat.name,
+            DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
+            [display_name(c) for c in available if not is_chain_code(c)],
+        ),
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,

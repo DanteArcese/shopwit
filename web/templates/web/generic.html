@@ -1,4 +1,6 @@
 {% extends "web/base.html" %}
+{% block robots %}<meta name="robots" content="noindex">{% endblock %}
+{% block canonical %}{% endblock %}
 {% block title %}Search: {{ q }} - UnitPricer{% endblock %}
 {% block main %}
 <h1>Results for &lsquo;{{ q }}&rsquo;</h1>

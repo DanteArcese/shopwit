@@ -22,7 +22,7 @@ def healthz(request):
 
 
 # Pages that start live fetches or are per-visitor; crawlers must not spend budgets on them.
-PUBLIC_DISALLOW = ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click")
+PUBLIC_DISALLOW = ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click", "/feedback")
 
 
 def robots_txt(request):

@@ -55,7 +55,7 @@ def test_admin_on_beta(client):
 def test_robots_per_host(client):
     apex = client.get("/robots.txt", HTTP_HOST=PUBLIC).content.decode()
     assert "Allow: /" in apex and "Sitemap: https://unitpricer.com/sitemap.xml" in apex
-    for p in ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click"):
+    for p in ("/search", "/settings", "/lists/", "/account/", "/waitlist/", "/click", "/feedback"):
         assert f"Disallow: {p}" in apex
     assert "Disallow: /\n" not in apex
     assert client.get("/robots.txt", HTTP_HOST=APP).content.decode() == "User-agent: *\nDisallow: /\n"
@@ -72,6 +72,7 @@ def test_robots_apex_exact(client):
         "Disallow: /account/\n"
         "Disallow: /waitlist/\n"
         "Disallow: /click\n"
+        "Disallow: /feedback\n"
         "\n"
         "Sitemap: https://unitpricer.com/sitemap.xml\n"
     )

@@ -7,11 +7,12 @@ from django.urls import include, path
 
 from feedback import views as feedback_views
 from waitlist import views as waitlist_views
-from web import health
+from web import health, seo
 
 urlpatterns = [
     path("healthz", health.healthz, name="healthz"),
     path("robots.txt", health.robots_txt, name="robots"),
+    path("sitemap.xml", seo.sitemap_xml, name="sitemap"),
     path("privacy", waitlist_views.privacy, name="privacy"),
     path("feedback", feedback_views.feedback, name="feedback"),
     path("waitlist/", include("waitlist.urls")),

@@ -30,7 +30,7 @@ def test_no_external_asset_urls(client, categories):
     html = client.get("/").content.decode()
     urls = re.findall(r'(?:src|href)="([^"]*)"', html)
     assert urls
-    external = [u for u in urls if re.match(r"(?:https?:)?//", u)]
+    external = [u for u in urls if re.match(r"(?:https?:)?//", u) and u != "http://testserver/"]  # canonical (PUBLIC_URL unset)
     assert external == ["https://github.com/DanteArcese/unitpricer"]  # AGPL source link only
     assert urls.index("/static/web/htmx.min.js") < urls.index("/static/web/app.js")
     assert "/static/web/app.js" in urls
