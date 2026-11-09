@@ -18,6 +18,21 @@ def test_about_names_contacts(client):
     assert "Dante Arcese" in body
 
 
+def test_about_ai_sentence(client):
+    body = client.get("/about").content.decode()
+    assert "No AI ranks results or writes product or price text." in body
+    assert "rewrite or generate anything" not in body
+
+
+def test_terms_feedback_matches_privacy(client):
+    body = client.get("/terms").content.decode()
+    feedback = body.split("<h2>Feedback</h2>", 1)[1].split("<h2>", 1)[0]
+    assert "Reports of a wrong price or size stay private." in feedback
+    assert "approved bug reports, ideas and store requests" in feedback
+    assert "without your email address" in feedback
+    assert "you allow us to post it publicly as an issue" not in feedback
+
+
 def test_amazon_sentence_only_with_tag(client, settings):
     settings.AFFILIATE = {**NONE}
     body = client.get("/disclosure").content.decode()
