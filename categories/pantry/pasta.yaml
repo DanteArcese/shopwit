@@ -1,0 +1,11 @@
+name: Pasta
+dimension: mass
+match:
+  include: [pasta, spaghetti, penne, macaroni, elbows, rotini, linguine, fettuccine, rigatoni, farfalle, angel hair, egg noodles, lasagna, ziti]
+  exclude: [sauce, marinara, salad, cheese, spaghettios, squash, chef boyardee, helper, sides, meal, kit, dinner, skillet, frozen, maker, pot, strainer, colander, server, ravioli, tortellini, soup, seasoning, zucchini, shirataki, ramen, instant, bake, canned, pasta bowl, spaghetti bowl, lasagna bowl, bowls, meals, meat, meatballs, meatball, sausage, chicken, beef, turkey, shrimp, steak, alfredo, pomodoro, vodka, arrabbiata, mushroom, mushrooms, broccoli, kale, vegetable, cheddar, creamy, herb, herbs, flavor, roni, salsa, sce, tomate, pilaf, primavera, pesto, baked, italiano, olive oil, ranch]
+attributes:
+  shape: {type: enum, values: [spaghetti, penne, elbows, rotini, linguine, fettuccine, rigatoni, farfalle, angel_hair, egg_noodles, lasagna, ziti], synonyms: {spaghetti: [spaghetti, thin spaghetti, spaghettini], penne: [penne, penne rigate, mostaccioli], elbows: [elbows, elbow, elbow macaroni], rotini: [rotini], linguine: [linguine], fettuccine: [fettuccine, fettucine], rigatoni: [rigatoni], farfalle: [farfalle, bow ties, bow tie], angel_hair: [angel hair, capellini], egg_noodles: [egg noodles], lasagna: [lasagna, lasagne], ziti: [ziti]}}
+  whole_grain: {type: bool, synonyms: {true: [whole grain, whole wheat]}, absent: false}
+  gluten_free: {type: bool, synonyms: {true: [gluten free, gluten-free]}, absent: false}
+comparison: {default: per_mass}
+search: [spaghetti, penne pasta, elbow macaroni]

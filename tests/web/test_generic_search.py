@@ -199,15 +199,15 @@ def test_query_is_escaped(client, db):
 
 
 def test_query_with_quotes_cannot_break_attributes(client, milk):
-    nasty = 'bulk rice" onmouseover="x\'><b>'
+    nasty = 'bulk gravel" onmouseover="x\'><b>'
     for i in range(30):
-        make_generic_offer(f"Bulk Rice onmouseover x {i:02d}", str(2 + i), dim="mass", amount=1000)
+        make_generic_offer(f"Bulk Gravel onmouseover x {i:02d}", str(2 + i), dim="mass", amount=1000)
     for i in range(2):
-        product = Product.objects.create(identity=f"rice{i}", title=f"Bulk Rice onmouseover x Milk {i}", category=milk)
-        make_generic_offer(f"Bulk Rice onmouseover x Milk {i}", "3", dim="volume", amount=1000, product=product)
+        product = Product.objects.create(identity=f"gravel{i}", title=f"Bulk Gravel onmouseover x Milk {i}", category=milk)
+        make_generic_offer(f"Bulk Gravel onmouseover x Milk {i}", "3", dim="volume", amount=1000, product=product)
     page = html(client, nasty)
-    assert 'hx-get="?q=bulk%20rice%22%20onmouseover%3D%22x%27%3E%3Cb%3E&amp;show=mass' in page
-    assert 'href="/c/dairy/milk/?q_rest=bulk+rice%22+onmouseover%3D%22x%27%3E%3Cb%3E"' in page
+    assert 'hx-get="?q=bulk%20gravel%22%20onmouseover%3D%22x%27%3E%3Cb%3E&amp;show=mass' in page
+    assert 'href="/c/dairy/milk/?q_rest=bulk+gravel%22+onmouseover%3D%22x%27%3E%3Cb%3E"' in page
     assert 'onmouseover="x' not in page and "<b>" not in page
 
 

@@ -1,0 +1,17 @@
+- {title: 'Barilla Spaghetti Pasta, 16 oz', brand: Barilla, price: '1.68', expect: {category: pantry/pasta, attributes: {shape: spaghetti, whole_grain: false, gluten_free: false, brand_tier: name_brand}, measures: {mass_g: 453.59}, unit_prices: {per_mass: '0.003704'}, unresolved: []}}
+- {title: 'Great Value Penne Rigate, 32 oz', brand: Great Value, expect: {category: pantry/pasta, attributes: {shape: penne, brand_tier: store_brand}, measures: {mass_g: 907.18}}}
+- {title: 'Barilla Elbow Macaroni, 16 oz', expect: {category: pantry/pasta, attributes: {shape: elbows}, measures: {mass_g: 453.59}}}
+- {title: 'Banza Chickpea Pasta Rotini, Gluten Free, 8 oz', expect: {category: pantry/pasta, attributes: {shape: rotini, gluten_free: true}, measures: {mass_g: 226.8}}}
+- {title: 'Jovial Organic Brown Rice Pasta Penne Rigate, Gluten Free, 12 oz', expect: {category: pantry/pasta, attributes: {shape: penne, gluten_free: true}, measures: {mass_g: 340.19}}}
+- {title: 'Ronzoni Healthy Harvest Whole Grain Thin Spaghetti, 13.25 oz', expect: {category: pantry/pasta, attributes: {shape: spaghetti, whole_grain: true}, measures: {mass_g: 375.63}}}
+- {title: 'Pennsylvania Dutch Wide Egg Noodles, 12 oz', expect: {category: pantry/pasta, attributes: {shape: egg_noodles}, measures: {mass_g: 340.19}}}
+- {title: 'De Cecco Linguine No. 7, 1 lb', expect: {category: pantry/pasta, attributes: {shape: linguine}, measures: {mass_g: 453.59}}}
+- {title: 'Prego Traditional Pasta Sauce, 24 oz', expect: {category: null}}
+- {title: 'Kraft Original Macaroni & Cheese Dinner, 7.25 oz', expect: {category: null}}
+- {title: 'SpaghettiOs Original Canned Pasta, 15.8 oz', expect: {category: null}}
+- {title: 'Rigatoni', brand: Barilla, expect: {category: pantry/pasta, attributes: {shape: rigatoni}}}
+- {title: 'Gluten-free egg noodles', brand: Taste republic, expect: {category: pantry/pasta, attributes: {shape: egg_noodles, gluten_free: true}}}
+- {title: 'Rao''s bolognese pasta sauce', brand: Rao's Homestyle, expect: {category: null}}
+- {title: 'Pesto Chicken Pasta', brand: Kevin's, expect: {category: null}}
+- {title: 'White Cheddar Pasta Shells As Packaged', brand: Kraft, expect: {category: null}}
+- {title: 'Spaghetti & Meatballs', brand: Banquet, expect: {category: null}}

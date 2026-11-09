@@ -18,6 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 CATEGORIES = load_categories(ROOT / "categories")
 
 MILK, COFFEE, EGGS = "dairy/milk", "pantry/coffee", "dairy/eggs"
+BREAD, RICE, PASTA, FLOUR = "pantry/bread", "pantry/rice", "pantry/pasta", "pantry/flour"
 
 CASES = [
     # Milk: plain dairy milk matches.
@@ -125,7 +126,32 @@ CASES = [
     ("Eggs from plants", "JUST", None),
     ("Folded plant eggs", "Just Egg", None),
     ("Chorizo & Egg Protein Scramble", "Wunder Eggs", None),
+    # Grains and bakery: members.
+    ("100% Whole Wheat Bread", "Nature's Own", BREAD),
+    ("Simply Sourdough Bread", "Base Culture", BREAD),
+    ("Organic Brown Basmati Rice", "Seeds of Change", RICE),
+    ("Short Grain Brown Rice", "Lundberg Family Farms", RICE),
+    ("Penne Rigate Pasta", "Bowl & Basket", PASTA),
+    ("Gluten-free egg noodles", "Taste republic", PASTA),
+    ("Bread Flour", "King Arthur Baking", FLOUR),
+    ("Organic Brown Rice Flour", "Arrowhead Mills", FLOUR),
+    # Grains and bakery: look-alikes.
+    ("Organic Mini Bagels Plain Awesome", "Dave's Killer Bread", None),
+    ("Brazilian Cheese Bread Cheddar & Parmesan", "Brazi Bites", None),
+    ("Garlic bread", "Pepperidge farm", None),
+    ("100% Organic Honey", "Rice's Honey", None),
+    ("Rice Vinegar", "Marukan", None),
+    ("Chicken Fried Rice", "P.F. Chang's Home Menu", None),
+    ("Rice Seasoning", "NORI KOMI FURIKAKE", None),
+    ("Rao's bolognese pasta sauce", "Rao's Homestyle", None),
+    ("Pesto Chicken Pasta", "Kevin's", None),
+    ("Pasta Roni Fettuccine Alfredo", "Pasta Roni", None),
+    ("White Cheddar Pasta Shells As Packaged", "Kraft", None),
+    ("Spaghetti & Meatballs", "Banquet", None),
+    ("FLOUR TORTILLAS", "PUEBLO LINDO", None),
+    ("PAM Baking with Flour", "PAM", None),
 ]
+
 
 
 def _offer(title, brand):

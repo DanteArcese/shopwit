@@ -1,0 +1,14 @@
+- {title: 'Nature''s Own Honey Wheat Bread, 20 oz Loaf', brand: Nature's Own, price: '3.48', expect: {category: pantry/bread, attributes: {grain: wheat, gluten_free: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 566.99}, unit_prices: {per_mass: '0.006138'}, unresolved: []}}
+- {title: 'Nature''s Own 100% Whole Wheat Bread, 20 oz Loaf', expect: {category: pantry/bread, attributes: {grain: whole_wheat}, measures: {mass_g: 566.99}}}
+- {title: 'Wonder Classic White Sandwich Bread, 20 oz', expect: {category: pantry/bread, attributes: {grain: white}, measures: {mass_g: 566.99}}}
+- {title: 'Great Value White Sandwich Bread, 20 oz', brand: Great Value, expect: {category: pantry/bread, attributes: {grain: white, brand_tier: store_brand}}}
+- {title: 'Dave''s Killer Bread 21 Whole Grains and Seeds Organic Bread, 27 oz', expect: {category: pantry/bread, attributes: {organic: true}, measures: {mass_g: 765.44}}}
+- {title: 'Canyon Bakehouse Gluten Free Heritage Style Whole Grain Bread, 24 oz', expect: {category: pantry/bread, attributes: {gluten_free: true}, measures: {mass_g: 680.39}, unresolved: ['attribute:grain', 'attribute:brand_tier']}}
+- {title: 'Pepperidge Farm Farmhouse Sourdough Bread, 24 oz Loaf', expect: {category: pantry/bread, attributes: {grain: sourdough}, measures: {mass_g: 680.39}}}
+- {title: 'Progresso Italian Style Bread Crumbs, 15 oz', expect: {category: null}}
+- {title: 'Pillsbury Quick Bread & Muffin Mix, Banana, 14 oz', expect: {category: null}}
+- {title: 'Cole''s Garlic Bread, Frozen, 10 oz', expect: {category: null}}
+- {title: 'Simply Sourdough Bread', brand: Base Culture, expect: {category: pantry/bread, attributes: {grain: sourdough}}}
+- {title: 'Organic Multigrain Sprouted Wheat Bread', brand: Silver Hills Sprouted Bakery, expect: {category: pantry/bread, attributes: {organic: true}}}
+- {title: 'Organic Mini Bagels Plain Awesome', brand: Dave's Killer Bread, expect: {category: null}}
+- {title: 'Brazilian Cheese Bread Cheddar & Parmesan', brand: Brazi Bites, expect: {category: null}}

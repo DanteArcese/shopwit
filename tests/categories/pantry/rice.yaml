@@ -1,0 +1,16 @@
+- {title: 'Mahatma Jasmine Rice, 5 lb', brand: Mahatma, price: '7.48', expect: {category: pantry/rice, attributes: {variety: jasmine, brown: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 2267.96}, unit_prices: {per_mass: '0.003298'}, unresolved: []}}
+- {title: 'Great Value Long Grain Enriched Rice, 20 lb', brand: Great Value, expect: {category: pantry/rice, attributes: {variety: long_grain, brand_tier: store_brand}, measures: {mass_g: 9071.85}}}
+- {title: 'Lundberg Organic Short Grain Brown Rice, 2 lb', expect: {category: pantry/rice, attributes: {variety: short_grain, brown: true, organic: true}, measures: {mass_g: 907.18}}}
+- {title: 'Royal Basmati Rice, 15 lb', expect: {category: pantry/rice, attributes: {variety: basmati}, measures: {mass_g: 6803.89}}}
+- {title: 'Three Ladies Brand Long Grain Jasmine Rice, 25 lb', expect: {category: pantry/rice, attributes: {variety: jasmine}, measures: {mass_g: 11339.81}}}
+- {title: 'Botan Calrose Rice, 5 lb', expect: {category: pantry/rice, attributes: {variety: medium_grain}, measures: {mass_g: 2267.96}}}
+- {title: 'Ben''s Original Ready Rice Jasmine, 8.5 oz Pouch', expect: {category: null}}
+- {title: 'Quaker Lightly Salted Rice Cakes, 4.47 oz', expect: {category: null}}
+- {title: 'Rice Dream Original Organic Rice Milk, 64 fl oz', expect: {category: null}}
+- {title: 'Kellogg''s Rice Krispies Breakfast Cereal, 12 oz', expect: {category: null}}
+- {title: 'Organic Brown Basmati Rice', brand: Seeds of Change, expect: {category: pantry/rice, attributes: {variety: basmati, brown: true, organic: true}}}
+- {title: 'White Arborio Gourmet Rice', brand: Lundberg Family Farms, expect: {category: pantry/rice, attributes: {variety: arborio}}}
+- {title: '100% Organic Honey', brand: Rice's Honey, expect: {category: null}}
+- {title: 'Rice Vinegar', brand: Marukan, expect: {category: null}}
+- {title: 'Chicken Fried Rice', brand: P.F. Chang's Home Menu, expect: {category: null}}
+- {title: 'RICE SEASONING', brand: NORI KOMI FURIKAKE, expect: {category: null}}

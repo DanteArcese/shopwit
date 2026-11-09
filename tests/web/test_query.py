@@ -71,7 +71,7 @@ def test_empty():
 
 @pytest.mark.parametrize(
     "text", ["chocolate milk", "almond milk", "oat milk", "soy milk", "coconut milk",
-             "egg noodles", "liquid egg", "toilet paper wipes"],
+             "egg noodles", "rice milk", "liquid egg", "toilet paper wipes"],
 )
 def test_excluded_queries_not_rewritten(text):
     res = r(text)
@@ -118,3 +118,26 @@ def test_peanut_butter_not_butter():
 
 def test_whole_milk_yogurt_is_yogurt_not_milk():
     assert r("whole milk yogurt").category == "dairy/yogurt"
+
+
+def test_bread_flour_is_flour():
+    assert r("bread flour") == QueryResolution("pantry/flour", {"type": "bread"}, "")
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("whole wheat bread", "pantry/bread", {"grain": "whole_wheat"}),
+        ("jasmine rice", "pantry/rice", {"variety": "jasmine"}),
+        ("brown rice", "pantry/rice", {"brown": True}),
+        ("egg noodles", "pantry/pasta", {"shape": "egg_noodles"}),
+    ],
+)
+def test_grains(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_rice_milk_not_rewritten():
+    assert r("rice milk").category is None

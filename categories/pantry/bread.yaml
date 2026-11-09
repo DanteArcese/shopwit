@@ -1,0 +1,11 @@
+name: Bread
+dimension: mass
+match:
+  include: [bread]
+  exclude: [bagel, bagels, cheese bread, crumbs, panko, flour, mix, machine, maker, knife, box, pudding, garlic bread, bread & butter, bread and butter, pickles, banana, zucchini, pumpkin, monkey bread, dough, frozen, croutons, stuffing, bowl, naan, pita, flatbread, sticks, pan, pans, proofing, basket, bag, bags, dog, bird]
+attributes:
+  grain: {type: enum, values: [white, wheat, whole_wheat, multigrain, sourdough, rye], patterns: ['(?<!\bwhole )(?<!\bwhole-)\b(wheat)\b'], synonyms: {white: [white], whole_wheat: [whole wheat, whole-wheat], multigrain: [multigrain, multi-grain, 12 grain, 15 grain, whole grains], sourdough: [sourdough], rye: [rye]}}
+  gluten_free: {type: bool, synonyms: {true: [gluten free, gluten-free]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [white bread, wheat bread, sandwich bread]
