@@ -9,6 +9,7 @@ import web.access
 from tests.deploy.routes import APEX_ROUTES, APP, BETA_ROUTES, PUBLIC
 TEAM = "unitpricer.cloudflareaccess.com"
 AUD = "test-aud"
+KEEP_ACCESS_MIDDLEWARE = True
 
 
 @pytest.fixture(scope="module")
@@ -116,9 +117,32 @@ def test_healthz_via_tunnel_is_checked(client):
 
 
 @pytest.mark.django_db
-def test_inactive_without_aud(client, settings):
+def test_inactive_without_aud_in_dev(client, settings):
     settings.CF_ACCESS_AUD = ""
+    settings.DEBUG = True
     assert get(client).status_code == 200
+    settings.DEBUG = False
+    settings.APP_HOST = ""
+    assert get(client).status_code == 200
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("host", [APP, "localhost"])
+@pytest.mark.parametrize("path", ["/", "/admin/", "/lists/"])
+def test_missing_aud_fails_closed_in_production(client, settings, host, path):
+    # DEBUG off and APP_HOST set but CF_ACCESS_AUD empty: refuse rather than open beta.
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, "localhost"]
+    settings.CF_ACCESS_AUD = ""
+    r = client.get(path, HTTP_HOST=host)
+    assert r.status_code == 403
+    assert r.content == b"Access required"
+
+
+@pytest.mark.django_db
+def test_missing_aud_keeps_apex_and_probe_open(client, settings):
+    settings.CF_ACCESS_AUD = ""
+    assert get(client, host=PUBLIC).status_code == 200
+    assert get(client, path="/healthz").status_code == 200
 
 
 def test_trailing_dot_host_still_checked(client):
