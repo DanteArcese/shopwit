@@ -505,3 +505,17 @@ def test_scheduler_passes_stop_to_open_prices_sync(monkeypatch):
     assert not seen["stopping"]()
     stop.set()
     assert seen["stopping"]()
+
+
+def test_sync_case_variant_chains_share_one_chain_code():
+    sync(
+        obs(1, location=loc(1, name="Aldi", brand="Aldi")),
+        obs(2, location=loc(2, name="ALDI", brand="ALDI")),
+        obs(3, location=loc(3, name="ALDI", brand=None)),
+    )
+    stores = Store.objects.all()
+    assert {s.chain_code for s in stores} == {"op-aldi"}
+    assert {o.retailer for o in Offer.objects.all()} == {"op-aldi"}
+    from catalog.coverage import stores_we_cover
+
+    assert stores_we_cover(NOW).in_store == [("ALDI", 3)]

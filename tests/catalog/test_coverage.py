@@ -90,3 +90,17 @@ def test_nearby_candidates_only_stores_with_fresh_offers(cats):
     for q in ctx.captured_queries:
         for lst in __import__("re").findall(r"IN \(([^()]*)\)", q["sql"]):
             assert not store_ids & {x.strip() for x in lst.split(",")}, q["sql"]
+
+
+def test_stores_we_cover_merges_chains_differing_by_case(db):
+    make_observed_offer(chain="Aldi", store_code="a1")
+    for i in range(5):
+        make_observed_offer(chain="ALDI", store_code=f"b{i}", item=f"i{i}")
+    # make_observed_offer derives the same chain_code for both spellings
+    assert stores_we_cover(NOW).in_store == [("ALDI", 5 + 1)]
+
+
+def test_stores_we_cover_case_tie_is_deterministic(db):
+    make_observed_offer(chain="Aldi", store_code="a1")
+    make_observed_offer(chain="ALDI", store_code="b1", item="i2")
+    assert stores_we_cover(NOW).in_store == [("ALDI", 2)]  # tie: name order, not pk order
