@@ -383,3 +383,82 @@ def test_tick_isolates_a_sizes_crash(settings, monkeypatch):
         "failed",
         "RuntimeError",
     )
+
+
+# Review round 1
+
+
+def test_off_product_prefers_entry_fields_and_falls_back_per_field():
+    from catalog.observed import observed_off_product
+    from normalize.types import OffProduct
+
+    placeholder = OffProduct(labels=frozenset(), quantity=None, categories=())
+    got = observed_off_product(placeholder, ["en:organic"], "1 gal", ["en:milks"])
+    assert got == OffProduct(frozenset({"en:organic"}), "1 gal", ("en:milks",), None)
+    full = OffProduct(frozenset({"en:x"}), "52 fl oz", ("en:dairies",), "ml")
+    assert observed_off_product(full, ["en:organic"], "1 gal", ["en:milks"]) == full
+    assert observed_off_product(None, [], None, []) == OffProduct(frozenset(), None, (), None)
+
+
+def test_sync_keeps_open_prices_label_over_a_404_placeholder():
+    import enrichment.off
+    from catalog.observed import sync_open_prices
+    from tests.catalog.test_observed import FakeClient
+
+    OffEntry.objects.create(upc=MISSING, source="off", labels=[], quantity=None)
+    sync_open_prices(
+        FakeClient([obs(upc=MISSING, title="Organic Whole Milk", quantity="1 gal")]),
+        NOW,
+        off_lookup=enrichment.off.lookup,
+    )
+    milk = offer(MISSING)
+    assert milk.attributes["organic"]["value"] is True
+    assert "en:organic" in milk.labels and milk.measures["volume_ml"] > 3000
+
+
+def test_renormalize_keeps_open_prices_label_over_a_404_placeholder():
+    sync(obs(upc=MISSING, title="Organic Whole Milk", quantity=None))
+    backfill_sizes(NOW, FakeBudget(), client=recorded())  # 404: placeholder stored
+    stats = observed_off.Stats()
+    observed_off.renormalize({MISSING}, NOW, stats)
+    milk = offer(MISSING)
+    assert stats.renormalized == 1 and "en:organic" in milk.labels
+
+
+@pytest.mark.parametrize("response", [
+    httpx.Response(400), httpx.Response(403), httpx.Response(200, content=b"not json"),
+])
+def test_non_retryable_failure_is_recorded_so_it_is_not_asked_daily(response):
+    observe((FAIRLIFE, "Whole ultra-filtered milk", "fairlife"))
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: response))
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=client)
+    assert stats.rejected == 1 and stats.failed == 0
+    assert OffEntry.objects.get(pk=FAIRLIFE).quantity is None
+    assert candidates(NOW, 10) == []
+
+
+def test_stopping_during_renormalize_still_merges_written_products(monkeypatch):
+    observe((FAIRLIFE, "Whole ultra-filtered milk", "fairlife"), (NO_SIZE, "Organic Whole Milk", "H"))
+    merged = []
+    monkeypatch.setattr(observed_off, "merge_product", lambda p, now: merged.append(p.pk))
+    calls = iter([False, True])
+    with pytest.raises(Stopping):
+        observed_off.renormalize({FAIRLIFE, NO_SIZE}, NOW, observed_off.Stats(), stopping=lambda: next(calls))
+    assert len(merged) == 1
+
+
+def test_renormalize_filters_offers_by_barcode_in_the_database():
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    observe(*[(f"00000000000{i:02d}", "Paprika", "B") for i in range(10, 30)])
+    stats = observed_off.Stats()
+    with CaptureQueriesContext(connection) as ctx:
+        observed_off.renormalize({"0000000000010"}, NOW, stats)
+    assert stats.renormalized == 1
+    offer_selects = [
+        q["sql"] for q in ctx.captured_queries
+        if q["sql"].startswith('SELECT') and 'FROM "catalog_offer"' in q["sql"]
+        and '"catalog_offer"."kind" = ' in q["sql"]
+    ]
+    assert offer_selects and all("0000000000010@" in sql for sql in offer_selects)

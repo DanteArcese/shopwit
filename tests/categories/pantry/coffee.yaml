@@ -79,3 +79,18 @@
 - title: "Chicory herbal 'coffee', medium roast"
   expect:
     category: null
+- title: "Starbucks Iced Coffee Blend Medium Roast Ground Coffee 12 oz"
+  brand: Starbucks
+  expect:
+    category: pantry/coffee
+    attributes: {form: ground}
+    measures: {mass_g: 340.19}
+- title: "Toffee Crunch Ground Coffee"
+  expect:
+    category: pantry/coffee
+- title: "Dark Chocolate Flavored Ground Coffee"
+  expect:
+    category: pantry/coffee
+- title: "Morning Energy Blend Ground Coffee"
+  expect:
+    category: pantry/coffee

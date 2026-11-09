@@ -8,7 +8,9 @@ one by one in the OFF product API, drawing from the shared "off-product" budget
 offers on those barcodes are normalized again, so quantity, labels and categories come
 from OFF's structured fields. Curated-category offers go first.
 
-Failure-safe: a failed lookup stores nothing and is retried on a later run; an
+Failure-safe: a 429, 5xx or transport error stores nothing and the barcode is asked
+again on a later run (never in the same run); a 404 or another non-retryable answer
+is recorded like "not found", so a bad barcode does not eat the daily cap. An
 exhausted budget or a shutdown ends the run early. The next Open Prices sync
 normalizes every observed offer again anyway, with whatever ``OffEntry`` rows exist.
 """
@@ -23,6 +25,7 @@ from datetime import datetime, timedelta
 import httpx
 from django.conf import settings
 from django.db import transaction
+from django.db.models import Q
 from django.utils import timezone
 
 import enrichment.off
@@ -31,10 +34,11 @@ from connectors.open_prices import PRICE_PAGE
 from enrichment.off import FIELDS, Source
 from normalize import load_categories, load_store_brands, normalize
 from normalize.generic import off_category_path
-from normalize.types import OffProduct, RawOffer
+from normalize.types import RawOffer
 
 from .ingest import INTERRUPTED, _upsert
 from .merge import merge_product
+from .observed import observed_off_product
 from .models import IngestionRun, OffEntry, Offer, OpenPriceObservation, Product
 
 logger = logging.getLogger(__name__)
@@ -60,6 +64,7 @@ class Stats:
     requests: int = 0
     stored: int = 0
     not_found: int = 0
+    rejected: int = 0  # non-retryable answer without a product (400, 403, unreadable)
     failed: int = 0
     renormalized: int = 0
     matched: int = 0
@@ -74,6 +79,7 @@ class Stats:
             "requests",
             "stored",
             "not_found",
+            "rejected",
             "failed",
             "renormalized",
             "matched",
@@ -122,7 +128,8 @@ def candidates(now: datetime, limit: int) -> list[tuple[str, Source]]:
 
 
 def _lookup(client: httpx.Client, budget, source: Source, upc: str, stats: Stats):
-    """One budgeted request, no retry: a record, "missing", or None (failed)."""
+    """One budgeted request, no retry: a record, "missing", "rejected" (a non-retryable
+    answer without a product), or None (429, 5xx or transport error: ask again later)."""
     budget.wait(CONNECTOR)
     stats.requests += 1
     try:
@@ -138,12 +145,15 @@ def _lookup(client: httpx.Client, budget, source: Source, upc: str, stats: Stats
     )
     if enrichment.off.retryable(response):
         return None
-    return enrichment.off.read_product(response, source, upc)
+    return enrichment.off.read_product(response, source, upc) or "rejected"
 
 
 def _store(upc: str, source: Source, result, now: datetime, stats: Stats) -> None:
-    if result == "missing":
-        stats.not_found += 1
+    if result in ("missing", "rejected"):
+        if result == "missing":
+            stats.not_found += 1
+        else:
+            stats.rejected += 1
         if not OffEntry.objects.filter(pk=upc).update(fetched_at=now):
             OffEntry.objects.get_or_create(
                 upc=upc, defaults={"source": source, "labels": [], "quantity": None}
@@ -187,77 +197,80 @@ def renormalize(
         return
     categories = load_categories(settings.CATEGORIES_DIR)
     store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
-    offers = [
-        o
-        for o in Offer.objects.filter(
-            kind=Offer.Kind.OBSERVED, store__isnull=False
-        ).order_by("pk")
-        if _upc(o.retailer_item_id) in upcs
-    ]
+    offers = []
+    ordered = sorted(upcs)
+    for start in range(0, len(ordered), CHUNK):
+        prefix = Q()
+        for upc in ordered[start : start + CHUNK]:
+            prefix |= Q(retailer_item_id__startswith=f"{upc}@")
+        offers.extend(
+            Offer.objects.filter(prefix, kind=Offer.Kind.OBSERVED, store__isnull=False)
+        )
+    offers.sort(key=lambda o: o.pk)
     model_cache: dict = {}
     touched: set[int] = set()
-    for offer in offers:
-        if stopping is not None and stopping():
-            raise Stopping()
-        upc = _upc(offer.retailer_item_id)
-        row = (
-            OpenPriceObservation.objects.filter(store_id=offer.store_id, upc=upc)
-            .order_by("-observed_on", "-price_id")
-            .first()
-        )
-        if row is None:
-            continue
-        try:
-            raw = _raw(offer, row, now)
-            off = off_lookup(upc) or OffProduct(
-                labels=frozenset(row.labels),
-                quantity=row.quantity,
-                categories=tuple(row.categories),
+    try:
+        for offer in offers:
+            if stopping is not None and stopping():
+                raise Stopping()
+            upc = _upc(offer.retailer_item_id)
+            row = (
+                OpenPriceObservation.objects.filter(store_id=offer.store_id, upc=upc)
+                .order_by("-observed_on", "-price_id")
+                .first()
             )
-            normalized = normalize(raw, categories, store_brands, off=off)
-            with transaction.atomic():
-                _upsert(
-                    raw,
-                    normalized,
-                    model_cache,
-                    now,
-                    touched,
-                    records_price_history=False,
-                    extra_defaults={
-                        "kind": Offer.Kind.OBSERVED,
-                        "observed_on": row.observed_on,
-                        "is_sale": row.is_sale,
-                        "store_id": offer.store_id,
-                        "last_seen_at": offer.last_seen_at,  # nothing new was seen
-                    },
-                    off=off,
-                    store_brands=store_brands,
+            if row is None:
+                continue
+            try:
+                raw = _raw(offer, row, now)
+                off = observed_off_product(
+                    off_lookup(upc), row.labels, row.quantity, row.categories
                 )
-        except Exception as exc:  # one bad offer must not stop the rest
-            stats.errors += 1
-            logger.warning(
-                "off sizes: renormalizing offer %s failed: %s",
-                offer.pk,
-                type(exc).__name__,
-            )
-            continue
-        stats.renormalized += 1
-        if normalized.category is not None:
-            stats.matched += 1
-            if normalized.unresolved:
-                stats.unresolved += 1
-            else:
-                stats.fully_parsed += 1
-    for pk in sorted(touched):
-        try:
-            product = Product.objects.filter(pk=pk).first()
-            if product is not None:
-                merge_product(product, now)
-        except Exception as exc:
-            stats.errors += 1
-            logger.warning(
-                "off sizes: merging product %s failed: %s", pk, type(exc).__name__
-            )
+                normalized = normalize(raw, categories, store_brands, off=off)
+                with transaction.atomic():
+                    _upsert(
+                        raw,
+                        normalized,
+                        model_cache,
+                        now,
+                        touched,
+                        records_price_history=False,
+                        extra_defaults={
+                            "kind": Offer.Kind.OBSERVED,
+                            "observed_on": row.observed_on,
+                            "is_sale": row.is_sale,
+                            "store_id": offer.store_id,
+                            "last_seen_at": offer.last_seen_at,  # nothing new was seen
+                        },
+                        off=off,
+                        store_brands=store_brands,
+                    )
+            except Exception as exc:  # one bad offer must not stop the rest
+                stats.errors += 1
+                logger.warning(
+                    "off sizes: renormalizing offer %s failed: %s",
+                    offer.pk,
+                    type(exc).__name__,
+                )
+                continue
+            stats.renormalized += 1
+            if normalized.category is not None:
+                stats.matched += 1
+                if normalized.unresolved:
+                    stats.unresolved += 1
+                else:
+                    stats.fully_parsed += 1
+    finally:  # what was written is merged even when stopping
+        for pk in sorted(touched):
+            try:
+                product = Product.objects.filter(pk=pk).first()
+                if product is not None:
+                    merge_product(product, now)
+            except Exception as exc:
+                stats.errors += 1
+                logger.warning(
+                    "off sizes: merging product %s failed: %s", pk, type(exc).__name__
+                )
 
 
 def backfill_sizes(

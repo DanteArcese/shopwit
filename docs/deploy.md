@@ -92,7 +92,7 @@ Confirm the `ingest connector=openprices category=all status=succeeded` log line
 
 #### Sizes from Open Food Facts
 
-Many Open Prices entries carry no size, so their offers have no unit price. After each successful Open Prices sync the worker looks up observed offers' barcodes in the Open Food Facts product API: barcodes with no cached entry first (curated categories before generic offers, newest first), then entries without a quantity that were last checked more than 30 days ago. Each answer (a 404 too) is cached as an `OffEntry`, and the offers on that barcode are normalized again, so size, labels and categories come from OFF. Requests draw from the `off-product` budget: 1 per second, at most 300 a day (`UNITPRICER_BUDGET_OFF_PRODUCT_*`, or the admin). A failed lookup stores nothing and is retried on a later run; a 429, 503 or transport error backs the budget off. Look for `ingest connector=off-product category=all status=succeeded` in the worker log.
+Many Open Prices entries carry no size, so their offers have no unit price. After each successful Open Prices sync the worker looks up observed offers' barcodes in the Open Food Facts product API: barcodes with no cached entry first (curated categories before generic offers, newest first), then entries without a quantity that were last checked more than 30 days ago. Each answer (a 404 too) is cached as an `OffEntry`, and the offers on that barcode are normalized again, so size, labels and categories come from OFF. Requests draw from the `off-product` budget: 1 per second, at most 300 a day (`UNITPRICER_BUDGET_OFF_PRODUCT_*`, or the admin). A 429, 5xx or transport error stores nothing, backs the budget off and is retried on a later run (not in the same run); a 404 or another non-retryable answer (400, 403, unreadable) is recorded like "not found" and asked again only after 30 days. A cached entry fills only the fields it has; labels, size and categories it lacks still come from Open Prices. Look for `ingest connector=off-product category=all status=succeeded` in the worker log.
 
 To run it once by hand (for example right after enabling Open Prices, or with the flag off):
 
@@ -101,7 +101,7 @@ docker compose run --rm -T web python manage.py off_observed_sizes </dev/null
 docker compose run --rm -T web python manage.py off_observed_sizes --limit 50 </dev/null   # fewer barcodes
 ```
 
-It prints `status=succeeded requests=… stored=… not_found=… failed=… renormalized=… matched=…`. A manual run counts toward the day's 300; once the cap is reached it stops with `note=budget exhausted` and the rest waits for the next day. Offers whose barcode OFF has no size for stay unresolved; nothing is guessed.
+It prints `status=succeeded requests=… stored=… not_found=… rejected=… failed=… renormalized=… matched=…`. A manual run counts toward the day's 300; once the cap is reached it stops with `note=budget exhausted` and the rest waits for the next day. Offers whose barcode OFF has no size for stay unresolved; nothing is guessed.
 
 ### Purge sample data
 

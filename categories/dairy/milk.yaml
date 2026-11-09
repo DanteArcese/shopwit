@@ -11,7 +11,7 @@ match:
     vanilla, strawberry, strawberries, banana, horchata, pistachio, choco,
     dairy-free, dairy free, plant-based, plant based, animal free, animal-free,
     # Candy, desserts and herbal products named after milk.
-    candy, milk duds, truffles, choceur, crunch, sea salt, cookies, bars, thistle, traditional medicinals]
+    candy, milk duds, truffles, choceur, crunch, sea salt, cookies, bars, thistle, mother's milk]
 attributes:
   fat:
     type: enum

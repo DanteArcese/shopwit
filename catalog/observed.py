@@ -41,6 +41,27 @@ MIN_KEPT_RATIO = 0.5  # a pull smaller than this share of the stored rows delete
 logger = logging.getLogger(__name__)
 
 
+def observed_off_product(
+    entry: OffProduct | None, labels, quantity: str | None, categories
+) -> OffProduct:
+    """OFF data for an observed offer: the cached entry's value per field, else Open Prices'.
+
+    A 404 placeholder entry (no labels, no quantity) must not hide what Open Prices sent.
+    """
+    if entry is not None and entry.quantity:
+        quantity, unit = entry.quantity, entry.quantity_unit
+    else:
+        unit = None
+    return OffProduct(
+        labels=frozenset(entry.labels) if entry is not None and entry.labels else frozenset(labels),
+        quantity=quantity,
+        categories=tuple(entry.categories)
+        if entry is not None and entry.categories
+        else tuple(categories),
+        quantity_unit=unit,
+    )
+
+
 def due(now: datetime) -> bool:
     runs = IngestionRun.objects.filter(connector=CONNECTOR)
     # A run interrupted by a shutdown says nothing about upstream, so it never delays a retry.
@@ -228,9 +249,7 @@ def upsert_observations(
         if existing is not None:
             keep_offers.add(existing)  # an error below must not delete the existing offer
         try:
-            off = off_lookup(upc) or OffProduct(
-                labels=obs.labels, quantity=obs.quantity, categories=obs.categories
-            )
+            off = observed_off_product(off_lookup(upc), obs.labels, obs.quantity, obs.categories)
             normalized = normalize(raw, categories, store_brands, off=off)
             with transaction.atomic():
                 normalized = _upsert(
