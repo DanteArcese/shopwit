@@ -94,3 +94,7 @@
   expect:
     category: dairy/eggs
     attributes: {size: extra_large}
+- title: "Eggs from plants"
+  brand: JUST
+  expect:
+    category: null

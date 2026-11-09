@@ -2,7 +2,16 @@ name: Milk
 dimension: volume
 match:
   include: ["milk"]
-  exclude: [almond, oat, soy, coconut, chocolate, condensed, evaporated, powdered, milk chocolate, cashew, rice, hemp, pea, macadamia, flax, peanut, flaxseed, ricotta, magnesia, milk-bone, dry milk, variety pack, variety]
+  exclude: [almond, oat, soy, coconut, chocolate, condensed, evaporated, powdered, milk chocolate, cashew, rice, hemp, pea, macadamia, flax, peanut, flaxseed, ricotta, magnesia, milk-bone, dry milk, variety pack, variety,
+    # Other dairy products and drinks made with milk (#88).
+    yogurt, yoghurt, kefir, cultured, cheese, buttermilk, butter milk, ice cream,
+    shake, milkshake, protein shake, muscle milk, drink, beverage,
+    latte, cold brew, espresso, coffee, tea, malted,
+    # Flavored milks (like chocolate above) and non-dairy "milks".
+    vanilla, strawberry, strawberries, banana, horchata, pistachio, choco,
+    dairy-free, dairy free, plant-based, plant based, animal free, animal-free,
+    # Candy, desserts and herbal products named after milk.
+    candy, milk duds, truffles, choceur, crunch, sea salt, cookies, bars, thistle, traditional medicinals]
 attributes:
   fat:
     type: enum

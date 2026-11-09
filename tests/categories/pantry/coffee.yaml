@@ -69,3 +69,13 @@
 - title: "Coffee Cupcake"
   expect:
     category: null
+- title: "ENERGY COFFEE BEVERAGE"
+  brand: STARBUCKS TRIPLESHOT ENERGY
+  expect:
+    category: null
+- title: "Original caramel coffee hard candies"
+  expect:
+    category: null
+- title: "Chicory herbal 'coffee', medium roast"
+  expect:
+    category: null

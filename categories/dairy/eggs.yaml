@@ -2,7 +2,9 @@ name: Eggs
 dimension: count
 match:
   include: ["eggs"]
-  exclude: [egg whites, liquid egg, egg noodles, chocolate, easter]
+  exclude: [egg whites, liquid egg, egg noodles, chocolate, easter,
+    # Liquid eggs, plant-based substitutes and prepared egg dishes (#88).
+    liquid, plant, plants, plant-based, just egg, substitute, scramble, egg bites]
 attributes:
   size:
     type: enum

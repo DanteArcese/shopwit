@@ -1,0 +1,142 @@
+"""Category precision on real Open Prices titles (#88).
+
+Each case is a short (title, brand) pair as it arrived from Open Prices, with the
+category it must match, or None when it must stay out of every curated category.
+"""
+
+from datetime import datetime, timezone
+from decimal import Decimal
+from pathlib import Path
+
+import pytest
+
+from normalize import load_categories
+from normalize.match import match_category
+from normalize.types import RawOffer
+
+ROOT = Path(__file__).resolve().parents[2]
+CATEGORIES = load_categories(ROOT / "categories")
+
+MILK, COFFEE, EGGS = "dairy/milk", "pantry/coffee", "dairy/eggs"
+
+CASES = [
+    # Milk: plain dairy milk matches.
+    ("A2/A2 4% Whole Milk Vitamin D", "Clover Sonoma", MILK),
+    ("Ultra-pasteurized lactose free 2% reduced fat milk", "Clover", MILK),
+    ("Protein Plus 2% Reduced Fat Ultra-Filtered Milk", "Organic Valley", MILK),
+    ("PROTEIN Milk", "Lactaid", MILK),
+    ("Organic Whole Omega-3 Milk", "Simply Nature", MILK),
+    ("Organic Valley 0% Milk", "Organic Valley", MILK),
+    ("Grade a vitamin d milk", None, MILK),
+    ("Whole Homogenized milk", "South Mountain Creamery", MILK),
+    # Milk: shakes, protein and coffee drinks.
+    ("HIGH PROTEIN SHAKE", "MUSCLE MILK", None),
+    ("MM42G", "Muscle Milk", None),
+    ("Classic strawberry high protein milk shake", "Slate", None),
+    ("Draft Latte Caramel Cold Brew with Milk", "La Colombe", None),
+    ("ICED ESPRESSO & MILK BEVERAGE Salted Caramel", "DUNKIN' DOUBLE", None),
+    ("Berry Milk Drink", "Barebells", None),
+    # Milk: yogurt, kefir, cheese, buttermilk.
+    ("Organic Whole Milk Honey Yogurt", "KALONA SUPER NATURAL", None),
+    ("Organic Kefir cultured lowfat milk", "Lifeway", None),
+    ("Part Skim Milk Cheese", "Cacique Inc.", None),
+    ("Cultured whole butter milk", "Fire Acre Farms", None),
+    ("Butter Milk", None, None),
+    # Milk: flavored and non-dairy "milks".
+    ("Vanilla Ultra Filtered Milk", "Barebells", None),
+    ("Strawberry Milk", "Spyt", None),
+    ("Pistachio Milk", "TÁCHE", None),
+    ("organic banana milk", "Mooala", None),
+    ("Horchata Milk", "Moozy", None),
+    ("DAIRY-FREE MILK", "ripple", None),
+    ("Original Plant-Based Milk Kids", "Ripple Foods", None),
+    ("Animal Free Dairy Milk", "Strive Freemilk", None),
+    ("Choco milk powder drink mix", "Choco Milk", None),
+    ("Original malted milk", "Nestlé", None),
+    # Milk: teas, candy, desserts.
+    ("Brown sugar bubble milk tea", "Rico Bubble Milk Tea", None),
+    ("Organic Mother's Milk", "Traditional Medicinals", None),
+    ("Milk Thistle Tea", None, None),
+    ("Milk Duds Candy", "Milk Duds", None),
+    ("Milk Pistachio Truffles", "Lindt Lindor", None),
+    ("Choceur Creamy Milk", "Choceur", None),
+    ("Feastables - Milk Crunch", "Feastables, MrBeast", None),
+    ("Rye Crumb, Milk & Sea Salt", "Pump Street", None),
+    ("Ben & Jerry's Milk and cookies pt", "Ben & Jerry's, Unilever", None),
+    ("Fun Size Milk Way Bars", "Mars", None),
+    # Coffee: beans and ground coffee match.
+    ("Big Bang Medium Roast Ground Coffee", "Peet's Coffee", COFFEE),
+    ("Dark Roast French Roast Whole Bean Coffee", "Peet's", COFFEE),
+    ("Decaf Colombia Ground Coffee", "Signature Select", COFFEE),
+    ("Pumpkin Spice Artificially Flavored Ground Coffee", "Dunkin'", COFFEE),
+    ("Estilo Espresso Espresso Style Dark Roast Coffee", "Café Bustelo", COFFEE),
+    ("Ground Espresso Coffee", "Illy", COFFEE),
+    ("whole coffee beans", "Comfort", COFFEE),
+    ("Starbucks Caramel Flavored Coffee", "Starbucks", COFFEE),
+    # Coffee: ready-to-drink and energy drinks.
+    ("Throne Sport Coffee Mocha Java", "Throne", None),
+    ("ENERGY COFFEE BEVERAGE", "STARBUCKS TRIPLESHOT ENERGY", None),
+    ("Doubleshot energy coffee mocha", "Starbucks", None),
+    ("Starbucks Coffee Doubleshot", "Starbucks Can", None),
+    ("frappuccino chilled coffee drink", "Starbucks", None),
+    ("ICED COFFEE Sweet + Delicious caramel", "DUNKIN", None),
+    ("French vanilla", "Dunkin iced coffee", None),
+    ("Pure black cold pressed coffee", "La Colombe", None),
+    ("Vanilla Latte", "La Colombe Coffee Workshop", None),
+    ("Caramel Macchiato coffee", None, None),
+    ("Espresso with Cream", "Black Rifle Coffee Company", None),
+    ("Coffee Milk", "Moody", None),
+    # Coffee: instant, singles, functional mixes.
+    ("NESCAFÉ GOLD BLEND Rich Body Soluble Coffee", "NESCAFÉ", None),
+    ("Gold Espresso Intense Coffee", "NESCAFÉ", None),
+    ("Goldblend Stick Coffee", "Nescafe", None),
+    ("coffee singles teabags", "folgers", None),
+    ("Protein Coffee Original", "javvy", None),
+    ("coffee + creatine", "Bullet Proof", None),
+    ("Mushroom Coffee+ Dark Roast Coffee", "RYZE", None),
+    ("Medium Roast Coffee+", "Everyday Dose", None),
+    ("Mud Wtr Mushroom Coffee", "Mud Wtr", None),
+    ("Focus Organic Coffee", "Four Sigmatic", None),
+    # Coffee: creamers, syrups, desserts, candy, substitutes.
+    ("The Original Coffee mate Rich & Smooth", "Nestlé", None),
+    ("Coffee Enhancer French Vanilla", "International Delight", None),
+    ("Vanilla Coffee Syrup", "Signature Select", None),
+    ("Coffee Ice Cream", "Häagen-Dazs", None),
+    ("Coffee Chip Gelato", "Gelato Boy", None),
+    ("Yasso Coffee Frozen Yogurt", "Yasso", None),
+    ("Coffee Affogato", "Van Leeuwen", None),
+    ("Groundwork Coffee & Toffee", "Alec's", None),
+    ("Original caramel coffee hard candies", "Storck", None),
+    ("Coffee Dark Chocolate Mexicano", "Taza Chocolate", None),
+    ("Sauce hot red habanero black coffee", None, None),
+    ("Chicory herbal 'coffee', medium roast", "Teeccino Inc.", None),
+    ("Coffee alt hazelnut organic", "Teeccino Inc.", None),
+    # Eggs: shell eggs match.
+    ("sprouts pasture raised eggs 6ct", "Sprouts", EGGS),
+    ("Organic Free Range Large Brown Eggs", "Lidl", EGGS),
+    ("EGGS", "EGG•LAND'S BEST", EGGS),
+    ("Pasture Vital Farms Pasture Raised Extra Large Eggs", "Vital Farms", EGGS),
+    # Eggs: liquid, plant-based and prepared.
+    ("liquid whole eggs", None, None),
+    ("Eggs from plants", "JUST", None),
+    ("Folded plant eggs", "Just Egg", None),
+    ("Chorizo & Egg Protein Scramble", "Wunder Eggs", None),
+]
+
+
+def _offer(title, brand):
+    return RawOffer(
+        retailer="openprices",
+        retailer_item_id="1",
+        title=title,
+        price=Decimal("1.00"),
+        currency="USD",
+        url="https://example.invalid",
+        fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        brand=brand,
+    )
+
+
+@pytest.mark.parametrize(("title", "brand", "expected"), CASES, ids=[c[0] for c in CASES])
+def test_observed_title_category(title, brand, expected):
+    assert match_category(_offer(title, brand), CATEGORIES) == expected
