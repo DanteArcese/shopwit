@@ -121,3 +121,27 @@ def test_home_coverage_sets_no_cookies_and_bounded_queries(client, categories, f
     with CaptureQueriesContext(connection) as more:
         client.get("/")
     assert len(more) == len(ctx)
+
+
+def _nearby_section(body):
+    return body.split("Seen in stores near you")[1].split("Browse categories")[0]
+
+
+def test_home_unknown_zip_copy_is_about_nearby(client, categories, frozen_now):
+    milk = Category.objects.get(slug="dairy/milk")
+    make_observed_offer(category=milk)
+    _save_zip(client, postal="00000")
+    nearby = _nearby_section(client.get("/").content.decode())
+    assert "We don't have a location for ZIP code 00000, so we can't show stores near you." in nearby
+    assert "all stores are shown" not in nearby
+    assert "Change ZIP code" in nearby
+    assert 'href="/c/dairy/milk/"' not in nearby
+
+
+def test_home_ignores_unplaced_stores(client, categories, frozen_now):
+    milk = Category.objects.get(slug="dairy/milk")
+    make_observed_offer(category=milk, store_code="nowhere", lat=None, lon=None)
+    _save_zip(client)
+    nearby = _nearby_section(client.get("/").content.decode())
+    assert 'href="/c/dairy/milk/"' not in nearby
+    assert "No recorded in-store prices within" in nearby

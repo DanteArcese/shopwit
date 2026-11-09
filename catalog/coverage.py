@@ -36,9 +36,14 @@ def stores_we_cover(now: datetime) -> Coverage:
 
 
 def nearby_categories(now: datetime, near: Near) -> list[tuple[Category, int]]:
-    """Active curated categories with fresh recorded prices at stores within `near`."""
+    """Active curated categories with fresh recorded prices at stores within `near`.
+
+    Two queries: placed candidate stores (in the box and with fresh recorded prices, via a
+    subquery, so empty stores never reach Python), then the per-category counts.
+    """
     min_lat, max_lat, min_lon, max_lon = bounding_box(near)
-    box = Store.objects.filter(lat__gte=min_lat, lat__lte=max_lat)
+    with_prices = fresh_observed(now).filter(store__isnull=False).values("store_id")
+    box = Store.objects.filter(lat__gte=min_lat, lat__lte=max_lat, pk__in=with_prices)
     if min_lon is not None:
         box = box.filter(lon__gte=min_lon, lon__lte=max_lon)
     ids = [pk for pk, lat, lon in box.values_list("pk", "lat", "lon") if within(near, lat, lon)]

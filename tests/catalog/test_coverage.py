@@ -63,3 +63,30 @@ def test_nearby_categories_capped_at_eight(db):
         )
         make_observed_offer(category=c, item=f"i{i}")
     assert len(nearby_categories(NOW, MV)) == 8
+
+
+def test_nearby_candidates_only_stores_with_fresh_offers(cats):
+    from django.db import connection
+    from django.test.utils import CaptureQueriesContext
+
+    from catalog.models import Store
+
+    milk, _ = cats
+    make_observed_offer(category=milk, store_code="busy")
+    stale = make_observed_offer(category=milk, store_code="stale", item="old",
+                                on=(NOW - settings.OBSERVED_MAX_AGE - timedelta(days=1)).date())
+    Store.objects.bulk_create(
+        Store(code=f"empty{i}", name="E", chain_code="op-e", chain_name="E", country_code="US",
+              osm_type="node", osm_id=900000 + i, lat=37.42, lon=-122.08)
+        for i in range(40)
+    )
+    with CaptureQueriesContext(connection) as ctx:
+        result = nearby_categories(NOW, MV)
+    assert [(c.slug, n) for c, n in result] == [("dairy/milk", 1)]
+    assert len(ctx) <= 3
+    # Only the one store with fresh recorded prices is a candidate: no IN list of empty stores.
+    store_ids = {str(pk) for pk in Store.objects.filter(code__startswith="empty").values_list("pk", flat=True)}
+    store_ids.add(str(stale.store_id))
+    for q in ctx.captured_queries:
+        for lst in __import__("re").findall(r"IN \(([^()]*)\)", q["sql"]):
+            assert not store_ids & {x.strip() for x in lst.split(",")}, q["sql"]
