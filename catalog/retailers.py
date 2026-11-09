@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from django.db.models import Count
+
 from .freshness import fresh_observed, fresh_offers
 from .models import Store
 
@@ -26,11 +28,18 @@ def chain_names(codes) -> dict[str, str]:
     wanted = {c for c in codes if is_chain_code(c)}
     if not wanted:
         return {}
-    rows = Store.objects.filter(chain_code__in=wanted).order_by("chain_code", "pk")
-    names: dict[str, str] = {}
-    for code, name in rows.values_list("chain_code", "chain_name"):
-        names.setdefault(code, name)
-    return names
+    rows = (
+        Store.objects.filter(chain_code__in=wanted)
+        .values("chain_code", "chain_name")
+        .annotate(n=Count("pk"))
+    )
+    # One chain per code (casefolded slug): show its most common spelling, ties by name.
+    best: dict[str, tuple[int, str]] = {}
+    for r in rows:
+        cand = (-r["n"], r["chain_name"])
+        if r["chain_code"] not in best or cand < best[r["chain_code"]]:
+            best[r["chain_code"]] = cand
+    return {code: name for code, (_, name) in best.items()}
 
 
 def display_name(code: str, chains: dict[str, str] | None = None) -> str:

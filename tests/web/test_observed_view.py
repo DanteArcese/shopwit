@@ -316,3 +316,15 @@ def test_observed_filtered_empty_ignores_generic_offers(client, milk, frozen_now
     )
     body = client.get("/c/dairy/milk/", {"store": "op-other"}).content.decode()
     assert "No in-store prices from the selected stores." not in body
+
+
+def test_store_filter_lists_one_chain_for_case_variants(db, stores):
+    from catalog.retailers import available_retailers
+    from tests.catalog.helpers import NOW, make_observed_offer
+
+    make_observed_offer(chain="Aldi", store_code="a1")
+    make_observed_offer(chain="ALDI", store_code="a2", item="i2")
+    make_observed_offer(chain="ALDI", store_code="a3", item="i3")
+    codes = available_retailers(NOW)
+    assert codes == ["op-aldi"]
+    assert display_name("op-aldi") == "ALDI (in-store prices)"  # most common spelling

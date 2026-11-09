@@ -10,7 +10,7 @@ from django.db.models import Count, F
 from .freshness import fresh_observed, fresh_offers
 from .geo import Near, bounding_box, within
 from .models import Category, Store
-from .retailers import display_name
+from .retailers import chain_names, display_name
 
 MAX_NEARBY = 8
 
@@ -25,14 +25,15 @@ def stores_we_cover(now: datetime) -> Coverage:
     """Two bounded queries: live retailers, and observed chains with their store counts."""
     codes = fresh_offers(now).values_list("retailer", flat=True).distinct()
     live = sorted({display_name(code) for code in codes})
-    rows = (
+    rows = list(
         fresh_observed(now)
         .filter(store__isnull=False)
-        .values("store__chain_name")
+        .values("store__chain_code")
         .annotate(n=Count("store", distinct=True))
-        .order_by("store__chain_name")
     )
-    return Coverage(live, [(r["store__chain_name"], r["n"]) for r in rows])
+    names = chain_names(r["store__chain_code"] for r in rows)
+    chains = [(names.get(r["store__chain_code"], r["store__chain_code"]), r["n"]) for r in rows]
+    return Coverage(live, sorted(chains, key=lambda t: (t[0].casefold(), t[0])))
 
 
 def nearby_categories(now: datetime, near: Near) -> list[tuple[Category, int]]:
