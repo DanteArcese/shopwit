@@ -1,6 +1,6 @@
 import math
 import os
-from datetime import timedelta
+from datetime import date, timedelta
 from pathlib import Path
 
 import dj_database_url
@@ -188,6 +188,28 @@ SOURCE_BUDGETS = {
     # OFF product reads for observed offers' sizes: 1 per second, at most 300 a day.
     "off-product": _budget("off-product", 1, 1.0, 300),
 }
+
+
+def _boost_until(raw):
+    """An ISO date, or None. Unset, blank or malformed means no boost (never crash)."""
+    try:
+        return date.fromisoformat((raw or "").strip())
+    except ValueError:
+        return None
+
+
+def _boost_daily(raw):
+    try:
+        value = int((raw or "").strip())
+    except ValueError:
+        return 2000
+    return value if value > 0 else 2000
+
+
+# First-week nutrition backfill (#95): while today (UTC) is on or before this date the
+# off-product daily cap is OFF_PRODUCT_BOOST_DAILY instead of the stored cap.
+OFF_PRODUCT_BOOST_UNTIL = _boost_until(os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_UNTIL"))
+OFF_PRODUCT_BOOST_DAILY = _boost_daily(os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_DAILY"))
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),

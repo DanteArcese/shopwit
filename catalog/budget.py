@@ -50,6 +50,18 @@ def _utc_day(now: datetime) -> date:
     return now.astimezone(UTC).date()
 
 
+def boosted_limit(key: str, stored: int | None, now: datetime) -> int | None:
+    """The daily cap in force: the first-week boost for off-product, else the stored cap.
+
+    Applied when a token is taken and never written back, so admin edits stay and the cap
+    returns to its stored value by itself.
+    """
+    until = getattr(settings, "OFF_PRODUCT_BOOST_UNTIL", None)
+    if key == "off-product" and stored is not None and until is not None and _utc_day(now) <= until:
+        return max(stored, settings.OFF_PRODUCT_BOOST_DAILY)
+    return stored
+
+
 def _new_day(b: Bucket, now: datetime) -> Bucket:
     today = _utc_day(now)
     if b.day != today:
@@ -154,7 +166,13 @@ class DbBudget:
         if self.stopping:
             raise Stopping()
         now = self._now()
-        wait = self._apply(key, lambda b: take(b, now))
+
+        def change(b: Bucket):
+            boosted = replace(b, daily_limit=boosted_limit(key, b.daily_limit, now))
+            after, wait = take(boosted, now)
+            return replace(after, daily_limit=b.daily_limit), wait
+
+        wait = self._apply(key, change)
         if wait > 0:
             raise BudgetExhausted(wait)
 
@@ -206,7 +224,9 @@ class DbBudget:
         row = SourceBudget.objects.filter(pk=key).first()
         if row is None:
             return False
-        return _refusal(_new_day(_bucket(row), now), now) is not None
+        bucket = _bucket(row)
+        bucket = replace(bucket, daily_limit=boosted_limit(key, bucket.daily_limit, now))
+        return _refusal(_new_day(bucket, now), now) is not None
 
 
 def seed_budgets() -> None:

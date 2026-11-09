@@ -226,3 +226,67 @@ def test_acquire_and_wait_raise_stopping_when_stopping():
         budget.wait("walmart")
     assert SourceBudget.objects.get(pk="walmart").tokens == 5.0  # no token spent
     assert issubclass(Stopping, BudgetExhausted)
+
+
+def _boost(settings, until=date(2026, 11, 16)):
+    settings.OFF_PRODUCT_BOOST_UNTIL = until
+    settings.OFF_PRODUCT_BOOST_DAILY = 2000
+
+
+@pytest.mark.django_db
+def test_boost_raises_off_product_cap_without_persisting(settings):
+    _boost(settings)
+    now = datetime(2026, 11, 10, 12, tzinfo=UTC)
+    make_row("off-product", daily_limit=300, daily_used=300, day=now.date())
+    budget = DbBudget(now=lambda: now)
+    assert not budget.blocked("off-product", now)
+    budget.acquire("off-product")
+    row = SourceBudget.objects.get(pk="off-product")
+    assert (row.daily_limit, row.daily_used) == (300, 301)
+
+
+@pytest.mark.django_db
+def test_boost_still_stops_at_the_boosted_cap(settings):
+    _boost(settings)
+    now = datetime(2026, 11, 10, 12, tzinfo=UTC)
+    make_row("off-product", daily_limit=300, daily_used=2000, day=now.date())
+    with pytest.raises(BudgetExhausted):
+        DbBudget(now=lambda: now).acquire("off-product")
+
+
+@pytest.mark.django_db
+def test_boost_ends_after_until_day(settings):
+    _boost(settings)
+    now = datetime(2026, 11, 17, 12, tzinfo=UTC)
+    make_row("off-product", daily_limit=300, daily_used=300, day=now.date())
+    budget = DbBudget(now=lambda: now)
+    assert budget.blocked("off-product", now)
+    with pytest.raises(BudgetExhausted):
+        budget.acquire("off-product")
+
+
+@pytest.mark.django_db
+def test_boost_includes_the_until_day(settings):
+    _boost(settings)
+    now = datetime(2026, 11, 16, 23, 59, tzinfo=UTC)
+    make_row("off-product", daily_limit=300, daily_used=300, day=now.date())
+    DbBudget(now=lambda: now).acquire("off-product")
+
+
+@pytest.mark.django_db
+def test_boost_never_touches_other_sources(settings):
+    _boost(settings)
+    now = datetime(2026, 11, 10, 12, tzinfo=UTC)
+    make_row("walmart", daily_limit=300, daily_used=300, day=now.date())
+    with pytest.raises(BudgetExhausted):
+        DbBudget(now=lambda: now).acquire("walmart")
+
+
+def test_boost_keeps_unlimited_unlimited(settings):
+    _boost(settings)
+    assert budget_module.boosted_limit("off-product", None, T0) is None
+
+
+def test_no_boost_when_until_is_unset(settings):
+    settings.OFF_PRODUCT_BOOST_UNTIL = None
+    assert budget_module.boosted_limit("off-product", 300, T0) == 300

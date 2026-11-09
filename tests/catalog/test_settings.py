@@ -151,3 +151,39 @@ def test_fetch_threads_rejects_non_integers(value):
 
     with pytest.raises(ImproperlyConfigured):
         _fetch_threads(value)
+
+
+def _setting(name, value):
+    """Read a setting in a fresh interpreter so the env var is parsed at import."""
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    env = {**os.environ, "DJANGO_SECRET_KEY": "x" * 50, "DJANGO_DEBUG": "1"}
+    env.pop("UNITPRICER_OFF_PRODUCT_BOOST_UNTIL", None)
+    env.pop("UNITPRICER_OFF_PRODUCT_BOOST_DAILY", None)
+    env.update(value)
+    out = subprocess.run(
+        [sys.executable, "-c", f"import config.settings as s; print(repr(s.{name}))"],
+        cwd=Path(__file__).resolve().parents[2], env=env, capture_output=True, text=True,
+    )
+    assert out.returncode == 0, out.stderr
+    return out.stdout.strip()
+
+
+def test_boost_until_parses_iso_date():
+    got = _setting("OFF_PRODUCT_BOOST_UNTIL", {"UNITPRICER_OFF_PRODUCT_BOOST_UNTIL": "2026-11-16"})
+    assert got == "datetime.date(2026, 11, 16)"
+
+
+@pytest.mark.parametrize("raw", [None, "", "  ", "garbage", "2026-13-40", "11/16/2026"])
+def test_boost_until_unset_blank_or_malformed_means_no_boost(raw):
+    value = {} if raw is None else {"UNITPRICER_OFF_PRODUCT_BOOST_UNTIL": raw}
+    assert _setting("OFF_PRODUCT_BOOST_UNTIL", value) == "None"
+
+
+@pytest.mark.parametrize("raw,expected", [(None, "2000"), ("5000", "5000"), ("0", "2000"), ("-3", "2000"), ("x", "2000")])
+def test_boost_daily_defaults_and_ignores_bad_values(raw, expected):
+    value = {} if raw is None else {"UNITPRICER_OFF_PRODUCT_BOOST_DAILY": raw}
+    assert _setting("OFF_PRODUCT_BOOST_DAILY", value) == expected
