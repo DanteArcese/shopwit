@@ -18,6 +18,7 @@ from enrichment.off import normalize_upc
 from normalize import load_categories, load_store_brands, normalize
 from normalize.generic import generic_measure, generic_unit_price, off_category_path
 from normalize.match import brand_tier_from_field
+from normalize.nutrition import offer_nutrition
 from normalize.types import NormalizedOffer, OffProduct
 
 from .identity import product_identity
@@ -103,6 +104,13 @@ def _upsert(
             "measure_amount": measure.amount,
             "measure_reason": measure.reason,
             "generic_unit_price": generic_unit_price(raw.price, measure),
+            "nutrition": offer_nutrition(
+                raw.price,
+                off.nutrition if off else None,
+                normalized.measures,
+                measure.dimension,
+                measure.amount,
+            ),
             **(extra_defaults or {}),
         },
     )

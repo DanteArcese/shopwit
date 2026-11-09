@@ -8,3 +8,4 @@ attributes:
   organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
 comparison: {default: per_mass}
 search: [granulated sugar, brown sugar, powdered sugar]
+food: true

@@ -39,6 +39,7 @@ def sync_categories(root: Path) -> SyncResult:
             "comparison_default": cat.comparison_default,
             "comparison_alternates": list(cat.comparison_alternates),
             "search": list(cat.search),
+            "food": cat.food,
             "active": True,
         }
         wanted = _attr_rows(cat)

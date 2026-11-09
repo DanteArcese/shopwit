@@ -86,3 +86,14 @@ def test_sync_categories_command_prints_counts(capsys):
 
     call_command("sync_categories")
     assert "created=25 updated=0 deactivated=0" in capsys.readouterr().out
+
+
+@pytest.mark.django_db
+def test_sync_writes_food_flag(root):
+    sync_categories(root)
+    assert Category.objects.get(slug="dairy/milk").food is True
+    assert Category.objects.get(slug="dairy/eggs").food is False
+    path = root / "dairy" / "eggs.yaml"
+    path.write_text(path.read_text() + "food: true\n")
+    assert sync_categories(root).updated == 1
+    assert Category.objects.get(slug="dairy/eggs").food is True
