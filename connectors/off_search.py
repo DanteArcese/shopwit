@@ -21,7 +21,7 @@ from enrichment.off import USER_AGENT, OffRecord, _record_from_dict, normalize_u
 SEARCH_URL = "https://world.openfoodfacts.org/cgi/search.pl"
 FIELDS = (
     "code,product_name,brands,quantity,product_quantity,product_quantity_unit,"
-    "labels_tags,categories_tags"
+    "labels_tags,categories_tags,nutriments,nutrition_data_per"
 )
 PAGE_SIZE = 50
 ATTEMPTS = 3  # one try and two retries on a 503

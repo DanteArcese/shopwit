@@ -9,7 +9,12 @@
     "en:milks"
    ],
    "code": "0093966010015",
-   "last_modified_t": 1769260729
+   "last_modified_t": 1769260729,
+   "nutrition_data_per": "100g",
+   "nutriments": {
+    "proteins_100g": 3.4,
+    "energy-kcal_100g": 61
+   }
   },
   "status": 1,
   "status_verbose": "product found"

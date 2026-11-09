@@ -11,7 +11,8 @@ from django.core.management import call_command
 from catalog.models import OffEntry, Product
 from enrichment import off
 from enrichment.off import OffRecord, normalize_upc, parse_off_line
-from normalize.types import OffProduct
+from connectors import off_search
+from normalize.types import Nutrition, OffProduct
 
 FIXTURE = Path(__file__).parent / "fixtures" / "delta_sample.jsonl"
 
@@ -182,3 +183,104 @@ def test_save_and_lookup_carry_categories_and_unit():
     off._save(OffRecord("0093966010015", "off", frozenset(), "1 L", None, ("en:milks",), "ml"))
     got = off.lookup("0093966010015")
     assert got.categories == ("en:milks",) and got.quantity_unit == "ml"
+
+
+def test_fields_request_nutriments():
+    assert off.FIELDS.endswith(",nutriments,nutrition_data_per")
+    assert "nutriments" in off_search.FIELDS and "nutrition_data_per" in off_search.FIELDS
+
+
+def _rec(nutriments=None, per="100g"):
+    data = {"code": "0068826718115"}
+    if nutriments is not None:
+        data["nutriments"] = nutriments
+    if per is not None:
+        data["nutrition_data_per"] = per
+    return off._record_from_dict(data, "off")
+
+
+def test_record_parses_protein_kcal_and_basis():
+    rec = off._record_from_dict(
+        {
+            "code": "0068826718115",
+            "nutrition_data_per": "100g",
+            "nutriments": {"proteins_100g": 21, "energy-kcal_100g": "380", "proteins_serving": 7},
+        },
+        "off",
+    )
+    assert rec.nutrition == Nutrition("100g", 21.0, 380.0)
+
+
+def test_record_without_nutrition_keys_has_none():
+    assert off._record_from_dict({"code": "0068826718115"}, "off").nutrition is None
+
+
+def test_kj_only_is_converted_exactly():
+    rec = _rec({"proteins_100g": 1, "energy-kj_100g": 1046})
+    assert rec.nutrition.kcal == 1046 / 4.184 == 250.0
+
+
+def test_energy_100g_used_only_when_unit_is_kj():
+    assert _rec({"energy_100g": 418.4, "energy_unit": "kJ"}).nutrition.kcal == 418.4 / 4.184
+    assert _rec({"energy_100g": 418.4, "energy_unit": "kcal"}).nutrition.kcal is None
+    assert _rec({"energy_100g": 418.4}).nutrition.kcal is None
+
+
+def test_kcal_preferred_over_kj():
+    rec = _rec({"energy-kcal_100g": 100, "energy-kj_100g": 9999, "energy_100g": 9999, "energy_unit": "kJ"})
+    assert rec.nutrition.kcal == 100.0
+
+
+def test_unusable_kcal_falls_back_to_kj():
+    assert _rec({"energy-kcal_100g": "n/a", "energy-kj_100g": 418.4}).nutrition.kcal == 418.4 / 4.184
+
+
+@pytest.mark.parametrize("value", [True, "n/a", "", float("nan"), float("inf"), None, [1]])
+def test_unusable_nutrient_values_are_missing(value):
+    rec = _rec({"proteins_100g": value, "energy-kcal_100g": value, "energy-kj_100g": value})
+    assert rec is not None
+    assert rec.nutrition == Nutrition("100g", None, None)
+
+
+def test_unknown_basis_is_none():
+    assert _rec({"proteins_100g": 1}, per="per-pack").nutrition == Nutrition(None, 1.0, None)
+    assert _rec({"proteins_100g": 1}, per=" 100ML ").nutrition.basis == "100ml"
+    assert _rec({"proteins_100g": 1}, per="serving").nutrition.basis == "serving"
+    assert _rec({"proteins_100g": 1}, per=None).nutrition.basis is None
+
+
+def test_non_dict_nutriments_is_missing():
+    assert _rec([1, 2], per="100g").nutrition == Nutrition("100g", None, None)
+
+
+@pytest.mark.django_db
+def test_save_and_lookup_round_trip_nutrition():
+    rec = _rec({"proteins_100g": 21, "energy-kcal_100g": 380})
+    assert off._save(rec)
+    entry = OffEntry.objects.get(pk="0068826718115")
+    assert (entry.nutrition_per, entry.protein_100g, entry.kcal_100g) == ("100g", 21.0, 380.0)
+    assert entry.nutrition_checked_at is not None
+    assert off.lookup("0068826718115").nutrition == Nutrition("100g", 21.0, 380.0)
+
+
+@pytest.mark.django_db
+def test_lookup_before_nutrition_checked_is_none():
+    OffEntry.objects.create(upc="0068826718115", source="off", protein_100g=5.0)
+    assert off.lookup("0068826718115").nutrition is None
+
+
+@pytest.mark.django_db
+def test_delta_line_carries_nutrition(tmp_path):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    line = json.dumps(
+        {
+            "code": "0093966010015",
+            "last_modified_t": 1767225600,
+            "nutrition_data_per": "100g",
+            "nutriments": {"proteins_100g": 3.4},
+        }
+    )
+    f = tmp_path / "d.jsonl"
+    f.write_text(line + "\n")
+    assert off.sync_file(f) == 1
+    assert OffEntry.objects.get(pk="0093966010015").protein_100g == 3.4

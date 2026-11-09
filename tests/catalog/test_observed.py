@@ -519,3 +519,18 @@ def test_sync_case_variant_chains_share_one_chain_code():
     from catalog.coverage import stores_we_cover
 
     assert stores_we_cover(NOW).in_store == [("ALDI", 3)]
+
+
+def test_observed_off_product_keeps_entry_nutrition():
+    from catalog.observed import observed_off_product
+    from normalize.types import Nutrition, OffProduct
+
+    n = Nutrition("100g", 3.4, 61.0)
+    entry = OffProduct(frozenset(), None, (), None, n)
+    assert observed_off_product(entry, [], "1 gal", []).nutrition == n
+
+
+def test_observed_off_product_without_entry_has_no_nutrition():
+    from catalog.observed import observed_off_product
+
+    assert observed_off_product(None, [], None, []).nutrition is None

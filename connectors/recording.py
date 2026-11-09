@@ -2,11 +2,15 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 from urllib.parse import quote
 
 import httpx
+
+MAX_NAME = 255  # file systems cap a name at 255 bytes
+
 
 REDACTED_PARAMS = {
     "publisherid",
@@ -32,7 +36,9 @@ def recording_name(request: httpx.Request) -> str:
     ``k=v`` pairs joined with "&", with REDACTED_PARAMS dropped. Keys, values
     and path segments are percent-encoded (RFC 3986 unreserved characters
     kept), so spaces, "%", "/", "&" and "=" inside them are made safe
-    deterministically. No query (after redaction) means no "__" suffix.
+    deterministically. No query (after redaction) means no "__" suffix. A name
+    longer than MAX_NAME keeps its first MAX_NAME - 46 characters, then ``~`` and
+    the SHA-1 of the full name, so it still fits a file system.
     """
     path = "_".join(_safe(seg) for seg in request.url.path.lstrip("/").split("/"))
     pairs = sorted(
@@ -43,7 +49,11 @@ def recording_name(request: httpx.Request) -> str:
     name = f"{request.method}_{path}"
     if pairs:
         name += "__" + "&".join(f"{_safe(k)}={_safe(v)}" for k, v in pairs)
-    return name + ".json"
+    name += ".json"
+    if len(name) > MAX_NAME:
+        digest = hashlib.sha1(name.encode()).hexdigest()
+        name = f"{name[: MAX_NAME - 46]}~{digest}.json"
+    return name
 
 
 def recorded_transport(directory: Path, *, strict: bool = False) -> httpx.MockTransport:
