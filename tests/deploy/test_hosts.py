@@ -6,8 +6,7 @@ from django.test import RequestFactory
 
 pytestmark = pytest.mark.django_db
 
-PUBLIC = "unitpricer.com"
-APP = "beta.unitpricer.com"
+from tests.deploy.routes import APEX_ROUTES, APP, PUBLIC
 
 
 @pytest.fixture(autouse=True)
@@ -28,24 +27,8 @@ def categories(db):
     sync_categories(dj.CATEGORIES_DIR)
 
 
-# Every non-admin route the apex serves, incl. M4's lists and account pages and the
-# HTMX partial of the category page. test_access.py mirrors this list.
-APEX_ROUTES = [
-    ("get", "/", {}),
-    ("get", "/c/dairy/milk/", {}),
-    ("get", "/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
-    ("get", "/search?q=green+tea", {}),
-    ("get", "/settings", {}),
-    ("get", "/disclosure", {}),
-    ("get", "/feedback", {}),
-    ("get", "/privacy", {}),
-    ("get", "/lists/", {}),
-    ("get", "/account/sign-in", {}),
-]
-
-
 @pytest.mark.parametrize("method,path,extra", APEX_ROUTES)
-def test_apex_app_routes_indexable(client, categories, method, path, extra):
+def test_apex_app_routes_served_without_noindex(client, categories, method, path, extra):
     r = getattr(client, method)(path, HTTP_HOST=PUBLIC, **extra)
     assert r.status_code == 200 and "X-Robots-Tag" not in r
 
@@ -102,8 +85,9 @@ def test_cookies_are_host_only(client, host):
     assert dj.SESSION_COOKIE_DOMAIN is None and dj.CSRF_COOKIE_DOMAIN is None
     r = client.get("/account/sign-in", HTTP_HOST=host)
     assert r.status_code == 200
-    assert "csrftoken" in r.cookies
-    assert r.cookies["csrftoken"]["domain"] == ""
+    name = dj.CSRF_COOKIE_NAME
+    assert name in r.cookies
+    assert r.cookies[name]["domain"] == "" and r.cookies[name]["path"] == "/"
 
 
 @pytest.mark.parametrize("path", ["/", "/privacy", "/healthz", "/robots.txt"])
@@ -213,7 +197,7 @@ def test_magic_link_points_at_apex_and_signs_in_there(client, settings, request_
     assert client.get(path, HTTP_HOST=PUBLIC).status_code == 200
     r = client.post(path, HTTP_HOST=PUBLIC)
     assert r.status_code == 302
-    session = r.cookies["sessionid"]
+    session = r.cookies[settings.SESSION_COOKIE_NAME]
     assert session.value and session["domain"] == ""  # host-only: never sent to beta
     assert client.get("/account/", HTTP_HOST=PUBLIC).status_code == 200
 
@@ -228,3 +212,60 @@ def test_waitlist_links_use_apex(client, settings):
     body = mail.outbox[-1].body
     assert re.search(r"https://unitpricer\.com/waitlist/confirm/\S+", body)
     assert "beta." not in body
+
+
+@pytest.mark.parametrize("path", ["/", "/disclosure", "/robots.txt", "/admin/login/", "/healthz"])
+@pytest.mark.parametrize("host", [APP, "127.0.0.1", "localhost"])
+def test_noindex_on_every_non_public_host(client, settings, host, path):
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, "127.0.0.1", "localhost"]
+    r = client.get(path, HTTP_HOST=host)
+    assert r["X-Robots-Tag"] == "noindex, nofollow"
+
+
+@pytest.mark.parametrize("host", [PUBLIC, PUBLIC + ".", "UNITPRICER.com"])
+def test_no_noindex_on_public_host(client, settings, host):
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, PUBLIC + "."]
+    assert "X-Robots-Tag" not in client.get("/", HTTP_HOST=host)
+
+
+def _csrf_post(host, origin):
+    from django.conf import settings as dj
+    from django.test import Client
+
+    c = Client(enforce_csrf_checks=True)
+    page = c.get("/feedback", HTTP_HOST=host, secure=True)
+    token = page.cookies[dj.CSRF_COOKIE_NAME].value
+    return c.post(
+        "/feedback",
+        {"csrfmiddlewaretoken": token},
+        HTTP_HOST=host,
+        HTTP_ORIGIN=origin,
+        secure=True,
+    )
+
+
+@pytest.mark.parametrize(
+    "host,origin",
+    [(PUBLIC, f"https://{APP}"), (APP, f"https://{PUBLIC}"), (PUBLIC, "https://evil.example")],
+)
+def test_cross_host_origin_rejected(host, origin):
+    assert _csrf_post(host, origin).status_code == 403
+
+
+@pytest.mark.parametrize("host", [PUBLIC, APP])
+def test_same_host_origin_accepted(host):
+    assert _csrf_post(host, f"https://{host}").status_code != 403
+
+
+def test_cross_host_test_is_sensitive(settings):
+    # Proves the rejection above comes from the trusted-origins list, not something else.
+    settings.CSRF_TRUSTED_ORIGINS = [f"https://{APP}"]
+    assert _csrf_post(PUBLIC, f"https://{APP}").status_code != 403
+
+
+def test_no_default_trusted_origins(settings):
+    # Same-host POSTs pass Django's Origin check on their own; listing hosts here would
+    # let beta pages POST to the apex and back.
+    assert settings.CSRF_TRUSTED_ORIGINS == []
+# Production cookie names (__Host-) are checked in test_prod_settings.py: in-process
+# tests run with DJANGO_DEBUG=1 at import, which keeps the plain dev names.

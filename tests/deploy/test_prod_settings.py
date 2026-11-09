@@ -50,7 +50,8 @@ def test_prod_cookie_and_proxy_settings(prod_env, run_prod):
     assert got["SECURE_PROXY_SSL_HEADER"] == "('HTTP_X_FORWARDED_PROTO', 'https')"
     assert got["SECURE_HSTS_SECONDS"] == "3600"
     assert got["SECURE_SSL_REDIRECT"] == "True"
-    assert "https://beta.unitpricer.com" in got["CSRF_TRUSTED_ORIGINS"]
+    # #77: no default list; Django's same-host Origin check is per host.
+    assert got["CSRF_TRUSTED_ORIGINS"] == "[]"
 
 
 def test_secret_key_fallbacks_from_env(prod_env, run_prod):
@@ -166,8 +167,26 @@ def test_prod_cookies_host_only(prod_env, run_prod):
         "os.environ['DJANGO_SETTINGS_MODULE']='config.settings';"
         "django.setup();"
         "from django.conf import settings as s;"
-        "print(repr(s.SESSION_COOKIE_DOMAIN), repr(s.CSRF_COOKIE_DOMAIN), repr(s.SITE_URL), repr(s.PUBLIC_URL))"
+        "print(repr(s.SESSION_COOKIE_DOMAIN), repr(s.CSRF_COOKIE_DOMAIN), repr(s.SITE_URL), repr(s.PUBLIC_URL),"
+        " s.SESSION_COOKIE_NAME, s.CSRF_COOKIE_NAME, s.SESSION_COOKIE_PATH, s.CSRF_COOKIE_PATH,"
+        " s.SESSION_COOKIE_SECURE, s.CSRF_COOKIE_SECURE)"
     )
     out = run_prod(prod_env, "-c", code)
     assert out.returncode == 0, out.stderr
-    assert out.stdout.split() == ["None", "None", "'https://unitpricer.com'", "'https://unitpricer.com'"]
+    assert out.stdout.split() == [
+        "None", "None", "'https://unitpricer.com'", "'https://unitpricer.com'",
+        "__Host-sessionid", "__Host-csrftoken", "/", "/", "True", "True",
+    ]
+
+
+def test_dev_cookie_names_unprefixed(prod_env, run_prod):
+    # __Host- needs Secure, which plain-http dev lacks.
+    prod_env["DJANGO_DEBUG"] = "1"
+    got = _print_settings(run_prod, prod_env, "SESSION_COOKIE_NAME", "CSRF_COOKIE_NAME")
+    assert got == {"SESSION_COOKIE_NAME": "'sessionid'", "CSRF_COOKIE_NAME": "'csrftoken'"}
+
+
+def test_explicit_trusted_origins_still_honoured(prod_env, run_prod):
+    prod_env["DJANGO_CSRF_TRUSTED_ORIGINS"] = "https://a.example, https://b.example"
+    got = _print_settings(run_prod, prod_env, "CSRF_TRUSTED_ORIGINS")
+    assert got["CSRF_TRUSTED_ORIGINS"] == repr(["https://a.example", "https://b.example"])

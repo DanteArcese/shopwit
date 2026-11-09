@@ -6,8 +6,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 
 import web.access
 
-PUBLIC = "unitpricer.com"
-APP = "beta.unitpricer.com"
+from tests.deploy.routes import APEX_ROUTES, APP, BETA_ROUTES, PUBLIC
 TEAM = "unitpricer.cloudflareaccess.com"
 AUD = "test-aud"
 
@@ -160,32 +159,6 @@ def time_now():
     return timezone.now()
 
 
-# Mirrors APEX_ROUTES in test_hosts.py: every non-admin route the apex serves.
-APEX_PATHS = [
-    ("get", "/", {}),
-    ("get", "/c/dairy/milk/", {}),
-    ("get", "/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
-    ("get", "/search?q=green+tea", {}),
-    ("get", "/settings", {}),
-    ("get", "/disclosure", {}),
-    ("get", "/feedback", {}),
-    ("get", "/privacy", {}),
-    ("get", "/lists/", {}),
-    ("get", "/account/sign-in", {}),
-]
-BETA_ROUTES = APEX_PATHS + [
-    ("get", "/admin/", {}),
-    ("get", "/admin/login/", {}),
-    ("post", "/admin/login/", {}),
-    ("post", "/waitlist/", {}),
-    ("post", "/settings", {}),
-    ("post", "/click", {}),
-    ("post", "/feedback", {}),
-    ("post", "/lists/new", {}),
-    ("post", "/account/sign-in", {}),
-    ("post", "/account/magic-link", {}),
-    ("get", "/robots.txt", {}),
-]
 BETA_HOSTS = [APP, APP + ".", APP.upper()]
 
 
@@ -210,7 +183,7 @@ def test_beta_routes_need_token(client, settings, private_key, monkeypatch, host
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("method,path,extra", APEX_PATHS)
+@pytest.mark.parametrize("method,path,extra", APEX_ROUTES)
 def test_apex_routes_need_no_token(client, categories, method, path, extra):
     r = getattr(client, method)(path, HTTP_HOST=PUBLIC, **extra)
     assert r.status_code == 200
@@ -225,3 +198,14 @@ def test_admin_on_beta_with_token(client, private_key):
 @pytest.mark.parametrize("path", ["/", "/admin/", "/search?q=green+tea"])
 def test_unknown_host_still_400(client, path):
     assert client.get(path, HTTP_HOST="evil.example").status_code == 400
+
+
+@pytest.mark.django_db
+@pytest.mark.parametrize("path", ["/", "/admin/", "/admin/login/", "/lists/"])
+@pytest.mark.parametrize("host", ["127.0.0.1", "localhost", "web"])
+def test_other_allowed_hosts_need_token(client, settings, private_key, host, path):
+    # An allowed host that is neither public nor beta (e.g. the container's own name).
+    settings.ALLOWED_HOSTS = [PUBLIC, f"www.{PUBLIC}", APP, "127.0.0.1", "localhost", "web"]
+    assert client.get(path, HTTP_HOST=host).status_code == 403
+    bad = make_token(private_key, aud=["other"])
+    assert client.get(path, HTTP_HOST=host, HTTP_CF_ACCESS_JWT_ASSERTION=bad).status_code == 403

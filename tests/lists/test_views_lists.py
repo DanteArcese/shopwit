@@ -2,6 +2,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 import pytest
+from django.conf import settings as django_settings
 from django.contrib.auth import get_user_model
 from django.db import connection
 from django.test import Client
@@ -126,7 +127,7 @@ def test_generic_group_has_add_link(client, db):
 def test_add_page_sets_session_only_on_post(client, milk_offers):
     resp = client.get("/lists/add?category=dairy%2Fmilk&fat=2")
     assert resp.status_code == 200
-    assert "sessionid" not in resp.cookies
+    assert django_settings.SESSION_COOKIE_NAME not in resp.cookies
 
 
 def test_add_page_prefills_from_top_offer(client, milk_offers):

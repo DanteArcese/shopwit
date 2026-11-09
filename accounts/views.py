@@ -94,6 +94,10 @@ def sign_in(request):
     if email and password:
         # ModelBackend runs the hasher for unknown users and unusable passwords too.
         user = authenticate(request, username=email, password=password)
+    if user is not None and (user.is_staff or user.is_superuser or not user.is_active):
+        # This form is public (apex): staff sign in only through the admin's own
+        # login on the beta host. Answer and count exactly like a wrong password.
+        user = None
     if user is not None:
         login(request, user)
         return redirect(next_path)
@@ -143,7 +147,7 @@ def _user_for(email: str):
     if created:
         user.set_unusable_password()
         user.save(update_fields=["password"])
-    # Staff sign in with a password only; a mailbox alone never grants admin.
+    # Staff sign in only via the admin login on beta; a mailbox alone never grants admin.
     if not user.is_active or user.is_staff or user.is_superuser:
         return None
     return user

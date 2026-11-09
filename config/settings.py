@@ -223,13 +223,19 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_AGE = 60 * 60 * 24 * 60
 SECURE_REFERRER_POLICY = "same-origin"
 X_FRAME_OPTIONS = "DENY"
+# No default list: Django already accepts a same-host Origin (the scheme comes from
+# SECURE_PROXY_SSL_HEADER), and listing every host would let beta pages POST to the
+# apex and back. Only an explicit override is honoured.
 CSRF_TRUSTED_ORIGINS = [
-    o.strip()
-    for o in env(
-        "DJANGO_CSRF_TRUSTED_ORIGINS", ",".join(f"https://{h}" for h in ALLOWED_HOSTS)
-    ).split(",")
-    if o.strip()
+    o.strip() for o in env("DJANGO_CSRF_TRUSTED_ORIGINS", "").split(",") if o.strip()
 ]
+# Host-only cookies: no Domain, so apex and beta never share a session or CSRF token.
+# In production the __Host- prefix makes browsers enforce that (Secure, Path=/, no
+# Domain). Plain-http dev cannot set Secure cookies, so it keeps the default names.
+SESSION_COOKIE_DOMAIN = None
+CSRF_COOKIE_DOMAIN = None
+SESSION_COOKIE_NAME = "sessionid" if DEBUG else "__Host-sessionid"
+CSRF_COOKIE_NAME = "csrftoken" if DEBUG else "__Host-csrftoken"
 
 # Email (production: Resend over STARTTLS on port 2587; DigitalOcean blocks 25/465/587).
 EMAIL_BACKEND = env(

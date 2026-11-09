@@ -8,7 +8,7 @@ def normalize_host(request):
 
 
 class HostRoutingMiddleware:
-    """Serve the public app on PUBLIC_HOST and the app plus admin elsewhere (noindex on APP_HOST)."""
+    """Serve the public app on PUBLIC_HOST and the app plus admin elsewhere (noindex on every other host)."""
 
     def __init__(self, get_response):
         self.get_response = get_response
@@ -23,6 +23,7 @@ class HostRoutingMiddleware:
         if host == public:
             request.urlconf = "config.urls_public"
         response = self.get_response(request)
-        if settings.APP_HOST and host == settings.APP_HOST:
+        if host != public:
+            # Beta and any other allowed host (127.0.0.1, the container name) stay out of indexes.
             response["X-Robots-Tag"] = "noindex, nofollow"
         return response
