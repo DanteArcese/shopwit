@@ -68,3 +68,15 @@ def link_attrs(offer, affiliate: Mapping[str, str | None]) -> dict:
         "target": "_blank",
         "ping": f"/click?o={offer.pk}",
     }
+
+
+_PROGRAMS = (
+    ("amazon_associates_tag", "Amazon Associates Program"),
+    ("walmart_impact_publisher_id", "Walmart's affiliate program through Impact"),
+    ("sovrn_site_key", "Sovrn Commerce"),
+)
+
+
+def affiliate_programs(affiliate: Mapping[str, str | None]) -> list[str]:
+    """Display names of the programs that are configured, in a fixed order."""
+    return [label for key, label in _PROGRAMS if affiliate.get(key)]

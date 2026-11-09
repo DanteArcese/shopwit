@@ -18,6 +18,7 @@ from django.views.decorators.http import require_http_methods, require_POST
 from catalog.browse import BRAND_TIERS, browse, parse_filters, spec_params
 from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
+from catalog.links import affiliate_programs
 from catalog.models import Category, ClickEvent, Offer
 from catalog.retailers import RETAILERS, available_retailers, chain_names, display_name
 from catalog.units import (
@@ -27,6 +28,7 @@ from catalog.units import (
     format_money,
     size_to_canonical,
 )
+from connectors.registry import live_source_info
 from normalize import load_categories
 from normalize.query import resolve_query
 
@@ -319,8 +321,38 @@ def search(request):
     return generic_results(request, q, definitions=definitions)
 
 
+_LIVE_SOURCE_LABELS = {"walmart": "Walmart", "off-prices": "Open Food Facts"}
+
+
+def _join(items: list[str]) -> str:
+    if len(items) <= 2:
+        return " and ".join(items)
+    return ", ".join(items[:-1]) + ", and " + items[-1]
+
+
 def disclosure(request):
-    return render(request, "web/disclosure.html", {"observed_days": settings.OBSERVED_MAX_AGE.days})
+    programs = affiliate_programs(settings.AFFILIATE)
+    live = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
+    live_names = [label for key, label in _LIVE_SOURCE_LABELS.items() if key in live]
+    return render(
+        request,
+        "web/disclosure.html",
+        {
+            "observed_days": settings.OBSERVED_MAX_AGE.days,
+            "programs": _join(programs),
+            "has_programs": bool(programs),
+            "amazon_tag": bool(settings.AFFILIATE.get("amazon_associates_tag")),
+            "live_names": _join(live_names),
+        },
+    )
+
+
+def terms(request):
+    return render(request, "web/terms.html")
+
+
+def about(request):
+    return render(request, "web/about.html")
 
 
 @csrf_exempt
