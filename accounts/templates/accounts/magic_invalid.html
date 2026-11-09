@@ -1,0 +1,7 @@
+{% extends "web/base.html" %}
+{% block title %}Link expired - UnitPricer{% endblock %}
+{% block main %}
+<h1>Link expired</h1>
+<p>This link has expired or was already used.</p>
+<p><a href="{% url 'accounts:sign_in' %}">Request a new sign-in link</a></p>
+{% endblock %}

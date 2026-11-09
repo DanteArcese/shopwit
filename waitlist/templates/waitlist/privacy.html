@@ -11,6 +11,13 @@
   <li>Beta app: the ZIP code and distance you choose in Settings. They are saved on our server in your session record (linked to your browser by a session cookie, expiring 60 days after you last save your settings or lists), used only to show in-store prices from nearby stores, and never logged. Clear the ZIP code in Settings to remove it.</li>
   <li>No analytics, no ads and no tracking pixels.</li>
 </ul>
+<h2>Accounts and lists</h2>
+<ul>
+  <li>Accounts are optional; lists work without one, saved in your session. If you create an account (by asking for a sign-in link), we store your email address, a password hash only if you set a password (never the password itself), when the account was created and last signed in, your lists and your saved settings (units, stores, ZIP code and distance). No names, IP addresses, user agents or tracking ids.</li>
+  <li>Sign-in links: we store your email address with a one-way hash of the link (never the link itself). A link works once and expires after 15 minutes; the record is deleted about a day after it expires. Sign-in emails are sent through Resend.</li>
+  <li>To limit abuse, we count sign-in attempts per email address and per IP address under salted one-way hashes in a temporary cache that expires within an hour. Emails, links and IP addresses are never logged.</li>
+  <li>To delete your account, sign in, open Account and use Delete account. That deletes your email address, password hash, lists and saved settings at once. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> and we will delete it for you.</li>
+</ul>
 <h2>Feedback</h2>
 <ul>
   <li>The feedback form on the beta app stores what you send: the type, your message, a store name and website for store requests, the product you reported (if any) and, only if you give it, an email address for a reply. We do not store your IP address; it is used only, in hashed form, to limit how many messages one visitor can send per hour.</li>
@@ -18,7 +25,7 @@
   <li>Nothing is published without our review. Approved bug reports, ideas and other feedback may be posted publicly as issues on our <a href="https://github.com/DanteArcese/unitpricer">GitHub repository</a> (your message text, with email addresses and links made inert), and approved store requests as a public request count for that store. Your email address is never posted. Reports of a wrong price or size stay private.</li>
 </ul>
 <h2>Why</h2>
-<p>To confirm your signup and to send you one launch email, and to read and act on feedback you send (including replying if you asked us to). Nothing else.</p>
+<p>To confirm your signup and to send you one launch email, to sign you in and keep your lists and settings, and to read and act on feedback you send (including replying if you asked us to). Nothing else.</p>
 <h2>Who handles it</h2>
 <ul>
   <li>DigitalOcean (New York): hosting.</li>
@@ -38,6 +45,7 @@
   <li>Unconfirmed signups are deleted after 7 days.</li>
   <li>Confirmed signups are kept until you unsubscribe or we close the waitlist.</li>
   <li>Feedback reply emails: deleted when the item is closed or rejected, or after 90 days. The rest of a feedback item is kept until we delete it.</li>
+  <li>Accounts, with their lists and settings, are kept until you delete them.</li>
   <li>Backups age out as described above.</li>
   <li>Server logs hold no IP addresses.</li>
 </ul>

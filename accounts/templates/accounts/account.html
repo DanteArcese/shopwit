@@ -1,0 +1,33 @@
+{% extends "web/base.html" %}
+{% block title %}Account - UnitPricer{% endblock %}
+{% block main %}
+<h1>Account</h1>
+<p>Signed in as <strong>{{ user.email }}</strong>.</p>
+<form class="account-form" method="post" action="{% url 'accounts:password' %}">
+  {% csrf_token %}
+  <h2>{% if has_password %}Change password{% else %}Set a password{% endif %}</h2>
+  {% if password_saved %}<p class="note" role="status">Password saved.</p>{% endif %}
+  {% if not has_password %}<p class="note">Optional: you can keep signing in with emailed links.</p>{% endif %}
+  {{ password_form.non_field_errors }}
+  {% for field in password_form %}
+  <label for="{{ field.id_for_label }}">{{ field.label }}</label>
+  {{ field }}
+  {% if field.errors %}<div class="error" role="alert">{{ field.errors }}</div>{% endif %}
+  {% if field.help_text %}<div class="note">{{ field.help_text|safe }}</div>{% endif %}
+  {% endfor %}
+  <button type="submit">Save password</button>
+</form>
+<form class="account-form" method="post" action="{% url 'accounts:sign_out' %}">
+  {% csrf_token %}
+  <button type="submit">Sign out</button>
+</form>
+<form class="account-form" method="post" action="{% url 'accounts:delete' %}">
+  {% csrf_token %}
+  <h2>Delete account</h2>
+  <p class="note">This deletes your account, your lists and your saved settings. It can't be undone.</p>
+  {% if delete_error %}<p class="error" id="delete-error" role="alert">{{ delete_error }}</p>{% endif %}
+  <label for="delete-confirm">Type <strong>delete</strong> to confirm</label>
+  <input type="text" id="delete-confirm" name="confirm" autocomplete="off" required{% if delete_error %} aria-invalid="true" aria-describedby="delete-error"{% endif %}>
+  <button type="submit">Delete account</button>
+</form>
+{% endblock %}

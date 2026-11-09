@@ -12,5 +12,6 @@ urlpatterns = [
     path("feedback", feedback_views.feedback, name="feedback"),
     path("admin/", admin.site.urls),
     path("lists/", include("lists.urls")),
+    path("account/", include("accounts.urls")),
     path("", include("web.urls")),
 ]

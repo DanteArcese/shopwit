@@ -1,0 +1,8 @@
+{% autoescape off %}Here is your link to sign in to UnitPricer:
+
+{{ link }}
+
+It works once and expires in 15 minutes.
+
+If you didn't ask for it, ignore this email.
+{% endautoescape %}

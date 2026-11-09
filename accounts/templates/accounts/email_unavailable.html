@@ -1,0 +1,7 @@
+{% extends "web/base.html" %}
+{% block title %}Try again later - UnitPricer{% endblock %}
+{% block main %}
+<h1>Try again later</h1>
+<p>We can't send email right now. Please try again later, or sign in with a password if you have set one.</p>
+<p><a href="{% url 'accounts:sign_in' %}">Back to sign in</a></p>
+{% endblock %}

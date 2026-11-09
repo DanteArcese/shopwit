@@ -121,3 +121,16 @@ def test_ratelimit_window():
     window = timedelta(minutes=1)
     assert [allow("t", "a", 3, window) for _ in range(4)] == [True, True, True, False]
     assert allow("t", "b", 3, window) is True
+
+
+def test_ratelimit_exceeded_peeks_without_counting():
+    from web.ratelimit import allow, exceeded
+
+    window = timedelta(minutes=1)
+    assert exceeded("p", "a", 2) is False
+    assert exceeded("p", "a", 2) is False  # peeking never counts
+    allow("p", "a", 2, window)
+    assert exceeded("p", "a", 2) is False
+    allow("p", "a", 2, window)
+    assert exceeded("p", "a", 2) is True
+    assert exceeded("p", "b", 2) is False
