@@ -1,0 +1,12 @@
+name: Yogurt
+dimension: mass
+match:
+  include: [yogurt, yoghurt, skyr]
+  exclude: [frozen, covered, coated, melts, bites, chips, raisins, pretzels, drinkable, drink, smoothie, starter, culture, dog, bar, bars, tubes, go-gurt, dip, dressing, mask, granola, maker, pops, cereal, snacks, alternative]
+attributes:
+  greek: {type: bool, synonyms: {true: [greek]}, absent: false}
+  fat: {type: enum, values: [nonfat, lowfat, whole], synonyms: {nonfat: [nonfat, non-fat, fat free, fat-free, 0%], lowfat: [low fat, lowfat, low-fat], whole: [whole milk, full fat]}}
+  plain: {type: bool, synonyms: {true: [plain, unflavored]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [greek yogurt, plain yogurt]

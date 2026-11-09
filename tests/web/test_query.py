@@ -96,3 +96,25 @@ def test_filter_after_and_case():
 
 def test_punctuation_only_leftover_empty():
     assert r("(2% milk") == QueryResolution("dairy/milk", {"fat": "2"}, "")
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("unsalted butter", "dairy/butter", {"salted": "unsalted"}),
+        ("greek yogurt", "dairy/yogurt", {"greek": True}),
+        ("shredded cheddar", "dairy/cheese", {"form": "shredded", "variety": "cheddar"}),
+    ],
+)
+def test_dairy_extras(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_peanut_butter_not_butter():
+    assert r("peanut butter").category != "dairy/butter"
+
+
+def test_whole_milk_yogurt_is_yogurt_not_milk():
+    assert r("whole milk yogurt").category == "dairy/yogurt"

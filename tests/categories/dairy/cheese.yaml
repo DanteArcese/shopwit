@@ -1,0 +1,26 @@
+- {title: 'Kraft Mexican Style Four Cheese Blend Shredded Cheese, 8 oz', brand: Kraft, price: '2.98', expect: {category: dairy/cheese, attributes: {form: shredded, variety: mexican_blend, organic: false, brand_tier: name_brand}, measures: {mass_g: 226.8}, unit_prices: {per_mass: '0.013140'}, unresolved: []}}
+- {title: 'Great Value Finely Shredded Mild Cheddar Cheese, 8 oz', brand: Great Value, expect: {category: dairy/cheese, attributes: {form: shredded, variety: cheddar, brand_tier: store_brand}, measures: {mass_g: 226.8}}}
+- {title: 'Tillamook Medium Cheddar Cheese Block, 2 lb', expect: {category: dairy/cheese, attributes: {form: block, variety: cheddar}, measures: {mass_g: 907.18}}}
+- {title: 'Sargento Sliced Provolone Cheese, 12 Slices, 8 oz', expect: {category: dairy/cheese, attributes: {form: sliced, variety: provolone}, measures: {mass_g: 226.8}}}
+- {title: 'Kraft Grated Parmesan Cheese, 8 oz', expect: {category: dairy/cheese, attributes: {form: grated, variety: parmesan}, measures: {mass_g: 226.8}}}
+- {title: 'Kirkland Signature Shredded Mozzarella, 5 lb', brand: Kirkland Signature, expect: {category: dairy/cheese, attributes: {form: shredded, variety: mozzarella, brand_tier: store_brand}, measures: {mass_g: 2267.96}}}
+- {title: 'Sargento Shredded Colby & Monterey Jack Cheese, 8 oz', brand: Sargento, expect: {category: dairy/cheese, attributes: {form: shredded}, unresolved: ['attribute:variety:ambiguous']}}
+- {title: 'Cracker Barrel Extra Sharp White Cheddar Cheese, 8 oz', expect: {category: dairy/cheese, attributes: {variety: cheddar}, measures: {mass_g: 226.8}}}
+- {title: 'Philadelphia Original Cream Cheese, 8 oz', expect: {category: null}}
+- {title: 'Cheez-It Original Cheddar Crackers, 12.4 oz', expect: {category: null}}
+- {title: 'Farm Rich Breaded Mozzarella Sticks, 22 oz', expect: {category: null}}
+- {title: 'Extra Sharp Cheddar Cheese', expect: {category: dairy/cheese, attributes: {variety: cheddar}}}
+- {title: 'Sliced swiss cheese', expect: {category: dairy/cheese, attributes: {form: sliced, variety: swiss}}}
+- {title: 'Grated Parmesan Cheese', expect: {category: dairy/cheese, attributes: {form: grated, variety: parmesan}}}
+- {title: 'Pepper Jack Cheese', expect: {category: dairy/cheese, attributes: {variety: pepper_jack}}}
+- {title: 'Mexican blend', expect: {category: dairy/cheese, attributes: {variety: mexican_blend}}}
+- {title: 'Low Moisture Part Skim Mozzarella Cheese', expect: {category: dairy/cheese, attributes: {variety: mozzarella}}}
+- {title: 'Four Cheese Pizza', expect: {category: null}}
+- {title: 'Macaroni & Cheese', expect: {category: null}}
+- {title: 'Steak & Cheddar Burrito', expect: {category: null}}
+- {title: 'CHICKEN PARMESAN WITH SPAGHETTI', expect: {category: null}}
+- {title: 'Cheddar stick cheese', expect: {category: null}}
+- {title: 'Cheese Snacks Colby jack', expect: {category: null}}
+- {title: 'Original Spreadable Cheese Wedges', expect: {category: null}}
+- {title: 'Creamy Cheddar', brand: Prego, expect: {category: null}}
+- {title: 'Blue Cheese Dressing & Dip', expect: {category: null}}

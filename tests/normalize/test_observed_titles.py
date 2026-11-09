@@ -37,7 +37,7 @@ CASES = [
     ("ICED ESPRESSO & MILK BEVERAGE Salted Caramel", "DUNKIN' DOUBLE", None),
     ("Berry Milk Drink", "Barebells", None),
     # Milk: yogurt, kefir, cheese, buttermilk.
-    ("Organic Whole Milk Honey Yogurt", "KALONA SUPER NATURAL", None),
+    ("Organic Whole Milk Honey Yogurt", "KALONA SUPER NATURAL", "dairy/yogurt"),
     ("Organic Kefir cultured lowfat milk", "Lifeway", None),
     ("Part Skim Milk Cheese", "Cacique Inc.", None),
     ("Cultured whole butter milk", "Fire Acre Farms", None),
