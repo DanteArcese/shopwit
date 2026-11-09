@@ -21,9 +21,12 @@ STATIC_PAGES = ("home", "about", "privacy", "terms", "disclosure")
 
 
 def public_origin(request) -> str:
-    """https://unitpricer.com from PUBLIC_URL; the request's own origin only when unset (dev)."""
+    """https://unitpricer.com from PUBLIC_URL, else https://{PUBLIC_HOST}; the request's own
+    origin only when both are unset (dev)."""
     if settings.PUBLIC_URL:
         return settings.PUBLIC_URL.rstrip("/")
+    if settings.PUBLIC_HOST:
+        return f"https://{settings.PUBLIC_HOST}"
     return request.build_absolute_uri("/").rstrip("/")
 
 

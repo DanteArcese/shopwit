@@ -95,8 +95,21 @@ def test_invalid_email_reshows_form(client):
 
 
 def test_landing_page_retired(client):
-    body = client.get("/", HTTP_HOST=PUBLIC).content.decode()
-    assert "Join the waitlist" not in body
+    from django.template import TemplateDoesNotExist
+    from django.template.loader import get_template
+
+    r = client.get("/", HTTP_HOST=PUBLIC)
+    assert r.status_code == 200
+    used = {t.name for t in r.templates}
+    # The apex home is the app (search + notify block), not the old landing page.
+    assert "web/home.html" in used and "waitlist/_notify.html" in used
+    assert not any(name.startswith("waitlist/landing") for name in used)
+    body = r.content.decode()
+    assert "Join the waitlist" not in body and 'name="q"' in body
+    with pytest.raises(TemplateDoesNotExist):
+        get_template("waitlist/landing.html")
+    # /waitlist/ is the POST endpoint only; a GET does not render a page.
+    assert client.get("/waitlist/", HTTP_HOST=PUBLIC).status_code == 405
 
 
 def test_signup_creates_pending_and_sends_confirm(client):
