@@ -45,7 +45,7 @@ Search queries like "cheapest toilet paper per sheet" are answered today by stat
 6. **Optional accounts** for syncing lists, stores and settings across devices.
 
 ### Next (first after core)
-7. **Nutrition per dollar** (e.g. cost per 10 g protein) using Open Food Facts. Aimed at fitness shoppers, for example protein powder.
+7. **Nutrition per dollar (#95):** rank food categories and generic results by cost per 100 g protein or per 1,000 kcal, from Open Food Facts per-100 g values only. Aimed at fitness shoppers, for example protein powder.
 
 ### Later
 - Price history, a "good price?" indicator, and email alerts on a spec. **Walmart data is excluded** (Walmart's terms bar price tracking and alerting); other sources only where their terms allow.
@@ -225,3 +225,4 @@ Costco, Shaw's, Stop & Shop and Target have no official price APIs. They are out
 | Name | **UnitPricer** (unitpricer.com); renamed from codename `shopwit` (#26) |
 | In-store observed prices (#61) | Open Prices rows become dated `observed` offers in a separate "Seen in stores" section, 90-day window by observation date, chain-grouped store filter, ODbL attribution and export; ranking and live surfaces are untouched |
 | Open-ended search (#65) | Generic tier with measure groups, structured facets, background live fetch, anonymous demand counts; curated categories as upgrades. See `2026-11-08-open-search-design.md`. |
+| Nutrition per dollar (#95) | `rank=protein` or `rank=kcal` re-orders food category pages and generic measure groups by cost per 100 g protein or per 1,000 kcal, from OFF per-100 g values only; products that can't be ranked follow with a reason; price per unit stays the default; OFF attribution shown |

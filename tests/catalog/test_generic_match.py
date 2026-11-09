@@ -10,6 +10,8 @@ from catalog.generic import (
     match_offers,
 )
 from catalog.models import Offer, Product
+from normalize.nutrition import offer_nutrition
+from normalize.types import Nutrition
 from tests.catalog.helpers import NOW
 
 
@@ -32,6 +34,14 @@ def make_generic_offer(
         last_seen_at=NOW - timedelta(hours=age_hours),
         measure_dim=dim, measure_amount=amount if dim else None, generic_unit_price=unit, **extra,
     )
+
+
+def nutrify_offer(offer, basis="100g", protein=10.0, kcal=100.0):
+    offer.nutrition = offer_nutrition(
+        offer.price, Nutrition(basis, protein, kcal), offer.measures, offer.measure_dim, offer.measure_amount
+    )
+    offer.save(update_fields=["nutrition"])
+    return offer
 
 
 def titles(match):
@@ -228,3 +238,68 @@ def test_match_defers_heavy_columns():
     assert {"search_vector", "unit_prices", "unresolved", "attributes"} <= offer.get_deferred_fields()
     assert {"attributes", "manual_attributes", "measures"} <= offer.product.get_deferred_fields()
     assert "measures" not in offer.get_deferred_fields()  # rows display it
+
+
+def _all():
+    return Offer.objects.select_related("product", "store")
+
+
+@pytest.mark.django_db
+def test_group_rank_protein_costed_first_then_unranked():
+    # protein cost = price * 10000 / (protein * 500): A 4.00, B 2.00 (best), C costless, D none
+    a = nutrify_offer(make_generic_offer("A", "4", dim="mass", amount=500), protein=20.0)
+    b = nutrify_offer(make_generic_offer("B", "5", dim="mass", amount=500), protein=50.0)
+    make_generic_offer("C", "1", dim="mass", amount=500)  # no nutrition at all: cheapest, still last
+    nutrify_offer(make_generic_offer("D", "2", dim="mass", amount=500), basis="serving")
+    group = group_products(_all(), rank="protein").groups[0]
+    assert [r.product.title for r in group.rows] == ["B", "A", "C", "D"]
+    assert group.ranked_count == 2 and group.total == 4
+    assert [r.cost for r in group.rows] == [Decimal("2.00"), Decimal("4.00"), None, None]
+    assert [r.reason for r in group.rows] == [
+        None, None, "no nutrition data from Open Food Facts", "nutrition per serving only",
+    ]
+    assert group.rows[0].offer == b and group.rows[1].offer == a
+
+
+@pytest.mark.django_db
+def test_group_rank_never_mixes_dimensions():
+    nutrify_offer(make_generic_offer("Mass", "4", dim="mass", amount=500), protein=20.0)
+    nutrify_offer(make_generic_offer("Vol", "9", dim="volume", amount=1000), basis="100ml", protein=1.0)
+    result = group_products(_all(), rank="protein")
+    by = {g.dimension: g for g in result.groups}
+    assert [r.product.title for r in by["mass"].rows] == ["Mass"]
+    assert [r.product.title for r in by["volume"].rows] == ["Vol"]
+    assert by["mass"].rows[0].cost == Decimal("4.00") and by["volume"].rows[0].cost == Decimal("90.00")
+
+
+@pytest.mark.django_db
+def test_group_rank_picks_the_offer_with_the_lowest_cost():
+    p = Product.objects.create(identity="u1", title="Milk")
+    make_generic_offer("Milk", "3", dim="mass", amount=500, retailer="a", product=p)  # cheapest, no cost
+    costed = nutrify_offer(
+        make_generic_offer("Milk", "4", dim="mass", amount=500, retailer="b", product=p), protein=20.0
+    )
+    row = group_products(_all(), rank="protein").groups[0].rows[0]
+    assert row.offer == costed and row.cost == Decimal("4.00")
+
+
+@pytest.mark.django_db
+def test_group_rank_unit_unchanged():
+    for t, price in (("Vol c", "5"), ("Vol a", "2"), ("Vol b", "2")):
+        nutrify_offer(make_generic_offer(t, price, dim="volume", amount=1000), basis="100ml")
+    for rank in ("unit", "bogus"):
+        group = group_products(_all(), rank=rank).groups[0]
+        assert [r.product.title for r in group.rows] == ["Vol a", "Vol b", "Vol c"]
+        assert group.ranked_count == 3 and all(r.cost is None for r in group.rows)
+    assert [r.product.title for r in group_products(_all()).groups[0].rows] == ["Vol a", "Vol b", "Vol c"]
+
+
+@pytest.mark.django_db
+def test_group_rank_count_and_oz_labeled_all_unranked():
+    nutrify_offer(make_generic_offer("Eggs", "4", dim="count", amount=12))
+    nutrify_offer(make_generic_offer("Milk oz", "3", dim="oz_labeled", amount=64))
+    result = group_products(_all(), rank="protein")
+    assert [g.dimension for g in result.groups] == ["oz_labeled", "count"]
+    for g in result.groups:
+        assert g.ranked_count == 0
+        assert [r.reason for r in g.rows] == ["pack size unknown"] and g.rows[0].cost is None

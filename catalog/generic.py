@@ -28,6 +28,7 @@ from django.http import QueryDict
 from catalog.browse import BRAND_TIERS, SIZE_TOLERANCE, _tie
 from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Offer, Product
+from catalog.nutrition import nutrition_cost, nutrition_reason
 from catalog.units import (
     FL_OZ_PER_GAL,
     G_PER_OZ,
@@ -62,6 +63,7 @@ class GenericRow:
     offer: Offer
     unit_price: Decimal | None
     reason: str | None
+    cost: Decimal | None = None  # nutrition cost, set only when ranking by protein or kcal
 
 
 @dataclass(frozen=True)
@@ -69,6 +71,11 @@ class MeasureGroup:
     dimension: str
     rows: list[GenericRow]
     total: int
+    ranked_count: int = -1  # rows[:ranked_count] are ranked; the rest carry a reason
+
+    def __post_init__(self):
+        if self.ranked_count < 0:
+            object.__setattr__(self, "ranked_count", len(self.rows))
 
 
 @dataclass(frozen=True)
@@ -147,7 +154,11 @@ def _price_key(offer: Offer) -> tuple:
     return (offer.price, offer.retailer, _tie(offer), offer.id)
 
 
-def group_products(offers: Iterable[Offer]) -> GenericResult:
+def group_products(offers: Iterable[Offer], rank: str = "unit") -> GenericResult:
+    """Group by measure dimension; with ``rank`` "protein" or "kcal", order each group by nutrition cost.
+
+    Costed rows come first, then the rest unranked with their reason. Dimensions never mix."""
+    nutrition = rank in ("protein", "kcal")
     by_product: dict[int, list[Offer]] = {}
     for offer in offers:
         by_product.setdefault(offer.product_id, []).append(offer)
@@ -159,8 +170,16 @@ def group_products(offers: Iterable[Offer]) -> GenericResult:
         dims = {o.measure_dim for o in product_offers if o.measure_dim}
         if len(dims) == 1:
             dim = next(iter(dims))
-            best = min((o for o in product_offers if o.measure_dim == dim), key=_unit_key)
-            grouped.setdefault(dim, []).append(GenericRow(product, best, best.generic_unit_price, None))
+            same = [o for o in product_offers if o.measure_dim == dim]
+            costed = [(c, o) for o in same if nutrition and (c := nutrition_cost(o, rank)) is not None]
+            if costed:
+                cost, best = min(costed, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1]), t[1].id))
+                row = GenericRow(product, best, best.generic_unit_price, None, cost)
+            else:
+                best = min(same, key=_unit_key)
+                reason = nutrition_reason(best, rank) if nutrition else None
+                row = GenericRow(product, best, best.generic_unit_price, reason)
+            grouped.setdefault(dim, []).append(row)
         else:
             cheapest = min(product_offers, key=_price_key)
             reason = SIZES_DISAGREE if dims else (cheapest.measure_reason or SIZE_UNKNOWN)
@@ -171,11 +190,19 @@ def group_products(offers: Iterable[Offer]) -> GenericResult:
         unit = row.unit_price
         return (unit is None, unit if unit is not None else Decimal(0), o.price, row.product.title, o.retailer, o.id)
 
+    def nutrition_key(row: GenericRow) -> tuple:
+        o = row.offer
+        return (o.price, row.product.title, o.retailer, o.id)
+
     order = {d: i for i, d in enumerate(DIMENSION_ORDER)}
-    groups = [
-        MeasureGroup(dimension=dim, rows=sorted(rows, key=row_key), total=len(rows))
-        for dim, rows in grouped.items()
-    ]
+    groups = []
+    for dim, rows in grouped.items():
+        if nutrition:
+            costed = sorted((r for r in rows if r.cost is not None), key=lambda r: (r.cost, *nutrition_key(r)))
+            rest = sorted((r for r in rows if r.cost is None), key=nutrition_key)
+            groups.append(MeasureGroup(dim, costed + rest, len(rows), len(costed)))
+        else:
+            groups.append(MeasureGroup(dim, sorted(rows, key=row_key), len(rows)))
     groups.sort(key=lambda g: (-g.total, order.get(g.dimension, len(order))))
     unknown.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer, r.offer.id))
     return GenericResult(groups=groups, unknown=unknown, total_products=len(by_product))

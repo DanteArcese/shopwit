@@ -335,3 +335,23 @@ def test_disclosure_sentence(client, settings):
     body = client.get("/disclosure").content.decode()
     assert "When you search for something we haven&#x27;t seen" in body or "haven't seen" in body
     assert "We send only the search words." in body
+
+
+def test_poll_with_rank_renders_ranked_groups(client):
+    from tests.catalog.test_generic_match import nutrify_offer
+
+    page(client)
+    nutrify_offer(make_generic_offer("Oat Milk Acme", "4", dim="mass", amount=500), protein=20.0)
+    make_generic_offer("Oat Milk Bare", "1", dim="mass", amount=500)
+    finish(count=2)
+    resp = client.get(
+        "/search", {"q": "oat milk", "poll": START, "seen": START, "rank": "protein"},
+        HTTP_HX_REQUEST="true",
+    )
+    body = resp.content.decode()
+    assert "$4.00 per 100 g protein" in body and "Can't rank by protein per $" in body
+    assert body.index("Oat Milk Acme") < body.index("Oat Milk Bare")
+    facets = body[body.index('id="facets"'):]
+    assert '<option value="protein" selected>Protein per $</option>' in facets
+    assert "Nutrition: <a" in body
+    assert parse_qs(urlparse(_settings_next(body)).query) == {"q": ["oat milk"], "rank": ["protein"]}
