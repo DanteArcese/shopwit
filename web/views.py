@@ -199,8 +199,10 @@ def category(request, slug):
     stores = frozenset(selected_stores) if selected_stores else prefs.stores
     live_stores, chain_stores = split_stores(stores)
     location, near = _location(prefs)
-    result = browse(cat, spec, params.get("comparison"), live_stores, when)
-    obs = browse(cat, spec, params.get("comparison"), chain_stores, when, observed=True, near=near)
+    # An explicit ?comparison= wins; else the saved default; browse() falls back to the category's.
+    wanted = params.get("comparison") or prefs.comparisons.get(cat.slug)
+    result = browse(cat, spec, wanted, live_stores, when)
+    obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near)
 
     url = reverse("category", args=[cat.slug])
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
@@ -336,6 +338,22 @@ def click(request):
     return HttpResponse(status=204)
 
 
+def _compare_categories() -> list[Category]:
+    return list(Category.objects.filter(active=True).order_by("slug"))
+
+
+def _posted_comparisons(post, prefs: Prefs) -> dict[str, str]:
+    """Saved comparisons after a settings POST. Only active categories and their own
+    comparisons survive; "Default" removes the key; a field not posted keeps the old one."""
+    out: dict[str, str] = {}
+    for cat in _compare_categories():
+        allowed = [cat.comparison_default, *cat.comparison_alternates]
+        value = post.get(f"cmp:{cat.slug}", prefs.comparisons.get(cat.slug, ""))
+        if value in allowed and value != cat.comparison_default:
+            out[cat.slug] = value
+    return out
+
+
 POSTAL_CODE_ERROR = "Enter a 5-digit US ZIP code. Your other changes were saved."
 
 
@@ -372,7 +390,10 @@ def settings_page(request):
             radius = prefs.radius
         if radius not in RADIUS_STEPS:
             radius = prefs.radius
-        prefs = Prefs(system, stores, postal_code=postal_code, radius=radius)
+        prefs = Prefs(
+            system, stores, postal_code=postal_code, radius=radius,
+            comparisons=_posted_comparisons(request.POST, prefs),
+        )
         save_prefs(request, prefs)
         next_url = safe_next(request, request.POST.get("next"))
         if postal_error is None:
@@ -389,5 +410,18 @@ def settings_page(request):
             "postal_value": prefs.postal_code or "",
             "postal_error": postal_error,
             "radius_choices": radius_choices(prefs.unit_system),
+            "compare_rows": [
+                {
+                    "slug": cat.slug,
+                    "name": cat.name,
+                    "default_label": DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
+                    "saved": prefs.comparisons.get(cat.slug, ""),
+                    "choices": [
+                        {"name": c, "label": DISPLAY.get((c, prefs.unit_system), ("", None))[0]}
+                        for c in cat.comparison_alternates
+                    ],
+                }
+                for cat in _compare_categories()
+            ],
         },
     )

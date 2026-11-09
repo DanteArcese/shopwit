@@ -12,7 +12,7 @@
   </fieldset>
   <fieldset id="location">
     <legend>Location for in-store prices</legend>
-    <p class="note">In-store prices are limited to stores near this ZIP code. Online prices are never filtered by distance. Saved with your session on our server; never logged.</p>
+    <p class="note">In-store prices are limited to stores near this ZIP code. Online prices are never filtered by distance. Saved with your session on our server; never logged. If you are signed in, it is kept with your account.</p>
     {% if postal_error %}<p class="error" id="postal-code-error" role="alert">{{ postal_error }}</p>{% endif %}
     {% if location.state == "unknown" and not postal_error %}<p class="note" role="status">We don't have a location for ZIP code {{ location.postal_code }}, so in-store prices from all stores are shown.</p>{% endif %}
     <label for="postal-code">ZIP code (US)</label>
@@ -30,6 +30,18 @@
     <label><input type="checkbox" name="stores" value="{{ s.code }}"{% if prefs.stores and s.code in prefs.stores %} checked{% endif %}> {{ s.name }}</label>
     {% endfor %}
   </fieldset>
+  {% if compare_rows %}
+  <fieldset>
+    <legend>Compare by</legend>
+    {% for row in compare_rows %}
+    <label for="cmp-{{ forloop.counter }}">{{ row.name }}</label>
+    <select id="cmp-{{ forloop.counter }}" name="cmp:{{ row.slug }}">
+      <option value="">Default (price per {{ row.default_label }})</option>
+      {% for c in row.choices %}<option value="{{ c.name }}"{% if c.name == row.saved %} selected{% endif %}>Price per {{ c.label }}</option>{% endfor %}
+    </select>
+    {% endfor %}
+  </fieldset>
+  {% endif %}
   <button type="submit">Save</button>
 </form>
 {% endblock %}

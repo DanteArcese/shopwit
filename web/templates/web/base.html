@@ -22,6 +22,7 @@
     {% endblock %}
   </header>
   <main>
+    {% if messages %}<ul class="messages" role="status">{% for message in messages %}<li class="{{ message.tags }}">{{ message }}</li>{% endfor %}</ul>{% endif %}
     {% if has_outbound %}<p class="affiliate-banner" role="note">We may earn a commission when you buy through links on this site. It never affects ranking. <a href="{% url 'disclosure' %}">Details</a></p>{% endif %}
     {% block main %}{% endblock %}
   </main>
