@@ -312,6 +312,20 @@ def _laundry_pack(text: str) -> int | None:
     return int(m.group(1)) if m else None
 
 
+# One pod, pac, sheet or tablet per load: a bare count of them is not a count of bottles.
+_UNIT_DOSE_RE = re.compile(
+    r"\b(?:pods?|pacs?|flings|sheets?|strips|tabs|tablets|capsules)\b", re.IGNORECASE
+)
+
+
+def _bare_container_count(text: str) -> bool:
+    """A bare "N Count" (N > 1) of bottles, jugs or boxes with no pack wording: loads per
+    container or in all is ambiguous."""
+    if _laundry_pack(text) is not None or _UNIT_DOSE_RE.search(text):
+        return False
+    return any(int(m.group(1)) > 1 for m in _BARE_COUNT_RE.finditer(text))
+
+
 def _laundry_multiplier(text: str, start: int = 0) -> int:
     return _laundry_pack(text) or 1
 
@@ -321,6 +335,8 @@ def _laundry(text: str) -> Measures:
     m = _LOADS_RE.search(text)
     if m and _UP_TO_RE.search(text[: m.start()]):
         m = None  # "up to 64 loads" is a marketing maximum, never the count
+    if m and not (m.group("pre") or m.group("post")) and _bare_container_count(text):
+        m = None  # "46 Loads, 2 Count": per bottle or in all, never guessed
     if m and not _ambiguous_lead(text, m):
         loads = _to_float(m.group(1))
         if not (m.group("pre") or m.group("post")):

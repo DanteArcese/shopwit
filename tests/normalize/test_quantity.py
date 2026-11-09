@@ -454,6 +454,18 @@ def test_laundry_multipack_and_total():
     assert parse_measures(["Tide Liquid, 2 Pack, 128 loads total"], "laundry")["loads"] == 128
 
 
+def test_laundry_bare_count_beside_loads_is_ambiguous():
+    # "2 Count" of bottles: 46 loads each or in all is never guessed.
+    assert "loads" not in parse_measures(["Tide Liquid, 46 Loads, 2 Count"], "laundry")
+    assert "loads" not in parse_measures(["Gain Powder, 3 lb, 48 Loads, 3 ct"], "laundry")
+    # Explicit totals, explicit packs, a single count and pod counts stay readable.
+    assert parse_measures(["Tide Liquid, 128 Total Loads, 2 Count"], "laundry")["loads"] == 128
+    assert parse_measures(["Tide Liquid, 46 Loads, 2 Count, Pack of 2"], "laundry")["loads"] == 92
+    assert parse_measures(["Tide Liquid, 46 Loads, 1 Count"], "laundry")["loads"] == 46
+    assert parse_measures(["Tide PODS, 42 Loads, 42 Count"], "laundry") == {"loads": 42, "count": 42}
+    assert parse_measures(["Earth Breeze Sheets, 60 Loads, 60 Count"], "laundry")["loads"] == 60
+
+
 def test_laundry_mass_and_nutrient_strip():
     m = parse_measures(["Dropps Laundry Powder, 3 lb, 48 Loads"], "laundry")
     assert m["mass_g"] == _r(1360.78) and m["loads"] == 48

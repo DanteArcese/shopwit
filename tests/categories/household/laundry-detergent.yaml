@@ -8,3 +8,4 @@
 - {title: 'Purex Laundry Detergent, Mountain Breeze, 50 oz, 33 Loads', brand: Purex, expect: {category: household/laundry-detergent, measures: {loads: 33}, unresolved: ['attribute:form']}}
 - {title: 'OxiClean White Revive Laundry Detergent Booster, 3 lb', expect: {category: null}}
 - {title: 'Wall Mounted Laundry Detergent Dispenser, 2 Pack', expect: {category: null}}
+- {title: 'Tide Liquid Laundry Detergent, 46 Loads, 2 Count', brand: Tide, expect: {category: household/laundry-detergent, attributes: {form: liquid}, measures: {count: 2}, unresolved: ['unit_price:per_load']}}
