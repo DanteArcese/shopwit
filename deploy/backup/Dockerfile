@@ -11,7 +11,7 @@ RUN apt-get update \
 ARG RCLONE_RELEASE=v1.76.0
 ARG RCLONE_RELEASE_SHA256=b00f00b3266c3764413afe599d3ec316f6f43b3e0ea8a0bc1d186d2133e46df7
 RUN cd /tmp \
-    && curl -fsSLO "https://github.com/rclone/rclone/releases/download/${RCLONE_RELEASE}/rclone-${RCLONE_RELEASE}-linux-amd64.zip" \
+    && curl -fsSLO --retry 5 --retry-all-errors --retry-delay 5 "https://github.com/rclone/rclone/releases/download/${RCLONE_RELEASE}/rclone-${RCLONE_RELEASE}-linux-amd64.zip" \
     && echo "${RCLONE_RELEASE_SHA256}  rclone-${RCLONE_RELEASE}-linux-amd64.zip" | sha256sum -c - \
     && unzip -j "rclone-${RCLONE_RELEASE}-linux-amd64.zip" "rclone-${RCLONE_RELEASE}-linux-amd64/rclone" -d /usr/local/bin \
     && chmod 755 /usr/local/bin/rclone \
