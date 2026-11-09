@@ -1,0 +1,9 @@
+- {title: 'Poland Spring 100% Natural Spring Water, 16.9 fl oz, 24 Pack Bottles', brand: Poland Spring, price: '8.98', expect: {category: beverages/bottled-water, attributes: {water_type: spring, brand_tier: name_brand}, measures: {volume_ml: 11995.0}, unit_prices: {per_volume: '0.000749'}, unresolved: []}}
+- {title: 'Great Value Purified Drinking Water, 16.9 fl oz, 40 Count Bottles', brand: Great Value, expect: {category: beverages/bottled-water, attributes: {water_type: purified, brand_tier: store_brand}, measures: {volume_ml: 19991.7}}}
+- {title: 'Nestle Pure Life Purified Water, 8 fl oz, 24 Pack', expect: {category: beverages/bottled-water, attributes: {water_type: purified}, measures: {volume_ml: 5678.12}}}
+- {title: 'Great Value Distilled Water, 1 gal', expect: {category: beverages/bottled-water, attributes: {water_type: distilled}, measures: {volume_ml: 3785.41}}}
+- {title: 'Essentia Ionized Alkaline Water, 1.5 L', expect: {category: beverages/bottled-water, attributes: {water_type: alkaline}, measures: {volume_ml: 1500}}}
+- {title: 'Fiji Natural Artesian Water, 16.9 fl oz, 6 Pack', expect: {category: beverages/bottled-water, attributes: {water_type: artesian}, measures: {volume_ml: 2998.75}}}
+- {title: 'Arrowhead Mountain Spring Water, 101.4 fl oz', expect: {category: beverages/bottled-water, attributes: {water_type: spring}, measures: {volume_ml: 2998.76}}}
+- {title: 'PUR Plus Drinking Water Filter Pitcher, 11 Cup', expect: {category: null}}
+- {title: 'Dog Drinking Water Fountain, 2.4 L', expect: {category: null}}

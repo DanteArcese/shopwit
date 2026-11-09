@@ -157,3 +157,26 @@ def test_pantry_staples(text, category, filters):
     res = r(text)
     assert res.category == category
     assert res.filters == filters
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("club soda", "beverages/sparkling-water", {"unflavored": True}),
+        ("diet soda", "beverages/soda", {"diet": True}),
+        ("spring water", "beverages/bottled-water", {"water_type": "spring"}),
+        (
+            "orange juice not from concentrate",
+            "beverages/orange-juice",
+            {"concentrate": "not_from_concentrate"},
+        ),
+    ],
+)
+def test_beverages(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_baking_soda_unmatched():
+    assert r("baking soda").category is None

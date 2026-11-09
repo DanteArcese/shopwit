@@ -1,0 +1,9 @@
+name: Bottled Water
+dimension: volume
+match:
+  include: [spring water, purified water, drinking water, bottled water, alkaline water, distilled water, artesian water]
+  exclude: [sparkling, carbonated, seltzer, flavored, infused, enhancer, drops, filter, filtration, pitcher, dispenser, cooler, reusable, stainless, tumbler, insulated, dog, wipes, coconut, sports drink, tea]
+attributes:
+  water_type: {type: enum, values: [spring, purified, alkaline, distilled, artesian], synonyms: {spring: [spring water], purified: [purified], alkaline: [alkaline], distilled: [distilled], artesian: [artesian]}}
+comparison: {default: per_volume}
+search: [spring water, purified water]

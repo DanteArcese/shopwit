@@ -20,6 +20,8 @@ CATEGORIES = load_categories(ROOT / "categories")
 MILK, COFFEE, EGGS = "dairy/milk", "pantry/coffee", "dairy/eggs"
 BREAD, RICE, PASTA, FLOUR = "pantry/bread", "pantry/rice", "pantry/pasta", "pantry/flour"
 PB, OIL, SUGAR = "pantry/peanut-butter", "pantry/cooking-oil", "pantry/sugar"
+WATER, SPARKLING = "beverages/bottled-water", "beverages/sparkling-water"
+OJ, SODA = "beverages/orange-juice", "beverages/soda"
 
 CASES = [
     # Milk: plain dairy milk matches.
@@ -188,6 +190,44 @@ CASES = [
     ("Zero Sugar Cranberry Juice", None, None),
     ("Chocolate High Protein Shake", "Premier Protein", None),
     ("Builders Protein Bar", None, None),
+    # Beverages: members.
+    ("Purified Drinking Water", "Refreshe, Safeway  Inc., Signature Select", WATER),
+    ("VOSS Artesian Water", "CONAXESS TRADE NORGE AS, Voss Production AS", WATER),
+    ("Saratoga, Natural Spring Water", "Saratoga Springs Mineral Water", WATER),
+    ("Pink Grapefruit Sparkling Water", "Ardor Energy", SPARKLING),
+    ("Collagen Sparkling Water, Strawberry", "Vital Proteins", SPARKLING),
+    ("Organic 100% orange juice", "365 Everyday Value, Whole Foods Market  Inc.", OJ),
+    ("100% Premium Orange Juice from Concentrate", "Florida's Natural", OJ),
+    ("Cold Pressed Orange Juice", "Evolution Fresh", OJ),
+    ("Coca-Cola Zero Sugar Zero Calorie Cola, 67.6 fl oz", "Coca-Cola, Coke", SODA),
+    ("Diet Coke Soda, 8 Fl Oz, 6 Count", "Diet coke", SODA),
+    ("Cherry Vanilla Soda", "Olipop", SODA),
+    ("Classic Cola Prebiotic Soda", "Poppi", SODA),
+    ("Lemon-Lime Soda", "Sprite", SODA),
+    ("ORANGE SODA", "Fanta", SODA),
+    # Beverages: look-alikes.
+    ("Watermelon Mint Energy Seltzer", "Hi-Ball", None),
+    ("wild berry sparkling energy seltzer", None, None),
+    ("Hi ball energy, sparkling energy water, vanilla", "hi-ball ENERGY", None),
+    ("Sparkling Protein Water", "Lumen", None),
+    ("Watermelon Infused Water", "Hint", None),
+    ("Propel Fitness Water", "Propel", None),
+    ("Premium Coconut Water + Pineapple", "Once Upon a Coconut", None),
+    ("Cactus Water Watermelon", "Cali Water", None),
+    ("Pure Baking Soda", "Meijer", None),
+    ("Soda de mel\u00f3n con helado de vainilla", "felice", None),
+    ("Orange Blossom Water", "Carlo", None),
+    ("Tuna fillet in water", "Tonnino", None),
+    ("Sliced Water Chestnuts", "Dynasty", None),
+    ("Sparkling Apple Juice", None, None),
+    ("Apple juice", "Minute Maid", None),
+    ("Juice Cocktail From Concentrate", None, None),
+    ("Lakewood Organic Orange Mango Juice", "Lakewood", None),
+    ("Splash flavored juice beverage", None, None),
+    ("Pineapple Chunks In 100% Pineapple Juice", "Dole", None),
+    ("Mandarin Oranges in 100% fruit juice", "Dole", None),
+    ("Voodoo Ranger Juice Force IPA Hazy Imperial IPA", "New Belgium", None),
+    ("Sparkling Orange Flavored Espresso Tonic Beverage", "Trader Joe's", None),
 ]
 
 

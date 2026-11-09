@@ -1,0 +1,10 @@
+name: Soda
+dimension: volume
+match:
+  include: [soda, soda pop, soft drink, cola]
+  exclude: [baking soda, helado, club soda, soda water, washing soda, caustic soda, soda ash, crackers, soda bread, sodastream, maker, syrup, mix, sparkling water, seltzer, lip balm, gummies, candy, cake, glass, glasses, dispenser, can holder, koozie]
+attributes:
+  diet: {type: bool, synonyms: {true: [diet, zero sugar, zero, sugar free, sugar-free]}, absent: false}
+  caffeine_free: {type: bool, synonyms: {true: [caffeine free, caffeine-free]}, absent: false}
+comparison: {default: per_volume}
+search: [cola, soda pop]

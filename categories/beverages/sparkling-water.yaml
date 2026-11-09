@@ -1,0 +1,9 @@
+name: Sparkling Water
+dimension: volume
+match:
+  include: [sparkling water, seltzer, seltzer water, club soda, soda water, mineral water, carbonated water, sparkling spring water]
+  exclude: [hard seltzer, energy seltzer, sparkling energy, springs mineral water, spiked, alcohol, vodka, maker, sodastream, machine, co2, cylinder, drops, dispenser]
+attributes:
+  unflavored: {type: bool, synonyms: {true: [unflavored, original, plain, pure, club soda]}, absent: false}
+comparison: {default: per_volume}
+search: [sparkling water, seltzer water]

@@ -102,12 +102,12 @@ def test_category_page_has_add_link_with_current_filters(client, milk_offers):
 
 
 def test_browsing_sets_no_cookies(client, milk_offers):
-    make_generic_offer("Fizz Soda", "2", dim="volume", amount=1000)
+    make_generic_offer("Zesty Fizz", "2", dim="volume", amount=1000)
     for path, extra in [
         ("/c/dairy/milk/", {}),
         ("/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
-        ("/search?q=fizz+soda", {}),
-        ("/search?q=fizz+soda", {"HTTP_HX_REQUEST": "true"}),
+        ("/search?q=zesty+fizz", {}),
+        ("/search?q=zesty+fizz", {"HTTP_HX_REQUEST": "true"}),
     ]:
         resp = client.get(path, **extra)
         assert resp.status_code == 200
