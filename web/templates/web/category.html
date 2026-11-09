@@ -1,5 +1,6 @@
 {% extends "web/base.html" %}
 {% block description %}{{ meta_description }}{% endblock %}
+{% block robots %}{% if noindex %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
 {% block canonical_path %}{{ category_url }}{% endblock %}
 {% block title %}{{ category.name }} - UnitPricer{% endblock %}
 {% block main %}

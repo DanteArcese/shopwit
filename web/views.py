@@ -49,7 +49,7 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
-from .seo import category_description
+from .seo import category_description, category_has_prices
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -240,6 +240,7 @@ def category(request, slug):
 
     url = reverse("category", args=[cat.slug])
     available = available_retailers(when, cat)
+    has_prices = category_has_prices(cat, when)
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
     unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
     context = {
@@ -268,7 +269,10 @@ def category(request, slug):
             cat.name,
             DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
             [display_name(c) for c in available if not is_chain_code(c)],
+            has_prices,
         ),
+        # Search engines skip a category page while it has no prices to show.
+        "noindex": not has_prices,
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,

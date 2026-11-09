@@ -13,7 +13,8 @@ def hosts(settings):
     settings.SECURE_SSL_REDIRECT = False
 
 
-def test_sitemap_lists_public_pages(client, db, milk):
+def test_sitemap_lists_public_pages(client, db, milk_rows, monkeypatch, frozen_now):
+    monkeypatch.setattr("web.seo.now", lambda: frozen_now)
     r = client.get("/sitemap.xml", HTTP_HOST=PUBLIC)
     body = r.content.decode()
     assert r["Content-Type"].startswith("application/xml")
@@ -22,7 +23,8 @@ def test_sitemap_lists_public_pages(client, db, milk):
     assert "/search" not in body and "beta." not in body
 
 
-def test_sitemap_skips_inactive_categories(client, db, milk):
+def test_sitemap_skips_inactive_categories(client, db, milk, milk_rows, monkeypatch, frozen_now):
+    monkeypatch.setattr("web.seo.now", lambda: frozen_now)
     milk.active = False
     milk.save()
     body = client.get("/sitemap.xml", HTTP_HOST=PUBLIC).content.decode()
@@ -41,7 +43,8 @@ def test_sitemap_is_apex_only(client, db, host):
     assert client.get("/sitemap.xml", HTTP_HOST=host).status_code == 404
 
 
-def test_sitemap_urls_come_from_public_url_not_request_host(client, db, milk, settings):
+def test_sitemap_urls_come_from_public_url_not_request_host(client, db, milk_rows, settings, monkeypatch, frozen_now):
+    monkeypatch.setattr("web.seo.now", lambda: frozen_now)
     # PUBLIC_URL deliberately differs from the request host: every <loc> must use it.
     settings.PUBLIC_URL = "https://canonical.example"
     r = client.get("/sitemap.xml", HTTP_HOST=PUBLIC)
@@ -121,7 +124,7 @@ def test_token_pages_noindex(client, db):
 
 
 @pytest.mark.parametrize("path", ["/", "/c/dairy/milk/", "/about", "/terms", "/privacy", "/disclosure"])
-def test_indexable_pages_have_no_noindex(client, db, milk, path):
+def test_indexable_pages_have_no_noindex(client, db, milk_rows, path):
     assert 'name="robots"' not in client.get(path).content.decode()
 
 
@@ -137,3 +140,52 @@ def test_noindex_pages_omit_canonical(client, db):
     # Token URLs must not be echoed into a canonical link.
     body = client.get("/waitlist/confirm/secrettoken").content.decode()
     assert 'rel="canonical"' not in body
+
+
+def _observed(category, on):
+    from catalog.models import Offer, Product
+
+    product = Product.objects.create(identity="obs-seo", title="Zephyr Whole Milk, 1 L", category=category)
+    return Offer.objects.create(
+        product=product, retailer="op-safeway", retailer_item_id="1@osm-n1", price="0.50",
+        currency="USD", url="https://prices.openfoodfacts.org/prices/1", category=category,
+        title=product.title, measures={"volume_ml": 1000.0}, last_seen_at=on,
+        kind="observed", observed_on=on.date(),
+    )
+
+
+def test_sitemap_leaves_out_categories_without_prices(client, db, milk, monkeypatch, frozen_now):
+    monkeypatch.setattr("web.seo.now", lambda: frozen_now)
+    body = client.get("/sitemap.xml", HTTP_HOST=PUBLIC).content.decode()
+    assert "/c/dairy/" not in body and "/c/beverages/soda/" not in body
+    assert "<loc>https://unitpricer.com/about</loc>" in body
+
+
+def test_sitemap_lists_category_with_only_observed_prices(client, db, milk, monkeypatch, frozen_now):
+    monkeypatch.setattr("web.seo.now", lambda: frozen_now)
+    _observed(milk, frozen_now)
+    body = client.get("/sitemap.xml", HTTP_HOST=PUBLIC).content.decode()
+    assert f"<loc>https://unitpricer.com/c/dairy/milk/</loc><lastmod>{frozen_now.date().isoformat()}</lastmod>" in body
+
+
+def test_empty_category_is_noindex_with_honest_description(client, db, milk, frozen_now):
+    body = client.get("/c/dairy/milk/").content.decode()
+    assert '<meta name="robots" content="noindex">' in body
+    assert '<meta name="description" content="No prices yet for Milk' in body
+    assert "Cheapest" not in body[: body.index("</head>")]
+
+
+def test_category_with_observed_prices_is_indexable(client, db, milk, frozen_now):
+    _observed(milk, frozen_now)
+    body = client.get("/c/dairy/milk/").content.decode()
+    assert 'name="robots"' not in body
+    assert '<meta name="description" content="Cheapest Milk' in body
+
+
+def test_category_with_only_stale_offers_is_noindex(client, db, milk_rows, frozen_now, monkeypatch):
+    from datetime import timedelta
+
+    later = frozen_now + timedelta(days=400)
+    monkeypatch.setattr("web.views.now", lambda: later)
+    body = client.get("/c/dairy/milk/").content.decode()
+    assert '<meta name="robots" content="noindex">' in body
