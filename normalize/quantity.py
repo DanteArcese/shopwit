@@ -309,12 +309,69 @@ def _laundry(text: str) -> Measures:
     return out
 
 
-_PARSERS = {"volume": _volume, "mass": _mass, "count": _count, "paper": _paper}
+# --- tissue ------------------------------------------------------------------
+# Facial tissue: sheets (the denominator) and boxes. Ambiguous counts are skipped, never guessed.
+_T = r"(?:facial\s+)?(?:tissues?|sheets?)"
+_TISSUE_TOTAL_RES = (
+    re.compile(rf"{_CNT}\s*{_T}\s+(?:total|in\s+all)\b", re.IGNORECASE),
+    re.compile(rf"{_CNT}\s+total\s+{_T}\b", re.IGNORECASE),
+)
+_BOX_ADJECTIVES = "flat|cube|upright|family|mini|travel|rectangular|square|tall"
+_BOXES_RE = re.compile(
+    rf"{_START}(\d+)\s+(?:(?:{_BOX_ADJECTIVES})\s+)*boxes?\b", re.IGNORECASE
+)
+_PER_BOX_RE = re.compile(
+    rf"{_CNT}\s*(?:{_T}|ct|count)\s*(?:per|/)\s*box\b", re.IGNORECASE
+)
+_TISSUE_BARE_RE = re.compile(rf"{_CNT}\s*{_T}\b", re.IGNORECASE)
+_TISSUE_COUNT_RE = re.compile(rf"{_CNT}\s*(?:ct|count)\b", re.IGNORECASE)
+
+
+def _tissue(text: str) -> Measures:
+    boxes_m = _BOXES_RE.search(text)
+    boxes = float(boxes_m.group(1)) if boxes_m else None
+    if boxes == 0:
+        boxes = None
+    pack = _PACK_OF.search(text) or _PACK_N.search(text)
+    multipack = pack is not None or _MULT_PREFIX_ANY.search(text) is not None
+    out: Measures = {}
+
+    def finish(sheets: float, box_count: float | None) -> Measures:
+        if sheets <= 0:
+            return {}
+        out["sheets"] = sheets
+        if box_count is not None:
+            out["boxes"] = box_count
+        return out
+
+    for rx in _TISSUE_TOTAL_RES:
+        m = rx.search(text)
+        if m:
+            return finish(_to_float(m.group(1)), boxes)
+    m = _PER_BOX_RE.search(text)
+    if m:
+        per = _to_float(m.group(1))
+        if boxes is None and pack is not None:
+            boxes = float(pack.group(1))
+        return finish(per * (boxes or 1.0), boxes)
+    m = _TISSUE_BARE_RE.search(text)
+    if m:
+        if boxes is not None:
+            return finish(_to_float(m.group(1)) * boxes, boxes)  # bare beside boxes: per box
+        return {} if multipack else finish(_to_float(m.group(1)), None)
+    m = _TISSUE_COUNT_RE.search(text)
+    if m and boxes is None and not multipack:
+        return finish(_to_float(m.group(1)), None)
+    return {}
+
+
+_PARSERS = {"volume": _volume, "mass": _mass, "count": _count, "paper": _paper, "tissue": _tissue}
 _REQUIRED = {
     "volume": "volume_ml",
     "mass": "mass_g",
     "count": "count",
     "paper": "rolls",
+    "tissue": "sheets",
 }
 
 

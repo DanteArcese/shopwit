@@ -123,3 +123,12 @@ def test_loads_laundry_dimension(tmp_path):
     cat = load_categories(tmp_path)["household/laundry"]
     assert cat.dimension == "laundry"
     assert (cat.comparison_default, cat.comparison_alternates) == ("per_load", ("per_volume",))
+
+
+def test_loads_tissue_dimension(tmp_path):
+    text = MINIMAL.replace("dimension: volume", "dimension: tissue")
+    text = text.replace("default: per_volume\n  alternates: []", "default: sheets_x_ply\n  alternates: [per_100_sheets]")
+    write(tmp_path, "household/tissue.yaml", text)
+    cat = load_categories(tmp_path)["household/tissue"]
+    assert cat.dimension == "tissue"
+    assert (cat.comparison_default, cat.comparison_alternates) == ("sheets_x_ply", ("per_100_sheets",))

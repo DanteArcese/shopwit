@@ -59,9 +59,10 @@ SIZE_UNITS = {
     "paper": {"imperial": ("sqft", "sq ft"), "metric": ("m2", "m²")},
     "count": {"imperial": ("ct", "ct"), "metric": ("ct", "ct")},
     "laundry": {"imperial": ("loads", "loads"), "metric": ("loads", "loads")},
+    "tissue": {"imperial": ("sheets", "sheets"), "metric": ("sheets", "sheets")},
 }
 # Counted dimensions have one unit, so the URL code never picks a unit system.
-COUNTED_DIMENSIONS = frozenset({"count", "laundry"})
+COUNTED_DIMENSIONS = frozenset({"count", "laundry", "tissue"})
 
 
 def _size_system(dimension: str, code: str | None, viewer_system: str) -> str:

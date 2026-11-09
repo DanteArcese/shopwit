@@ -36,6 +36,14 @@ def _area_x_ply(measures: Measures, attributes: Mapping[str, AttrValue]) -> floa
     return area * int(ply.value)
 
 
+def _sheets_x_ply(measures: Measures, attributes: Mapping[str, AttrValue]) -> float | None:
+    sheets = measures.get("sheets")
+    ply = attributes.get("ply")
+    if sheets is None or ply is None:
+        return None
+    return sheets * int(ply.value) / 100.0
+
+
 COMPARISONS: dict[str, Comparison] = {
     c.name: c
     for c in (
@@ -46,6 +54,7 @@ COMPARISONS: dict[str, Comparison] = {
         Comparison("per_100_sheets", "100 sheets", _measure("sheets", 100.0)),
         Comparison("per_roll", "roll", _measure("rolls")),
         Comparison("per_load", "load", _measure("loads")),
+        Comparison("sheets_x_ply", "100 sheets·ply", _sheets_x_ply),
     )
 }
 

@@ -157,13 +157,15 @@ def _parse_curated(data, unit_system: str) -> Parsed:
             "mass": "mass_g",
             "count": "count",
             "paper": "rolls",
+            "laundry": "loads",
+            "tissue": "sheets",
         }[category.dimension],
         target_amount=Decimal(1),
     )
     return Parsed(
         kind="curated",
         dimension=category.dimension,
-        label=item_label(item, category.name, unit_system),
+        label=item_label(item, category.name, unit_system, category.dimension),
         hidden=[("category", category.slug), *sorted(filters.items())],
         category=category,
         filters=filters,
@@ -447,7 +449,12 @@ def item_target(request, list_id, item_id):
     item = _item(spec, item_id)
     unit = request.POST.get("unit", "")
     prefs = get_prefs(request)
-    dimension = dimension_of(item.target_measure)
+    cat_dim = None
+    if item.kind != "generic" and item.category:
+        cat_dim = (
+            Category.objects.filter(slug=item.category).values_list("dimension", flat=True).first()
+        )
+    dimension = dimension_of(item.target_measure, cat_dim)
     if not _valid_unit(item.kind, dimension, unit):
         raise BadRequest("invalid unit")
     try:
