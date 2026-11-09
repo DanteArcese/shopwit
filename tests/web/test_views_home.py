@@ -52,3 +52,72 @@ def test_other_pages_keep_header_search(client, categories):
         header = re.search(r"<header.*?</header>", html, re.S)
         assert header and 'role="search"' in header.group(0), url
         assert len(re.findall(r"<form\b[^>]*role=\"search\"", html)) == 1, url
+
+
+# --- Task 5: honest coverage -------------------------------------------------
+
+from django.db import connection  # noqa: E402
+from django.test.utils import CaptureQueriesContext  # noqa: E402
+
+from catalog.models import Category  # noqa: E402
+from tests.catalog.helpers import make_observed_offer  # noqa: E402
+
+
+def _save_zip(client, postal="94043"):
+    session = client.session
+    session["prefs"] = {"unit_system": "imperial", "stores": None, "postal_code": postal}
+    session.save()
+
+
+def test_home_lists_coverage_and_zip_prompt(client, categories, frozen_now):
+    make_observed_offer(chain="Market Basket")
+    body = client.get("/").content.decode()
+    assert "Stores we cover" in body and "Market Basket (1 store)" in body
+    assert "Seen in stores near you" in body and "Set ZIP code" in body
+    assert "Open Database License (ODbL)" in body
+
+
+def test_home_nearby_categories_with_zip(client, categories, frozen_now):
+    milk = Category.objects.get(slug="dairy/milk")
+    make_observed_offer(category=milk)
+    _save_zip(client)
+    body = client.get("/").content.decode()
+    nearby = body.split("Seen in stores near you")[1].split("Browse categories")[0]
+    assert 'href="/c/dairy/milk/"' in nearby and "1 price<" in nearby
+    assert "Set ZIP code" not in nearby
+
+
+def test_home_nearby_empty_with_zip(client, categories, frozen_now):
+    _save_zip(client)
+    body = client.get("/").content.decode()
+    assert "No recorded in-store prices within" in body
+
+
+def test_home_says_when_no_live_prices(client, categories, frozen_now, settings):
+    settings.COMING_SOON = "Walmart (December)"
+    body = client.get("/").content.decode()
+    assert "No live online prices yet — coming: Walmart (December)." in body
+    settings.COMING_SOON = ""
+    body = client.get("/").content.decode()
+    assert "No live online prices yet." in body and "coming:" not in body
+
+
+def test_home_names_live_retailers(client, categories, frozen_now):
+    from tests.catalog.helpers import make_offer
+
+    make_offer(retailer="walmart")
+    body = client.get("/").content.decode()
+    assert "Online, live prices: Walmart." in body and "No live online prices" not in body
+
+
+def test_home_coverage_sets_no_cookies_and_bounded_queries(client, categories, frozen_now):
+    make_observed_offer(chain="Market Basket")
+    with CaptureQueriesContext(connection) as ctx:
+        resp = client.get("/")
+    assert not resp.cookies
+    assert len(ctx) <= 6
+    for i in range(5):
+        make_observed_offer(chain=f"Chain {i}", store_code=f"c{i}")
+    with CaptureQueriesContext(connection) as more:
+        client.get("/")
+    assert len(more) == len(ctx)

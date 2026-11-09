@@ -108,6 +108,9 @@ REFRESH_INTERVAL = timedelta(hours=float(env("UNITPRICER_REFRESH_HOURS", 12)))
 FRESHNESS_CUTOFF = timedelta(hours=float(env("UNITPRICER_FRESHNESS_HOURS", 24)))
 SITE_CURRENCY = env("UNITPRICER_CURRENCY", "USD")
 # Open Prices: dated in-store shelf prices, shown as "observed" offers.
+# Shown on empty categories: "No live prices yet — coming: <this>." Set it empty to drop
+# the "coming" clause (env() would treat empty as unset, so this reads the environment directly).
+COMING_SOON = os.environ.get("UNITPRICER_COMING_SOON", "Walmart (December)").strip()
 OBSERVED_MAX_AGE = timedelta(days=float(env("UNITPRICER_OBSERVED_MAX_AGE_DAYS", 90)))
 OPEN_PRICES_ENABLED = env("UNITPRICER_OPEN_PRICES", "0") == "1"
 OPEN_PRICES_COUNTRY = env("UNITPRICER_OPEN_PRICES_COUNTRY", "US")

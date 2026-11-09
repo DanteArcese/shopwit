@@ -235,3 +235,7 @@ a { color: var(--accent); }
 .notify-form { display: grid; gap: 0.5rem; }
 .notify-form input[type="email"] { min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
 .notify-form button, main form button[type="submit"].confirm { justify-self: start; min-height: 44px; min-width: 44px; padding: 0 1rem; font: inherit; font-weight: 600; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 0.375rem; cursor: pointer; }
+
+/* Home: coverage and nearby sections */
+.coverage, .nearby { margin-top: 1.5rem; max-width: 40rem; }
+.coverage p { margin: 0.5rem 0; }

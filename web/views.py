@@ -16,6 +16,7 @@ from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
 from catalog.browse import BRAND_TIERS, browse, parse_filters, spec_params
+from catalog.coverage import nearby_categories, stores_we_cover
 from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
 from catalog.links import affiliate_programs
@@ -67,7 +68,22 @@ def now():
 
 
 def home(request):
-    response = render(request, "web/home.html")
+    when = now()
+    prefs = get_prefs(request)  # reads the session only if a cookie came in; never creates one
+    location, near = _location(prefs)
+    nearby = [
+        {"category": c, "count": n} for c, n in (nearby_categories(when, near) if near else [])
+    ]
+    response = render(
+        request,
+        "web/home.html",
+        {
+            "coverage": stores_we_cover(when),
+            "coming_soon": settings.COMING_SOON,
+            "location": location,
+            "nearby": nearby,
+        },
+    )
     patch_vary_headers(response, ["Accept-Language"])
     return response
 
@@ -217,6 +233,7 @@ def category(request, slug):
         "add_url": reverse("lists:add") + "?" + urlencode({"category": cat.slug, **spec_params(spec)}),
         "category": cat,
         "category_url": url,
+        "coming_soon": settings.COMING_SOON,
         "controls": _controls(cat, params),
         "brand_tiers": BRAND_TIERS,
         "brand_tier": params.get("brand_tier", ""),
