@@ -190,3 +190,10 @@ def test_explicit_trusted_origins_still_honoured(prod_env, run_prod):
     prod_env["DJANGO_CSRF_TRUSTED_ORIGINS"] = "https://a.example, https://b.example"
     got = _print_settings(run_prod, prod_env, "CSRF_TRUSTED_ORIGINS")
     assert got["CSRF_TRUSTED_ORIGINS"] == repr(["https://a.example", "https://b.example"])
+
+
+def test_coming_soon_has_no_default(prod_env, run_prod):
+    env = {k: v for k, v in prod_env.items() if k != "UNITPRICER_COMING_SOON"}
+    assert _print_settings(run_prod, env, "COMING_SOON")["COMING_SOON"] == "''"
+    env["UNITPRICER_COMING_SOON"] = "  Walmart (December) "
+    assert _print_settings(run_prod, env, "COMING_SOON")["COMING_SOON"] == "'Walmart (December)'"

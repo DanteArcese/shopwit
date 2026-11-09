@@ -257,7 +257,8 @@ def test_status_unchanged_without_observed(client, milk_rows):
     assert "4 results<" in get(client).content.decode()
 
 
-def test_observed_only_page_without_filters_is_neutral(client, milk, frozen_now, observe):
+def test_observed_only_page_without_filters_is_neutral(client, milk, frozen_now, observe, settings):
+    settings.COMING_SOON = "Walmart (December)"
     observe()
     html = get(client).content.decode()
     assert "No live prices yet — coming: Walmart (December)." in html
