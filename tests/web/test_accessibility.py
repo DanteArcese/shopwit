@@ -297,3 +297,11 @@ def test_label_check_rejects_empty_label_text():
     page.feed('<label for="a"> </label><input id="a"><label><input name="b"></label>'
               '<label>Named <input name="c"></label><input aria-label=" ">')
     assert [a.get("name") or a.get("id") or "aria" for _, a in page.unlabelled()] == ["a", "b", "aria"]
+
+
+def test_footer_wraps_on_small_screens():
+    css = CSS.read_text()
+    footer = re.search(r"\.site-footer \{[^}]*flex-wrap:\s*wrap[^}]*\}", css)
+    assert footer, "footer must use flex-wrap: wrap"
+    assert re.search(r"\.site-footer, \.?[^{]*overflow-wrap:\s*anywhere", css) or "overflow-wrap: anywhere" in css
+    assert re.search(r"\.list-totals \{[^}]*overflow-x:\s*auto", css)
