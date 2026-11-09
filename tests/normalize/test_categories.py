@@ -132,3 +132,25 @@ def test_loads_tissue_dimension(tmp_path):
     cat = load_categories(tmp_path)["household/tissue"]
     assert cat.dimension == "tissue"
     assert (cat.comparison_default, cat.comparison_alternates) == ("sheets_x_ply", ("per_100_sheets",))
+
+
+def test_load_categories_reuses_parsed_files(tmp_path, monkeypatch):
+    import normalize.categories as C
+
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    first = load_categories(tmp_path)
+    calls = []
+    real = C._load_file
+    monkeypatch.setattr(C, "_load_file", lambda *a: calls.append(a) or real(*a))
+    second = load_categories(tmp_path)
+    assert second == first and second is not first
+    assert calls == []
+
+
+def test_load_categories_rereads_changed_files(tmp_path):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    assert load_categories(tmp_path)["dairy/milk"].include == ("milk",)
+    write(tmp_path, "dairy/milk.yaml", MINIMAL.replace('["milk"]', '["milk", "whole milk"]'))
+    assert load_categories(tmp_path)["dairy/milk"].include == ("milk", "whole milk")
+    write(tmp_path, "dairy/eggs.yaml", MINIMAL.replace("Milk", "Eggs"))
+    assert set(load_categories(tmp_path)) == {"dairy/milk", "dairy/eggs"}

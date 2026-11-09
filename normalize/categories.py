@@ -5,6 +5,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping
 from dataclasses import dataclass, field
+from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal, get_args
 
@@ -198,10 +199,23 @@ def _load_file(path: Path, slug: str) -> CategoryDef:
 
 
 def load_categories(root: Path) -> dict[str, CategoryDef]:
-    """Load every ``*.yaml`` under ``root``; the slug is the relative path sans extension."""
+    """Load every ``*.yaml`` under ``root``; the slug is the relative path sans extension.
+
+    Parsed once per process for each root and set of file versions: a file added,
+    removed or edited (path, size or mtime) is read again. Each call returns a new dict.
+    """
     root = Path(root)
+    paths = sorted(root.rglob("*.yaml"))
+    stamp = tuple((str(p), s.st_mtime_ns, s.st_size) for p in paths for s in [p.stat()])
+    return dict(_load_all(str(root), stamp))
+
+
+@lru_cache(maxsize=8)
+def _load_all(root: str, stamp: tuple[tuple[str, int, int], ...]) -> dict[str, CategoryDef]:
+    base = Path(root)
     result: dict[str, CategoryDef] = {}
-    for path in sorted(root.rglob("*.yaml")):
-        slug = path.relative_to(root).with_suffix("").as_posix()
+    for name, _, _ in stamp:
+        path = Path(name)
+        slug = path.relative_to(base).with_suffix("").as_posix()
         result[slug] = _load_file(path, slug)
     return result
