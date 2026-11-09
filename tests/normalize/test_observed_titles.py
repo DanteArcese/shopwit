@@ -4,7 +4,7 @@ Each case is a short (title, brand) pair as it arrived from Open Prices, with th
 category it must match, or None when it must stay out of every curated category.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -18,6 +18,10 @@ ROOT = Path(__file__).resolve().parents[2]
 CATEGORIES = load_categories(ROOT / "categories")
 
 MILK, COFFEE, EGGS = "dairy/milk", "pantry/coffee", "dairy/eggs"
+BREAD, RICE, PASTA, FLOUR = "pantry/bread", "pantry/rice", "pantry/pasta", "pantry/flour"
+PB, OIL, SUGAR = "pantry/peanut-butter", "pantry/cooking-oil", "pantry/sugar"
+WATER, SPARKLING = "beverages/bottled-water", "beverages/sparkling-water"
+OJ, SODA = "beverages/orange-juice", "beverages/soda"
 
 CASES = [
     # Milk: plain dairy milk matches.
@@ -37,7 +41,7 @@ CASES = [
     ("ICED ESPRESSO & MILK BEVERAGE Salted Caramel", "DUNKIN' DOUBLE", None),
     ("Berry Milk Drink", "Barebells", None),
     # Milk: yogurt, kefir, cheese, buttermilk.
-    ("Organic Whole Milk Honey Yogurt", "KALONA SUPER NATURAL", None),
+    ("Organic Whole Milk Honey Yogurt", "KALONA SUPER NATURAL", "dairy/yogurt"),
     ("Organic Kefir cultured lowfat milk", "Lifeway", None),
     ("Part Skim Milk Cheese", "Cacique Inc.", None),
     ("Cultured whole butter milk", "Fire Acre Farms", None),
@@ -125,7 +129,169 @@ CASES = [
     ("Eggs from plants", "JUST", None),
     ("Folded plant eggs", "Just Egg", None),
     ("Chorizo & Egg Protein Scramble", "Wunder Eggs", None),
+    # Grains and bakery: members.
+    ("100% Whole Wheat Bread", "Nature's Own", BREAD),
+    ("Simply Sourdough Bread", "Base Culture", BREAD),
+    ("Organic Brown Basmati Rice", "Seeds of Change", RICE),
+    ("Short Grain Brown Rice", "Lundberg Family Farms", RICE),
+    ("Penne Rigate Pasta", "Bowl & Basket", PASTA),
+    ("Gluten-free egg noodles", "Taste republic", PASTA),
+    ("Bread Flour", "King Arthur Baking", FLOUR),
+    ("Organic Brown Rice Flour", "Arrowhead Mills", FLOUR),
+    # Grains and bakery: look-alikes.
+    ("Organic Mini Bagels Plain Awesome", "Dave's Killer Bread", None),
+    ("Brazilian Cheese Bread Cheddar & Parmesan", "Brazi Bites", None),
+    ("Garlic bread", "Pepperidge farm", None),
+    ("100% Organic Honey", "Rice's Honey", None),
+    ("Rice Vinegar", "Marukan", None),
+    ("Chicken Fried Rice", "P.F. Chang's Home Menu", None),
+    ("Rice Seasoning", "NORI KOMI FURIKAKE", None),
+    ("Rao's bolognese pasta sauce", "Rao's Homestyle", None),
+    ("Pesto Chicken Pasta", "Kevin's", None),
+    ("Pasta Roni Fettuccine Alfredo", "Pasta Roni", None),
+    ("White Cheddar Pasta Shells As Packaged", "Kraft", None),
+    ("Spaghetti & Meatballs", "Banquet", None),
+    ("FLOUR TORTILLAS", "PUEBLO LINDO", None),
+    ("Panera Bread Broccoli Cheddar Soup", "Panera Bread", None),
+    ("Baking Powder", "King Arthur Flour", None),
+    ("Pure Vanilla Extract", "King Arthur Baking Company, King Arthur Flour", None),
+    ("Lasagna", "Stouffer's", None),
+    ("Bowls Country Cheddar", "Amy's, Amy's Kitchen Inc.", None),
+    ("Cheddar Smokies", "Hillshire Farm", None),
+    ("PAM Baking with Flour", "PAM", None),
+    # Pantry staples: members.
+    ("Extra Crunchy Super Chunk Peanut Butter", "SKIPPY", PB),
+    ("Peanut Butter & Co Smooth Operator", "Peanut Butter & Co", PB),
+    ("Peanut butter", "Jiffy", PB),
+    ("Peanut Butter Spread", "Skippy", PB),
+    ("Extra Virgin Olive Oil", "Pompeian", OIL),
+    ("Extra Virgin Olive Oil Global Blend", "California Olive Ranch", OIL),
+    ("Mazola canola oil", "Mazola", OIL),
+    ("Avocado oil", None, OIL),
+    ("White Sugar Cubes", "India Tree", SUGAR),
+    ("Demerara Sugar", None, SUGAR),
+    ("PEANUT BUTTER & CHOCOLATE FLAVORED SPREAD", "Jif", PB),
+    ("peanut butter and chocolate", "Jiff", PB),
+    # Pantry staples: look-alikes.
+    ("Peanut butter chocolate candy party size ounce", "M&M's", None),
+    ("Protein Granola Bars Peanut Butter & Chocolate", "Quaker", None),
+    ("Peanut Butter Whiskey", "Skrewball", None),
+    ("Brown Sugar", "Kinder's", None),
+    ("Reese's 2 Peanut Butter Cups", None, None),
+    ("PB2 Original Powdered Peanut Butter", None, None),
+    ("Peanut butter chip", "Protein pint", None),
+    ("Peanut butter \u2019s", "M&M", None),
+    ("Cosmic Bliss Chocolate peanut butter", None, None),
+    ("choc peanut butter protein shake", None, None),
+    ("PEANUT BUTTER FILLED PRETZEL NUGGETS", None, None),
+    ("Thai Peanut Sauce", None, None),
+    ("Butter with Olive Oil & Sea Salt", None, None),
+    ("Albacore Tuna in Olive Oil", None, None),
+    ("Olive oil cooking spray", None, None),
+    ("Mayo Real Mayonnaise With Avocado Oil", None, None),
+    ("GF Focaccia Olive Oil And Rosemary", None, None),
+    ("Avocado Oil Shortening", None, None),
+    ("Organic Olive Oil, Basil & Garlic Sauce", "Bertolli", None),
+    ("Sesame Oil", None, None),
+    ("Red Wine Vinegar", "Pompeian", None),
+    ("Sprinkles white sugar pearls", None, None),
+    ("Sweet Brown Sugar Barbecue Sauce", None, None),
+    ("Maple And Brown Sugar Instant Oatmeal", "Premier protein", None),
+    ("Zero Sugar Cranberry Juice", None, None),
+    ("Chocolate High Protein Shake", "Premier Protein", None),
+    ("Builders Protein Bar", None, None),
+    # Beverages: members.
+    ("Purified Drinking Water", "Refreshe, Safeway  Inc., Signature Select", WATER),
+    ("VOSS Artesian Water", "CONAXESS TRADE NORGE AS, Voss Production AS", WATER),
+    ("Saratoga, Natural Spring Water", "Saratoga Springs Mineral Water", WATER),
+    ("Natural Spring Mineral Water", "Evian", WATER),
+    ("Sparkling Natural Mineral Water", "S.Pellegrino", SPARKLING),
+    ("Carbonated Mineral Water", "Gerolsteiner", SPARKLING),
+    # Topo Chico sells only sparkling mineral water, so its bare "Mineral Water" is sparkling.
+    ("Mineral Water", "Topo Chico", SPARKLING),
+    ("Pink Grapefruit Sparkling Water", "Ardor Energy", SPARKLING),
+    ("Collagen Sparkling Water, Strawberry", "Vital Proteins", SPARKLING),
+    ("Organic 100% orange juice", "365 Everyday Value, Whole Foods Market  Inc.", OJ),
+    ("100% Premium Orange Juice from Concentrate", "Florida's Natural", OJ),
+    ("Cold Pressed Orange Juice", "Evolution Fresh", OJ),
+    ("Coca-Cola Zero Sugar Zero Calorie Cola, 67.6 fl oz", "Coca-Cola, Coke", SODA),
+    ("Diet Coke Soda, 8 Fl Oz, 6 Count", "Diet coke", SODA),
+    ("Cherry Vanilla Soda", "Olipop", SODA),
+    ("Classic Cola Prebiotic Soda", "Poppi", SODA),
+    ("Lemon-Lime Soda", "Sprite", SODA),
+    ("ORANGE SODA", "Fanta", SODA),
+    ("8oz Coke, Glass", "Coca Cola", SODA),
+    ("Root Beer", "A&W", SODA),
+    ("Root beer", "Olipop", SODA),
+    ("Ginger ale", "Schweppes", SODA),
+    ("Diet Pepsi", "Pepsi", SODA),
+    ("Pepsi Zero Sugar", "Pepsi", SODA),
+    ("Pepsi cola", "Pepsi", SODA),
+    ("Coke Zero", "Coca-Cola", SODA),
+    # Beverages: look-alikes.
+    ("Watermelon Mint Energy Seltzer", "Hi-Ball", None),
+    ("wild berry sparkling energy seltzer", None, None),
+    ("Hi ball energy, sparkling energy water, vanilla", "hi-ball ENERGY", None),
+    ("Sparkling Protein Water", "Lumen", None),
+    ("Watermelon Infused Water", "Hint", None),
+    ("Propel Fitness Water", "Propel", None),
+    ("Premium Coconut Water + Pineapple", "Once Upon a Coconut", None),
+    ("Cactus Water Watermelon", "Cali Water", None),
+    ("Pure Baking Soda", "Meijer", None),
+    ("Soda de mel\u00f3n con helado de vainilla", "felice", None),
+    ("Orange Blossom Water", "Carlo", None),
+    ("Tuna fillet in water", "Tonnino", None),
+    ("Sliced Water Chestnuts", "Dynasty", None),
+    ("Sparkling Apple Juice", None, None),
+    ("Apple juice", "Minute Maid", None),
+    ("Juice Cocktail From Concentrate", None, None),
+    ("Lakewood Organic Orange Mango Juice", "Lakewood", None),
+    ("Splash flavored juice beverage", None, None),
+    ("Pineapple Chunks In 100% Pineapple Juice", "Dole", None),
+    ("Mandarin Oranges in 100% fruit juice", "Dole", None),
+    ("Voodoo Ranger Juice Force IPA Hazy Imperial IPA", "New Belgium", None),
+    ("Sparkling Orange Flavored Espresso Tonic Beverage", "Trader Joe's", None),
+    # Other drinks under cola makers' brands; bare "Pepsi"/"Coke" never match alone.
+    ("Fairlife Whole Milk", "fairlife, Coca-Cola", MILK),
+    ("Gold Peak Tea", "Coca-Cola", None),
+    ("Pure Leaf Sweet Tea", "Lipton, Pepsi", None),
+    ("POWER WATER Mountain Berry Blast", "Powerade, Coca-Cola", None),
+    ("Lemonade", "Minute Maid, Coca-Cola", None),
+    ("Pepsi mini", "Pepsi", None),
+        ("Black Cherry Coffee Soda", None, None),
+    ("Sparkling Coffee", "Stumptown", None),
+    ("Sparkling Orange Juice", None, None),
+    # Household bags: tea bags, snack bags and brands with "liner" stay out.
+    ("Earl grey black tea bags", "twinings", None),
+    ("Organic Awake english breakfast tea 16 tea bags", "Tazo", None),
+    ("Nerds gummy clusters peg bag", "Nerds", None),
+    ("Sabritas Chili Lime Peanuts 7 Ounce Plastic Bag", None, None),
+    ("Asian Grill Rubbed Salmon", "Sea Cuisine, High Liner Foods (Usa) Incorporated", None),
+    # Household paper and bags: precedence and collisions (no real members in the data).
+    ("Kleenex Facial Tissues 2-Ply", "Kleenex", "household/facial-tissue"),
+    ("Bath Tissue Ultra Soft 2-Ply", "Charmin", "household/toilet-paper"),
+    ("Tissue Paper Gift Wrap White", None, None),
+    ("Facial Tissue Box Cover", None, None),
+    ("Glad Tall Kitchen Trash Bags 13 Gallon", "Glad", "household/trash-bags"),
+    ("Zip Top Storage Bags Gallon", "Ziploc", None),
+    ("Compost Bags Compostable 3 Gallon", "BioBag", None),
+    ("Dog Waste Poop Bags", None, None),
+    # Cleaning and laundry: no real members in the data; precedence and collisions only.
+    ("Free clear mighty pacs", "all", None),
+    ("Tide Original Liquid Laundry Detergent", "Tide", "household/laundry-detergent"),
+    ("Tide Fabric Softener", "Tide", None),
+    ("Downy Fabric Softener Dryer Sheets", "Downy", None),
+    ("Shout Laundry Stain Remover Spray", "Shout", None),
+    ("Dawn Ultra Dish Soap", "Dawn", "household/dish-soap"),
+    ("Dawn Hand Renewal Hand Soap", "Dawn", None),
+    ("Dove Body Wash", "Dove", None),
+    ("Cascade Dishwasher Detergent Pods 40 Count", "Cascade", "household/dishwasher-detergent"),
+    ("Finish Dishwasher Cleaner", "Finish", None),
+    ("Cascade Platinum Plus Dishwasher Detergent with Dishwasher Cleaner Action", "Cascade", "household/dishwasher-detergent"),
+    ("Finish Dishwasher Detergent and Machine Cleaner", "Finish", None),
+    ("Dishwasher Detergent Dish Soap", "Dawn", "household/dishwasher-detergent"),
 ]
+
 
 
 def _offer(title, brand):
@@ -136,7 +302,7 @@ def _offer(title, brand):
         price=Decimal("1.00"),
         currency="USD",
         url="https://example.invalid",
-        fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
         brand=brand,
     )
 

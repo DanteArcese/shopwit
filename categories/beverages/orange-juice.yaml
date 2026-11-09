@@ -1,0 +1,11 @@
+name: Orange Juice
+dimension: volume
+match:
+  include: [orange juice]
+  exclude: [frozen, drink, cocktail, punch, soda, pops, gummies, vodka, mimosa, smoothie, powder, candy, beverage, juice boxes, sparkling]
+attributes:
+  pulp: {type: enum, values: [no_pulp, some_pulp, high_pulp], synonyms: {no_pulp: [no pulp, pulp free, pulp-free], some_pulp: [some pulp, homestyle], high_pulp: [lots of pulp, high pulp, grovestand, extra pulp]}}
+  concentrate: {type: enum, values: [concentrate, not_from_concentrate], patterns: ['(?<!\bnot )\bfrom (concentrate)\b'], synonyms: {not_from_concentrate: [not from concentrate]}}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_volume}
+search: [orange juice]

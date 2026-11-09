@@ -1,0 +1,10 @@
+name: Protein Powder
+dimension: mass
+match:
+  include: [protein powder, whey protein, plant protein, casein protein, pea protein]
+  exclude: [bar, bars, shake, shakes, ready to drink, drink, cookies, chips, pancake, waffle, puffs, cereal, shaker, bottle, scoop, cups, pudding, ice cream, snack, bites, pasta, dog, collagen, peanut butter, oatmeal, coffee, creamer, water, packets, single serve]
+attributes:
+  type: {type: enum, values: [whey, whey_isolate, casein, plant], patterns: ['\b(whey)\b(?! isolate)(?! protein isolate)'], synonyms: {whey_isolate: [whey isolate, whey protein isolate], casein: [casein], plant: [plant protein, plant-based, plant based, pea protein, vegan]}}
+  organic: {type: bool, synonyms: {true: [organic]}, off_label: 'en:organic', absent: false}
+comparison: {default: per_mass}
+search: [whey protein powder, plant protein powder]

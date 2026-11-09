@@ -56,6 +56,8 @@ $FETCH
 # Settings and system checks (E023 etc.) on the new image; set -e aborts before migrate.
 docker compose run --rm -T web python manage.py check --deploy --fail-level ERROR </dev/null
 docker compose run --rm -T web python manage.py migrate --noinput </dev/null
+# Category YAML ships in the image; new and changed categories reach the database here.
+docker compose run --rm -T web python manage.py sync_categories </dev/null
 docker compose run --rm -T web python manage.py createcachetable </dev/null
 docker compose up -d --remove-orphans
 status=

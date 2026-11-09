@@ -39,7 +39,7 @@ deploy/deploy.sh            # origin/main
 deploy/deploy.sh <git-ref>
 ```
 
-The script runs `git fetch origin`, then refuses unless GitHub Actions workflow `CI` has a successful `push` run on `main` for that commit (which pushed the `sha-<sha>` image). It installs that commit's own `compose.prod.yaml` (so rollbacks get the old file), sets `UNITPRICER_IMAGE_TAG`, pulls, runs `manage.py check --deploy --fail-level ERROR` on the new image (an error, such as `unitpricer.E023`, stops the deploy before `migrate` and before the running containers are replaced), runs `migrate` and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
+The script runs `git fetch origin`, then refuses unless GitHub Actions workflow `CI` has a successful `push` run on `main` for that commit (which pushed the `sha-<sha>` image). It installs that commit's own `compose.prod.yaml` (so rollbacks get the old file), sets `UNITPRICER_IMAGE_TAG`, pulls, runs `manage.py check --deploy --fail-level ERROR` on the new image (an error, such as `unitpricer.E023`, stops the deploy before `migrate` and before the running containers are replaced), runs `migrate`, `sync_categories` (so new and changed category files reach the database) and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
 
 ### Build-on-server mode
 

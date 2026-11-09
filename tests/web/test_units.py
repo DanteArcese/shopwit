@@ -121,3 +121,30 @@ def test_generic_display():
     )
     assert display_generic_size("oz_labeled", 64.0, "metric") == "64 oz"
     assert display_generic_size("volume", 1892.70592, "imperial").startswith("64 fl oz")
+
+
+def test_display_per_load():
+    assert display_unit_price(Decimal("0.2"), "per_load", "imperial") == (Decimal("0.2"), "load")
+    assert display_unit_price(Decimal("0.2"), "per_load", "metric") == (Decimal("0.2"), "load")
+    m = {"loads": 64, "volume_ml": 2720.76}
+    assert display_size(m, "laundry", "imperial") == "64 loads · 92 fl oz"
+    assert display_size(m, "laundry", "metric") == "64 loads · 2.72 L"
+    assert display_size({"loads": 1, "mass_g": 1360.78}, "laundry", "imperial") == "1 load · 48 oz (3 lb)"
+    assert display_size({"count": 81}, "laundry", "metric") == "81 ct"
+    assert display_size({}, "laundry", "metric") == ""
+
+
+def test_display_tissue():
+    assert display_size({"boxes": 8, "sheets": 960}, "tissue", "imperial") == "8 boxes · 960 sheets"
+    assert display_size({"sheets": 144}, "tissue", "metric") == "144 sheets"
+    assert display_size({"boxes": 1, "sheets": 144}, "tissue", "metric") == "1 box · 144 sheets"
+    assert display_size({}, "tissue", "metric") == ""
+    assert display_unit_price(Decimal("0.5"), "sheets_x_ply", "metric") == (Decimal("0.5"), "100 sheets·ply")
+    assert display_unit_price(Decimal("0.5"), "sheets_x_ply", "imperial") == (Decimal("0.5"), "100 sheets·ply")
+
+
+def test_tissue_size_unit_ignores_system():
+    from web.views import _size_system
+
+    assert _size_system("tissue", "sheets", "metric") == "metric"
+    assert _size_system("tissue", "sheets", "imperial") == "imperial"

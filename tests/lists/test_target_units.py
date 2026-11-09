@@ -69,3 +69,33 @@ def test_generic_target_units():
         generic_target_to_canonical(Decimal(1), "floz", "oz_labeled")
     with pytest.raises(ValueError):
         generic_target_to_canonical(Decimal(1), "ct", "paper")
+
+
+def test_laundry_and_tissue_targets():
+    for system in ("imperial", "metric"):
+        assert target_units_for("laundry", system) == ["loads"]
+        assert target_units_for("tissue", system) == ["sheets"]
+    assert target_to_canonical(Decimal(64), "loads", "laundry") == ("loads", Decimal("64.000"))
+    assert target_to_canonical(Decimal(500), "sheets", "tissue") == ("sheets", Decimal("500.000"))
+    with pytest.raises(ValueError):
+        target_to_canonical(Decimal(1), "rolls", "tissue")
+    assert default_target({"loads": 64, "volume_ml": 2720.76}, "laundry", "metric") == (Decimal("64.00"), "loads")
+    assert default_target({"volume_ml": 2720.76}, "laundry", "metric") is None
+    assert default_target({"boxes": 8, "sheets": 960}, "tissue", "imperial") == (Decimal("960.00"), "sheets")
+    assert default_target({}, "tissue", "metric") is None
+
+
+def test_display_target_laundry_tissue():
+    assert display_target("loads", Decimal("64.000"), "laundry", "metric") == "64 loads"
+    assert display_target("loads", Decimal("1.000"), "laundry", "imperial") == "1 load"
+    assert display_target("sheets", Decimal("960.000"), "tissue", "imperial") == "960 sheets"
+    assert display_target("sheets", Decimal("200.000"), "paper", "imperial") == "200 sheets"
+
+
+def test_sheets_dimension_resolved_by_category():
+    from lists.present import dimension_of
+
+    assert dimension_of("sheets") == "paper"
+    assert dimension_of("sheets", "tissue") == "tissue"
+    assert dimension_of("sheets", "paper") == "paper"
+    assert dimension_of("loads") == "laundry"

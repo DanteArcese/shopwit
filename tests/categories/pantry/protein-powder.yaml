@@ -1,0 +1,10 @@
+- {title: 'Optimum Nutrition Gold Standard 100% Whey Protein Powder, Double Rich Chocolate, 5 lb', brand: Optimum Nutrition, price: '74.99', expect: {category: pantry/protein-powder, attributes: {type: whey, organic: false, brand_tier: name_brand}, measures: {mass_g: 2267.96}, unit_prices: {per_mass: '0.033065'}, unresolved: []}}
+- {title: 'Premier Protein 100% Whey Protein Powder, Chocolate Milkshake, 30g Protein, 24.5 oz', expect: {category: pantry/protein-powder, attributes: {type: whey}, measures: {mass_g: 694.56}}}
+- {title: 'Dymatize ISO100 Hydrolyzed Whey Protein Isolate Powder, Gourmet Vanilla, 5 lb', expect: {category: pantry/protein-powder, attributes: {type: whey_isolate}, measures: {mass_g: 2267.96}}}
+- {title: 'Orgain Organic Vegan Protein Powder, Creamy Chocolate Fudge, 21g Plant Based Protein, 2.03 lb', expect: {category: pantry/protein-powder, attributes: {type: plant, organic: true}, measures: {mass_g: 920.79}}}
+- {title: 'Naked Casein Micellar Casein Protein Powder, Unflavored, 5 lb', expect: {category: pantry/protein-powder, attributes: {type: casein}, measures: {mass_g: 2267.96}}}
+- {title: 'Body Fortress 100% Whey Protein Powder, Vanilla, 1.78 lb', expect: {category: pantry/protein-powder, attributes: {type: whey}, measures: {mass_g: 807.39}}}
+- {title: 'Isopure Zero Carb Whey Protein Isolate Powder, Unflavored, 3 lb', expect: {category: pantry/protein-powder, attributes: {type: whey_isolate}, measures: {mass_g: 1360.78}}}
+- {title: 'Premier Protein Shake, Chocolate, 11 fl oz, 12 Pack', expect: {category: null}}
+- {title: 'BlenderBottle Classic Shaker Bottle for Protein Powder, 28 oz', expect: {category: null}}
+- {title: 'Quest Protein Powder Cookies & Cream Protein Bars, 12 ct', expect: {category: null}}

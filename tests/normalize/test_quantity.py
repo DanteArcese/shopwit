@@ -413,3 +413,149 @@ def test_nutrient_guard_exempts_descriptors():
 def test_count_before_size_still_unresolved_and_one_count_ok():
     assert _mass("Yogurt 12 ct, 8 oz") == {}
     assert _mass("Coffee 12 oz, 1 Count")["mass_g"] == _r(340.19)
+
+
+# --- laundry -----------------------------------------------------------------
+def test_laundry_liquid_loads_and_volume():
+    m = parse_measures(["Tide Original Liquid Laundry Detergent, 92 fl oz, 64 Loads"], "laundry")
+    assert m["loads"] == 64
+    assert m["volume_ml"] == _r(2720.76)
+    assert "mass_g" not in m
+
+
+def test_laundry_bare_oz_follows_form():
+    m = parse_measures(
+        ["Arm & Hammer Clean Burst Liquid Laundry Detergent, 105 oz, 70 Loads"], "laundry"
+    )
+    assert m["volume_ml"] == _r(3105.22) and "mass_g" not in m
+    m = parse_measures(["Tide Original Powder Laundry Detergent, 143 oz, 102 Loads"], "laundry")
+    assert m["mass_g"] == _r(4053.98) and "volume_ml" not in m
+    m = parse_measures(["Purex Laundry Detergent, Mountain Breeze, 50 oz, 33 Loads"], "laundry")
+    assert m == {"loads": 33}
+    m = parse_measures(["Liquid or Powder Laundry Detergent, 50 oz, 33 Loads"], "laundry")
+    assert m == {"loads": 33}
+
+
+def test_laundry_pods_count_is_not_loads():
+    m = parse_measures(["Tide PODS Laundry Detergent Pacs, Original, 81 Count"], "laundry")
+    assert m == {"count": 81}
+
+
+def test_laundry_merges_texts_earliest_wins():
+    m = parse_measures(["92 fl oz", "Tide Liquid 50 Loads, 64 fl oz"], "laundry")
+    assert m["volume_ml"] == _r(2720.76)
+    assert m["loads"] == 50
+
+
+def test_laundry_multipack_and_total():
+    m = parse_measures(["Tide Liquid, 46 fl oz, 32 Loads, Pack of 2"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+    assert parse_measures(["Tide Liquid, 2 Pack, 128 Total Loads"], "laundry")["loads"] == 128
+    assert parse_measures(["Tide Liquid, 2 Pack, 128 loads total"], "laundry")["loads"] == 128
+
+
+def test_laundry_bare_count_beside_loads_is_ambiguous():
+    # "2 Count" of bottles: 46 loads each or in all is never guessed.
+    assert "loads" not in parse_measures(["Tide Liquid, 46 Loads, 2 Count"], "laundry")
+    assert "loads" not in parse_measures(["Gain Powder, 3 lb, 48 Loads, 3 ct"], "laundry")
+    # Explicit totals, explicit packs, a single count and pod counts stay readable.
+    assert parse_measures(["Tide Liquid, 128 Total Loads, 2 Count"], "laundry")["loads"] == 128
+    assert parse_measures(["Tide Liquid, 46 Loads, 2 Count, Pack of 2"], "laundry")["loads"] == 92
+    assert parse_measures(["Tide Liquid, 46 Loads, 1 Count"], "laundry")["loads"] == 46
+    assert parse_measures(["Tide PODS, 42 Loads, 42 Count"], "laundry") == {"loads": 42, "count": 42}
+    assert parse_measures(["Earth Breeze Sheets, 60 Loads, 60 Count"], "laundry")["loads"] == 60
+
+
+def test_laundry_mass_and_nutrient_strip():
+    m = parse_measures(["Dropps Laundry Powder, 3 lb, 48 Loads"], "laundry")
+    assert m["mass_g"] == _r(1360.78) and m["loads"] == 48
+
+
+def test_laundry_unparseable():
+    assert parse_measures(["Tide Laundry Detergent"], "laundry") == {}
+    assert parse_measures([], "laundry") == {}
+
+
+def _tissue(text):
+    return parse_measures([text], "tissue")
+
+
+def test_tissue_total_wins():
+    t = "Kleenex Ultra Soft Facial Tissues, 3-Ply, 8 Flat Boxes, 120 Tissues per Box (960 Tissues Total)"
+    assert _tissue(t) == {"boxes": 8, "sheets": 960}
+    t = "Kleenex Ultra Soft Facial Tissues, 3-Ply, 18 Flat Boxes, 144 Tissues per Box (2,592 Total Tissues)"
+    assert _tissue(t)["sheets"] == 2592
+
+
+def test_tissue_per_box_times_boxes():
+    t = "Puffs Plus Lotion Facial Tissues, 2-Ply, 6 Family Boxes, 124 Facial Tissues per Box"
+    assert _tissue(t) == {"boxes": 6, "sheets": 744}
+
+
+def test_tissue_single_box():
+    assert _tissue("Kleenex Trusted Care Facial Tissues, 2-Ply, 144 Tissues") == {"sheets": 144}
+
+
+def test_tissue_bare_beside_boxes_is_per_box():
+    t = "Great Value Facial Tissues, 2-Ply, 4 Cube Boxes, 70 Tissues"
+    assert _tissue(t) == {"boxes": 4, "sheets": 280}
+
+
+def test_tissue_pack_with_per_box():
+    t = "Kleenex Facial Tissue, 160 Tissues per Box, Pack of 3"
+    assert _tissue(t) == {"boxes": 3, "sheets": 480}
+
+
+def test_tissue_ambiguous_counts_unresolved():
+    assert _tissue("Puffs Basic Facial Tissues, 3 Pack, 128 Count") == {}
+    assert _tissue("Scotties Facial Tissue, 2-Ply, 10 Boxes, 1,200 Count") == {}
+    assert _tissue("Puffs Facial Tissues, 3 Pack, 128 Tissues") == {}
+
+
+def test_tissue_ply_not_a_count():
+    assert _tissue("Kleenex Facial Tissue, 3-Ply") == {}
+
+
+def test_tissue_bare_count_single_box_and_zero():
+    assert _tissue("Facial Tissue 200 ct") == {"sheets": 200}
+    assert _tissue("Facial Tissue, 0 Tissues") == {}
+
+
+def test_laundry_concentration_is_not_a_multiplier():
+    m = parse_measures(["Tide Liquid HE 2X 64 loads"], "laundry")
+    assert m == {"loads": 64}
+    m = parse_measures(["Tide 2x 64 Loads 92 fl oz"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+    m = parse_measures(["Tide Ultra 3X Concentrated 64 Loads, 92 fl oz"], "laundry")
+    assert m["loads"] == 64 and m["volume_ml"] == _r(2720.76)
+
+
+def test_laundry_explicit_pack_context_still_multiplies():
+    m = parse_measures(["Tide Liquid 2 x 92 fl oz bottles, 64 Loads"], "laundry")
+    assert m["volume_ml"] == _r(2 * 2720.76) and m["loads"] == 128
+    m = parse_measures(["Tide Liquid 2X, 92 fl oz, 64 Loads, 2 Pack"], "laundry")
+    assert m["volume_ml"] == _r(2 * 2720.76) and m["loads"] == 128
+
+
+def test_laundry_up_to_loads_never_guessed():
+    m = parse_measures(["Tide up to 64 loads, 92 fl oz"], "laundry")
+    assert "loads" not in m and m["volume_ml"] == _r(2720.76)
+    assert "loads" not in parse_measures(["Up to 64 loads Tide"], "laundry")
+    assert "loads" not in parse_measures(["Tide up-to 64 loads"], "laundry")
+
+
+def test_laundry_ambiguous_nx_before_size_is_dropped():
+    m = parse_measures(["Tide 2X 92 fl oz"], "laundry")
+    assert m == {}
+    m = parse_measures(["Tide Liquid 2X 92 fl oz, 64 Loads"], "laundry")
+    assert m == {"loads": 64}
+    assert "mass_g" not in parse_measures(["Tide Powder 2x 3 lb, 48 Loads"], "laundry")
+    assert parse_measures(["Tide Liquid HE 2X 64 loads"], "laundry") == {"loads": 64}
+
+
+def test_laundry_explicit_pack_wording_multiplies():
+    m = parse_measures(["Tide 2 x 92 fl oz bottles"], "laundry")
+    assert m == {"volume_ml": _r(2 * 2720.76)}
+    assert parse_measures(["Tide 92 fl oz, 2 pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
+    assert parse_measures(["Tide 92 fl oz, Twin Pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
+    assert parse_measures(["Tide 92 fl oz, Pack of 3"], "laundry")["volume_ml"] == _r(3 * 2720.76)

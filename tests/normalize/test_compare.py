@@ -48,3 +48,21 @@ def test_per_100_sheets():
 
 def test_zero_denominator_skipped():
     assert unit_prices(Decimal("5.99"), cat("per_volume"), {"volume_ml": 0}, {}) == {}
+
+
+def test_per_load_price():
+    c = cat("per_load", dimension="laundry")
+    assert unit_prices(Decimal("12.97"), c, {"loads": 64}, {}) == {"per_load": Decimal("0.202656")}
+    assert unit_prices(Decimal("12.97"), c, {"count": 81}, {}) == {}
+
+
+def test_sheets_x_ply():
+    from normalize.types import AttrValue
+
+    c = cat("sheets_x_ply", ["per_100_sheets"], "tissue")
+    ply = {"ply": AttrValue(3, "rule")}
+    assert unit_prices(Decimal("15.99"), c, {"sheets": 960}, ply) == {
+        "sheets_x_ply": Decimal("0.555208"),
+        "per_100_sheets": Decimal("1.665625"),
+    }
+    assert unit_prices(Decimal("15.99"), c, {"sheets": 960}, {}) == {"per_100_sheets": Decimal("1.665625")}

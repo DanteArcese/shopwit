@@ -1,0 +1,28 @@
+- {title: 'Land O Lakes Salted Butter, 4 Sticks, 16 oz', brand: Land O Lakes, price: '5.48', expect: {category: dairy/butter, attributes: {salted: salted, grass_fed: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 453.59}, unit_prices: {per_mass: '0.012081'}, unresolved: []}}
+- {title: 'Great Value Unsalted Sweet Cream Butter, 4 Sticks, 1 lb', brand: Great Value, expect: {category: dairy/butter, attributes: {salted: unsalted, brand_tier: store_brand}, measures: {mass_g: 453.59}}}
+- {title: 'Kerrygold Pure Irish Grass-Fed Butter, 8 oz', expect: {category: dairy/butter, attributes: {grass_fed: true}, measures: {mass_g: 226.8}, unresolved: ['attribute:salted', 'attribute:brand_tier']}}
+- {title: 'Organic Valley Organic Salted Butter, 1 lb', expect: {category: dairy/butter, attributes: {salted: salted, organic: true}, measures: {mass_g: 453.59}}}
+- {title: 'Kirkland Signature Unsalted Butter, 4 x 1 lb', brand: Kirkland Signature, expect: {category: dairy/butter, attributes: {salted: unsalted, brand_tier: store_brand}, measures: {mass_g: 1814.37}}}
+- {title: 'Challenge Lightly Salted Butter, 8 oz', expect: {category: dairy/butter, attributes: {salted: salted}, measures: {mass_g: 226.8}}}
+- {title: 'Vlasic Bread & Butter Pickle Chips, 24 fl oz', expect: {category: null}}
+- {title: 'I Can''t Believe It''s Not Butter! Original Spread, 15 oz', expect: {category: null}}
+- {title: 'Land O Lakes Spreadable Butter with Canola Oil, 15 oz', expect: {category: null}}
+- {title: 'Orville Redenbacher''s Movie Theater Butter Popcorn, 6 ct', expect: {category: null}}
+- {title: 'Cultured whole butter milk', brand: Fire Acre Farms, expect: {category: null}}
+- {title: 'Pure Irish Butter Unsalted', expect: {category: dairy/butter, attributes: {salted: unsalted}}}
+- {title: 'Salted Irish Butter', expect: {category: dairy/butter, attributes: {salted: salted}}}
+- {title: 'Whipped Butter', expect: {category: dairy/butter}}
+- {title: 'Cultured Butter Lightly Salted', expect: {category: dairy/butter, attributes: {salted: salted}}}
+- {title: 'Almond Butter Smooth', expect: {category: null}}
+- {title: 'Butter Pecan Ice Cream', expect: {category: null}}
+- {title: 'Butter Chicken Sauce', expect: {category: null}}
+- {title: 'PAM Butter Cooking Spray, 5 Ounce', expect: {category: null}}
+- {title: 'Pillsbury Butter Flake Crescent Rolls 8 Count', expect: {category: null}}
+- {title: 'Raw Tahini Sesame Seed Butter', expect: {category: null}}
+- {title: 'Ghee Clarified Butter', expect: {category: null}}
+- {title: 'Kinders', brand: 'Caramelized Onion Butter', expect: {category: null}}
+- {title: 'Fresh cream, butter, fresh garlic & parmigiano-reggiano cheese', expect: {category: null}}
+- {title: 'Sweet Cream Butter', expect: {category: dairy/butter}}
+- {title: 'Sea Salted Extra Creamy Butter', brand: Tillamook, expect: {category: dairy/butter, attributes: {salted: salted}}}
+- {title: 'Blueberry Cashew Butter Bar', brand: Rxbar, expect: {category: null}}
+- {title: 'Brown butter with nibs sea salt dark chcoolate bar', expect: {category: null}}

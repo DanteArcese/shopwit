@@ -223,3 +223,16 @@ def test_exclude_regex_free_forms_do_not_exclude():
 
 def test_exclude_regex_folds_phrase():
     assert exclude_regex("Peanut").search("peanut butter")
+
+
+def test_phrase_and_exclude_regexes_are_compiled_once():
+    from normalize.match import phrase_regex
+
+    # Far more phrases than re's own 512-entry cache: ours must not evict.
+    for fn in (phrase_regex, exclude_regex):
+        fn.cache_clear()
+        for i in range(600):
+            fn(f"phrase {i}")
+        before = fn.cache_info().hits
+        fn("phrase 0")
+        assert fn.cache_info().hits == before + 1

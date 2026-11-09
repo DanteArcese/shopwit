@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 import pint
 
@@ -120,7 +120,11 @@ def _unit_name(m: re.Match[str], units: list[tuple[str, str]]) -> str:
 
 
 def _measure(
-    text: str, rx: re.Pattern[str], units: list[tuple[str, str]], target: str
+    text: str,
+    rx: re.Pattern[str],
+    units: list[tuple[str, str]],
+    target: str,
+    multiplier: Callable[[str, int], int] = _multiplier,
 ) -> float | None:
     m = rx.search(text)
     if not m or _ambiguous_lead(text, m):
@@ -137,7 +141,7 @@ def _measure(
         if (unit, second) not in _COMPOUNDS:
             return None
         value = value + _to_float(part.group(1)) * _ureg(second)
-    mult = _multiplier(text, m.start())
+    mult = multiplier(text, m.start())
     if mult == 1:
         bare = _BARE_COUNT_RE.search(text)
         if bare and int(bare.group(1)) > 1:
@@ -264,17 +268,186 @@ def _paper(text: str) -> Measures:
     return out
 
 
-_PARSERS = {"volume": _volume, "mass": _mass, "count": _count, "paper": _paper}
+# --- laundry -----------------------------------------------------------------
+# Loads, an explicit volume or mass, and a pod/pac count are separate facts. Pods are not
+# loads. A bare "oz" follows the form named in the text, else it is skipped (never guess).
+_LOADS_RE = re.compile(
+    rf"{_NUM}\s*(?:(?P<pre>total)\s+)?(?:loads?|lds)\b(?P<post>\s+total\b)?", re.IGNORECASE
+)
+_L_VOLUME_UNITS = [u for u in _VOLUME_UNITS if u[0] != "oz"]
+_L_MASS_UNITS = [u for u in _MASS_UNITS if u[1] != "ounce"]
+_L_VOLUME_RE = _unit_regex(_L_VOLUME_UNITS)
+_L_MASS_RE = _unit_regex(_L_MASS_UNITS)
+_LIQUID_RE = re.compile(r"\bliquid\b", re.IGNORECASE)
+_POWDER_RE = re.compile(r"\bpowder(?:ed)?\b", re.IGNORECASE)
+
+
+_UP_TO_RE = re.compile(r"\bup[\s-]*to\s*$", re.IGNORECASE)
+# "2 x 92 fl oz": a count and "x" directly before a size unit is a multipack. A bare
+# "2X"/"3X" elsewhere ("Tide 2X 64 Loads") is concentration, not a multiplier.
+_L_SIZE_UNITS = _L_VOLUME_UNITS + _L_MASS_UNITS + [(r"oz|ounces?", "ounce")]
+_L_X_SIZE_RE = re.compile(
+    rf"(?<![\w.])(\d+)\s*x\s*(?=(?:{_NUM})\s*-?\s*(?:{'|'.join(p for p, _ in _L_SIZE_UNITS)})(?![A-Za-z]))",
+    re.IGNORECASE,
+)
+
+
+_L_X_CONTAINER_RE = re.compile(
+    rf"(?<![\w.])(\d+)\s+x\s+(?:{_NUM})\s*-?\s*(?:{'|'.join(p for p, _ in _L_SIZE_UNITS)})"
+    r"(?![A-Za-z])\s+(?:bottles?|jugs?|boxe?s?|tubs?)\b",
+    re.IGNORECASE,
+)
+_TWIN_PACK_RE = re.compile(r"\btwin[\s-]*pack\b", re.IGNORECASE)
+
+
+def _laundry_pack(text: str) -> int | None:
+    """The multipack count from explicit wording only: pack/pk, "pack of N", "N bottles",
+    "twin pack", or the spaced "N x <size> <bottles|jugs|boxes|tubs>"."""
+    m = _PACK_OF.search(text) or _PACK_N.search(text) or _CONTAINERS_RE.search(text)
+    if m:
+        return int(m.group(1))
+    if _TWIN_PACK_RE.search(text):
+        return 2
+    m = _L_X_CONTAINER_RE.search(text)
+    return int(m.group(1)) if m else None
+
+
+# One pod, pac, sheet or tablet per load: a bare count of them is not a count of bottles.
+_UNIT_DOSE_RE = re.compile(
+    r"\b(?:pods?|pacs?|flings|sheets?|strips|tabs|tablets|capsules)\b", re.IGNORECASE
+)
+
+
+def _bare_container_count(text: str) -> bool:
+    """A bare "N Count" (N > 1) of bottles, jugs or boxes with no pack wording: loads per
+    container or in all is ambiguous."""
+    if _laundry_pack(text) is not None or _UNIT_DOSE_RE.search(text):
+        return False
+    return any(int(m.group(1)) > 1 for m in _BARE_COUNT_RE.finditer(text))
+
+
+def _laundry_multiplier(text: str, start: int = 0) -> int:
+    return _laundry_pack(text) or 1
+
+
+def _laundry(text: str) -> Measures:
+    out: Measures = {}
+    m = _LOADS_RE.search(text)
+    if m and _UP_TO_RE.search(text[: m.start()]):
+        m = None  # "up to 64 loads" is a marketing maximum, never the count
+    if m and not (m.group("pre") or m.group("post")) and _bare_container_count(text):
+        m = None  # "46 Loads, 2 Count": per bottle or in all, never guessed
+    if m and not _ambiguous_lead(text, m):
+        loads = _to_float(m.group(1))
+        if not (m.group("pre") or m.group("post")):
+            loads *= _laundry_multiplier(text)
+        if loads > 0:
+            out["loads"] = loads
+    # Any other "NX <size>" ("Tide 2X 92 fl oz") is concentration or a pack: ambiguous, so
+    # no volume or mass at all rather than a guess either way.
+    ambiguous = _laundry_pack(text) is None and _L_X_SIZE_RE.search(text) is not None
+    ml = None if ambiguous else _measure(
+        text, _L_VOLUME_RE, _L_VOLUME_UNITS, "milliliter", _laundry_multiplier
+    )
+    if ml is not None:
+        out["volume_ml"] = ml
+    stripped = _strip_fl_oz(_NUTRIENT_RE.sub(" ", text))
+    g = None if ambiguous else _measure(
+        stripped, _L_MASS_RE, _L_MASS_UNITS, "gram", _laundry_multiplier
+    )
+    if g is not None:
+        out["mass_g"] = g
+    liquid, powder = _LIQUID_RE.search(text), _POWDER_RE.search(text)
+    if bool(liquid) != bool(powder) and not ambiguous:
+        # "105 oz" of liquid is fluid ounces; of powder it is weight. Explicit units win.
+        unit, key, target = (
+            ("fluid_ounce", "volume_ml", "milliliter") if liquid else ("ounce", "mass_g", "gram")
+        )
+        if key not in out:
+            units = [(r"oz|ounces?", unit)]
+            oz = _measure(stripped, _unit_regex(units), units, target, _laundry_multiplier)
+            if oz is not None:
+                out[key] = oz
+    out.update(_count(text))
+    return out
+
+
+# --- tissue ------------------------------------------------------------------
+# Facial tissue: sheets (the denominator) and boxes. Ambiguous counts are skipped, never guessed.
+_T = r"(?:facial\s+)?(?:tissues?|sheets?)"
+_TISSUE_TOTAL_RES = (
+    re.compile(rf"{_CNT}\s*{_T}\s+(?:total|in\s+all)\b", re.IGNORECASE),
+    re.compile(rf"{_CNT}\s+total\s+{_T}\b", re.IGNORECASE),
+)
+_BOX_ADJECTIVES = "flat|cube|upright|family|mini|travel|rectangular|square|tall"
+_BOXES_RE = re.compile(
+    rf"{_START}(\d+)\s+(?:(?:{_BOX_ADJECTIVES})\s+)*boxes?\b", re.IGNORECASE
+)
+_PER_BOX_RE = re.compile(
+    rf"{_CNT}\s*(?:{_T}|ct|count)\s*(?:per|/)\s*box\b", re.IGNORECASE
+)
+_TISSUE_BARE_RE = re.compile(rf"{_CNT}\s*{_T}\b", re.IGNORECASE)
+_TISSUE_COUNT_RE = re.compile(rf"{_CNT}\s*(?:ct|count)\b", re.IGNORECASE)
+
+
+def _tissue(text: str) -> Measures:
+    boxes_m = _BOXES_RE.search(text)
+    boxes = float(boxes_m.group(1)) if boxes_m else None
+    if boxes == 0:
+        boxes = None
+    pack = _PACK_OF.search(text) or _PACK_N.search(text)
+    multipack = pack is not None or _MULT_PREFIX_ANY.search(text) is not None
+    out: Measures = {}
+
+    def finish(sheets: float, box_count: float | None) -> Measures:
+        if sheets <= 0:
+            return {}
+        out["sheets"] = sheets
+        if box_count is not None:
+            out["boxes"] = box_count
+        return out
+
+    for rx in _TISSUE_TOTAL_RES:
+        m = rx.search(text)
+        if m:
+            return finish(_to_float(m.group(1)), boxes)
+    m = _PER_BOX_RE.search(text)
+    if m:
+        per = _to_float(m.group(1))
+        if boxes is None and pack is not None:
+            boxes = float(pack.group(1))
+        return finish(per * (boxes or 1.0), boxes)
+    m = _TISSUE_BARE_RE.search(text)
+    if m:
+        if boxes is not None:
+            return finish(_to_float(m.group(1)) * boxes, boxes)  # bare beside boxes: per box
+        return {} if multipack else finish(_to_float(m.group(1)), None)
+    m = _TISSUE_COUNT_RE.search(text)
+    if m and boxes is None and not multipack:
+        return finish(_to_float(m.group(1)), None)
+    return {}
+
+
+_PARSERS = {"volume": _volume, "mass": _mass, "count": _count, "paper": _paper, "tissue": _tissue}
 _REQUIRED = {
     "volume": "volume_ml",
     "mass": "mass_g",
     "count": "count",
     "paper": "rolls",
+    "tissue": "sheets",
 }
 
 
 def parse_measures(texts: Sequence[str], dimension: Dimension) -> Measures:
-    """Return canonical measures from the first text that yields the dimension's key."""
+    """Return canonical measures from the first text that yields the dimension's key
+    (laundry merges across texts instead)."""
+    if dimension == "laundry":
+        # Unlike the other dimensions, laundry merges: each key from the earliest text with it.
+        merged: Measures = {}
+        for text in texts:
+            for key, value in _laundry(fold(text or "")).items():
+                merged.setdefault(key, value)
+        return merged
     parse = _PARSERS[dimension]
     for text in texts:
         result = parse(fold(text or ""))

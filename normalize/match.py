@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import re
-from functools import lru_cache
+from functools import cache, lru_cache
 from collections.abc import Mapping
 from pathlib import Path
 
@@ -14,10 +14,14 @@ from normalize.text import fold
 from normalize.types import AttrValue, RawOffer
 
 
+# Unbounded: one entry per include/exclude phrase (about 1,000), more than re's own
+# 512-pattern cache holds, which otherwise recompiles every phrase on every match.
+@cache
 def phrase_regex(phrase: str) -> re.Pattern:
     return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)")
 
 
+@cache
 def exclude_regex(phrase: str) -> re.Pattern:
     """Like phrase_regex, but "peanut-free" / "peanut free" do not exclude "peanut"."""
     return re.compile(rf"(?<!\w){re.escape(fold(phrase))}(?!\w)(?![- ]free\b)")

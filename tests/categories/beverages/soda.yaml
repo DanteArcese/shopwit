@@ -1,0 +1,10 @@
+- {title: 'Coca-Cola Soda Pop, 12 fl oz, 12 Pack Cans', brand: Coca-Cola, price: '7.48', expect: {category: beverages/soda, attributes: {diet: false, caffeine_free: false, brand_tier: name_brand}, measures: {volume_ml: 4258.59}, unit_prices: {per_volume: '0.001756'}, unresolved: []}}
+- {title: 'Diet Coke Soda Pop, 12 fl oz, 12 Pack Cans', expect: {category: beverages/soda, attributes: {diet: true}, measures: {volume_ml: 4258.59}}}
+- {title: 'Coca-Cola Zero Sugar Soda Pop, 2 L', expect: {category: beverages/soda, attributes: {diet: true}, measures: {volume_ml: 2000}}}
+- {title: 'Pepsi Cola Soda Pop, 12 fl oz, 24 Pack Cans', expect: {category: beverages/soda, attributes: {diet: false}, measures: {volume_ml: 8517.18}}}
+- {title: 'Sprite Lemon Lime Soda, 2 Liters', expect: {category: beverages/soda, measures: {volume_ml: 2000}}}
+- {title: 'Great Value Cola Soda, 12 fl oz, 12 Count Cans', brand: Great Value, expect: {category: beverages/soda, attributes: {brand_tier: store_brand}, measures: {volume_ml: 4258.59}}}
+- {title: 'Caffeine Free Diet Coke Soda, 12 fl oz, 12 Pack Cans', expect: {category: beverages/soda, attributes: {diet: true, caffeine_free: true}}}
+- {title: 'Dr Pepper Soda, 16.9 fl oz, 6 Pack Bottles', expect: {category: beverages/soda, measures: {volume_ml: 2998.75}}}
+- {title: 'Arm & Hammer Pure Baking Soda, 1 lb', expect: {category: null}}
+- {title: 'Nabisco Premium Soda Crackers, 16 oz', expect: {category: null}}

@@ -114,3 +114,43 @@ def test_search_defaults_to_name(tmp_path):
 def test_search_loaded(tmp_path):
     write(tmp_path, "dairy/milk.yaml", MINIMAL + 'search: ["2% milk", "whole milk"]\n')
     assert load_categories(tmp_path)["dairy/milk"].search == ("2% milk", "whole milk")
+
+
+def test_loads_laundry_dimension(tmp_path):
+    text = MINIMAL.replace("dimension: volume", "dimension: laundry")
+    text = text.replace("default: per_volume\n  alternates: []", "default: per_load\n  alternates: [per_volume]")
+    write(tmp_path, "household/laundry.yaml", text)
+    cat = load_categories(tmp_path)["household/laundry"]
+    assert cat.dimension == "laundry"
+    assert (cat.comparison_default, cat.comparison_alternates) == ("per_load", ("per_volume",))
+
+
+def test_loads_tissue_dimension(tmp_path):
+    text = MINIMAL.replace("dimension: volume", "dimension: tissue")
+    text = text.replace("default: per_volume\n  alternates: []", "default: sheets_x_ply\n  alternates: [per_100_sheets]")
+    write(tmp_path, "household/tissue.yaml", text)
+    cat = load_categories(tmp_path)["household/tissue"]
+    assert cat.dimension == "tissue"
+    assert (cat.comparison_default, cat.comparison_alternates) == ("sheets_x_ply", ("per_100_sheets",))
+
+
+def test_load_categories_reuses_parsed_files(tmp_path, monkeypatch):
+    import normalize.categories as C
+
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    first = load_categories(tmp_path)
+    calls = []
+    real = C._load_file
+    monkeypatch.setattr(C, "_load_file", lambda *a: calls.append(a) or real(*a))
+    second = load_categories(tmp_path)
+    assert second == first and second is not first
+    assert calls == []
+
+
+def test_load_categories_rereads_changed_files(tmp_path):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    assert load_categories(tmp_path)["dairy/milk"].include == ("milk",)
+    write(tmp_path, "dairy/milk.yaml", MINIMAL.replace('["milk"]', '["milk", "whole milk"]'))
+    assert load_categories(tmp_path)["dairy/milk"].include == ("milk", "whole milk")
+    write(tmp_path, "dairy/eggs.yaml", MINIMAL.replace("Milk", "Eggs"))
+    assert set(load_categories(tmp_path)) == {"dairy/milk", "dairy/eggs"}

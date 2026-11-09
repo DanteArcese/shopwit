@@ -1,0 +1,10 @@
+- {title: 'Dawn Ultra Dishwashing Liquid Dish Soap, Original Scent, 56 fl oz', brand: Dawn, price: '8.97', expect: {category: household/dish-soap, attributes: {antibacterial: false, free_clear: false, brand_tier: name_brand}, measures: {volume_ml: 1656.12}, unit_prices: {per_volume: '0.005416'}, unresolved: []}}
+- {title: 'Dawn Ultra Dish Soap, Original, 28 oz, 3 Pack', expect: {category: household/dish-soap, measures: {volume_ml: 2484.18}}}
+- {title: 'Palmolive Ultra Strength Liquid Dish Soap, 32.5 fl oz', expect: {category: household/dish-soap, measures: {volume_ml: 961.14}}}
+- {title: 'Great Value Ultra Antibacterial Dish Soap, Orange Scent, 75 fl oz', brand: Great Value, expect: {category: household/dish-soap, attributes: {antibacterial: true, brand_tier: store_brand}, measures: {volume_ml: 2218.01}}}
+- {title: 'Seventh Generation Free & Clear Dish Liquid, 19 fl oz', expect: {category: household/dish-soap, attributes: {free_clear: true}, measures: {volume_ml: 561.9}}}
+- {title: 'Dawn Powerwash Dish Spray, Fresh Scent, 16 fl oz', expect: {category: household/dish-soap, measures: {volume_ml: 473.18}}}
+- {title: 'Mrs. Meyer''s Clean Day Liquid Dish Soap, Lemon Verbena, 16 fl oz', expect: {category: household/dish-soap, measures: {volume_ml: 473.18}}}
+- {title: 'Method Dish Soap, Pink Grapefruit, 18 fl oz', expect: {category: household/dish-soap, measures: {volume_ml: 532.32}}}
+- {title: 'Sponge and Dish Soap Holder, Kitchen Sink Caddy', expect: {category: null}}
+- {title: 'Dish Soap Dispenser with Sponge Holder, Stainless', expect: {category: null}}

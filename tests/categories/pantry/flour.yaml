@@ -1,0 +1,14 @@
+- {title: 'Gold Medal All-Purpose Flour, 5 lb', brand: Gold Medal, price: '3.12', expect: {category: pantry/flour, attributes: {type: all_purpose, unbleached: false, gluten_free: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 2267.96}, unit_prices: {per_mass: '0.001376'}, unresolved: []}}
+- {title: 'King Arthur Unbleached Bread Flour, 5 lb', expect: {category: pantry/flour, attributes: {type: bread, unbleached: true}, measures: {mass_g: 2267.96}}}
+- {title: 'Great Value All Purpose Flour, 5 lb', brand: Great Value, expect: {category: pantry/flour, attributes: {type: all_purpose, brand_tier: store_brand}}}
+- {title: 'Bob''s Red Mill Super-Fine Almond Flour, 16 oz', expect: {category: pantry/flour, attributes: {type: almond}, measures: {mass_g: 453.59}}}
+- {title: 'King Arthur Whole Wheat Flour, 5 lb', expect: {category: pantry/flour, attributes: {type: whole_wheat}}}
+- {title: 'Bob''s Red Mill Gluten Free 1-to-1 Baking Flour, 22 oz', expect: {category: pantry/flour, attributes: {gluten_free: true}, measures: {mass_g: 623.69}, unresolved: ['attribute:type', 'attribute:brand_tier']}}
+- {title: 'White Lily Self Rising Flour, 5 lb', expect: {category: pantry/flour, attributes: {type: self_rising}}}
+- {title: 'Swans Down Cake Flour, 32 oz', expect: {category: pantry/flour, attributes: {type: cake}, measures: {mass_g: 907.18}}}
+- {title: 'Mission Flour Tortillas, Soft Taco, 10 ct', expect: {category: null}}
+- {title: 'Aunt Martha''s Flour Sack Towels, 5 Pack', expect: {category: null}}
+- {title: 'Bread Flour', brand: King Arthur Baking, expect: {category: pantry/flour, attributes: {type: bread}}}
+- {title: 'Organic Brown Rice Flour', brand: Arrowhead Mills, expect: {category: pantry/flour, attributes: {type: rice}}}
+- {title: 'FLOUR TORTILLAS', brand: PUEBLO LINDO, expect: {category: null}}
+- {title: 'PAM Baking with Flour', brand: PAM, expect: {category: null}}

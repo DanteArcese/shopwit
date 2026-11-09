@@ -1,0 +1,14 @@
+name: Flour
+dimension: mass
+match:
+  include: [flour, bread flour]
+  exclude: [tortilla, tortillas, towel, towels, sifter, canister, container, mix, pancake, gravy, breading, seasoned, dog, play, spray, baking with flour,
+    # Other baking goods under flour brands (King Arthur Flour).
+    baking powder, baking soda, extract, yeast, starter, sugar, sweetener, crust, pizza, chips]
+attributes:
+  type: {type: enum, values: [all_purpose, bread, whole_wheat, self_rising, cake, almond, coconut, rice], synonyms: {all_purpose: [all purpose, all-purpose], bread: [bread flour], whole_wheat: [whole wheat, white whole wheat], self_rising: [self rising, self-rising], cake: [cake flour], almond: [almond flour, almond meal], coconut: [coconut flour], rice: [rice flour]}}
+  unbleached: {type: bool, synonyms: {true: [unbleached]}, absent: false}
+  gluten_free: {type: bool, synonyms: {true: [gluten free, gluten-free]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [all purpose flour, bread flour]

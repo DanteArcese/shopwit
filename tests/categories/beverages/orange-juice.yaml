@@ -1,0 +1,9 @@
+- {title: 'Tropicana Pure Premium No Pulp 100% Orange Juice, 52 fl oz', brand: Tropicana, price: '4.98', expect: {category: beverages/orange-juice, attributes: {pulp: no_pulp, organic: false, brand_tier: name_brand}, measures: {volume_ml: 1537.82}, unit_prices: {per_volume: '0.003238'}, unresolved: ['attribute:concentrate']}}
+- {title: 'Simply Orange Pulp Free Orange Juice, 52 fl oz', expect: {category: beverages/orange-juice, attributes: {pulp: no_pulp}, measures: {volume_ml: 1537.82}}}
+- {title: 'Florida''s Natural Orange Juice with Some Pulp, Not From Concentrate, 52 fl oz', expect: {category: beverages/orange-juice, attributes: {pulp: some_pulp, concentrate: not_from_concentrate}}}
+- {title: 'Great Value 100% Orange Juice From Concentrate, 64 fl oz', brand: Great Value, expect: {category: beverages/orange-juice, attributes: {concentrate: concentrate, brand_tier: store_brand}, measures: {volume_ml: 1892.71}}}
+- {title: 'Tropicana Pure Premium Lots of Pulp Orange Juice, 89 fl oz', expect: {category: beverages/orange-juice, attributes: {pulp: high_pulp}, measures: {volume_ml: 2632.04}}}
+- {title: 'Kirkland Signature Organic Orange Juice, 6 x 59 fl oz', brand: Kirkland Signature, expect: {category: beverages/orange-juice, attributes: {organic: true, brand_tier: store_brand}, measures: {volume_ml: 10469.03}}}
+- {title: 'Simply Orange High Pulp Orange Juice, Not From Concentrate, 89 fl oz', expect: {category: beverages/orange-juice, attributes: {pulp: high_pulp, concentrate: not_from_concentrate}}}
+- {title: 'Minute Maid Frozen Orange Juice Concentrate, 12 fl oz', expect: {category: null}}
+- {title: 'Tropicana Trop50 Orange Juice Beverage, 52 fl oz', expect: {category: null}}

@@ -35,23 +35,35 @@ _SIZE_FACET_NAMES = {
     "count": "count",
 }
 _TIERS = {"name_brand": "name brand", "store_brand": "store brand"}
-_MEASURE_DIMENSION = {
-    key: dim for dim, units in TARGET_UNITS.items() for _l, key, _f in units.values()
-}
+_MEASURE_DIMENSION: dict[str, str] = {}
+for _dim, _units in TARGET_UNITS.items():
+    for _l, _key, _f in _units.values():
+        _MEASURE_DIMENSION.setdefault(_key, _dim)
 
 
-def dimension_of(measure: str) -> str:
-    """The dimension of an item's target measure (curated key or generic dimension name)."""
-    return measure if measure in GENERIC_MEASURES else _MEASURE_DIMENSION[measure]
+def dimension_of(measure: str, category_dimension: str | None = None) -> str:
+    """The dimension of an item's target measure (curated key or generic dimension name).
+
+    "sheets" is a target of both paper and tissue; a curated item's category dimension
+    (when the caller has it) settles which."""
+    if measure in GENERIC_MEASURES:
+        return measure
+    if category_dimension is not None and measure in {
+        key for _l, key, _f in TARGET_UNITS.get(category_dimension, {}).values()
+    }:
+        return category_dimension
+    return _MEASURE_DIMENSION[measure]
 
 
 def _human(name: str) -> str:
     return name.replace("_", " ")
 
 
-def _curated_filter_labels(item: ItemSpec, unit_system: str) -> list[str]:
+def _curated_filter_labels(
+    item: ItemSpec, unit_system: str, category_dimension: str | None = None
+) -> list[str]:
     labels = []
-    dimension = dimension_of(item.target_measure)
+    dimension = dimension_of(item.target_measure, category_dimension)
     size_key = SIZE_KEYS.get(dimension)
     for key, value in sorted(item.filters.items()):
         if value == "any":
@@ -97,7 +109,12 @@ def _generic_facet_labels(item: ItemSpec) -> list[str]:
     return labels
 
 
-def item_label(item: ItemSpec, category_name: str | None, unit_system: str) -> str:
+def item_label(
+    item: ItemSpec,
+    category_name: str | None,
+    unit_system: str,
+    category_dimension: str | None = None,
+) -> str:
     """ "Milk · fat 2 · organic" or "'oat milk' · brand x · by volume"."""
     if item.kind == "generic":
         parts = [
@@ -108,12 +125,12 @@ def item_label(item: ItemSpec, category_name: str | None, unit_system: str) -> s
     else:
         parts = [
             category_name or item.category or "",
-            *_curated_filter_labels(item, unit_system),
+            *_curated_filter_labels(item, unit_system, category_dimension),
         ]
     return " · ".join(p for p in parts if p)
 
 
-def target_text(item: ItemSpec, unit_system: str) -> str:
+def target_text(item: ItemSpec, unit_system: str, category_dimension: str | None = None) -> str:
     if item.kind == "generic":
         return display_generic_size(
             item.target_measure, float(item.target_amount), unit_system
@@ -121,24 +138,28 @@ def target_text(item: ItemSpec, unit_system: str) -> str:
     return display_target(
         item.target_measure,
         item.target_amount,
-        dimension_of(item.target_measure),
+        dimension_of(item.target_measure, category_dimension),
         unit_system,
     )
 
 
-def target_text_for(item: ItemSpec, amount: Decimal, unit_system: str) -> str:
+def target_text_for(
+    item: ItemSpec, amount: Decimal, unit_system: str, category_dimension: str | None = None
+) -> str:
     if item.kind == "generic":
         return display_generic_size(item.target_measure, float(amount), unit_system)
     return display_target(
-        item.target_measure, amount, dimension_of(item.target_measure), unit_system
+        item.target_measure, amount, dimension_of(item.target_measure, category_dimension), unit_system
     )
 
 
-def present_fit(item: ItemSpec, fit: Fit, unit_system: str) -> dict:
+def present_fit(
+    item: ItemSpec, fit: Fit, unit_system: str, category_dimension: str | None = None
+) -> dict:
     offer = fit.offer
     return {
         "packages": fit.packages,
-        "size": target_text_for(item, fit.package_size, unit_system),
+        "size": target_text_for(item, fit.package_size, unit_system, category_dimension),
         "store": display_name(offer.retailer),
         "price": format_money(fit.total_price, offer.currency),
         "title": offer.title or "",
@@ -149,7 +170,8 @@ def present_fit(item: ItemSpec, fit: Fit, unit_system: str) -> dict:
 
 def present_item(res: ItemResolution, unit_system: str) -> dict:
     item = res.item
-    dimension = dimension_of(item.target_measure)
+    cat_dim = res.category.dimension if res.category else None
+    dimension = dimension_of(item.target_measure, cat_dim)
     units = []
     for code in target_units_for(dimension, unit_system):
         if item.kind == "generic":
@@ -160,12 +182,12 @@ def present_item(res: ItemResolution, unit_system: str) -> dict:
     return {
         "id": item.id,
         "label": item_label(
-            item, res.category.name if res.category else None, unit_system
+            item, res.category.name if res.category else None, unit_system, cat_dim
         ),
-        "target": target_text(item, unit_system),
+        "target": target_text(item, unit_system, cat_dim),
         "reason": res.reason,
-        "best": present_fit(item, res.best, unit_system) if res.best else None,
-        "alternatives": [present_fit(item, f, unit_system) for f in res.alternatives],
+        "best": present_fit(item, res.best, unit_system, cat_dim) if res.best else None,
+        "alternatives": [present_fit(item, f, unit_system, cat_dim) for f in res.alternatives],
         "pinned": item.pinned_product is not None,
         "units": units,
     }

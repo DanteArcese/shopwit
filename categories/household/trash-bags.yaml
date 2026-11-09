@@ -1,0 +1,10 @@
+name: Trash Bags
+dimension: count
+match:
+  include: [trash bags, trash bag, garbage bags, garbage bag, can liners, kitchen bags, wastebasket bags, lawn & leaf bags, lawn and leaf bags, contractor bags]
+  exclude: [holder, dispenser, rack, dog, poop, pet waste, diaper pail]
+attributes:
+  capacity_gal: {type: int, patterns: ['(?<![\d.-])(\d{1,2})[- ]?(?:gal|gallons?)\b']}
+  drawstring: {type: bool, synonyms: {true: [drawstring]}, absent: false}
+comparison: {default: per_count}
+search: [13 gallon trash bags, 30 gallon trash bags]

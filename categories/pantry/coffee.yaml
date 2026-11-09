@@ -17,7 +17,9 @@ match:
     ice cream, gelato, frozen yogurt, affogato, almond toffee, coffee & toffee, candy, candies,
     taza chocolate, sauce,
     # Coffee substitutes.
-    chicory, herbal, coffee alt, teeccino]
+    chicory, herbal, coffee alt, teeccino,
+    # Carbonated coffee drinks.
+    coffee soda, sparkling coffee]
 attributes:
   form:
     type: enum

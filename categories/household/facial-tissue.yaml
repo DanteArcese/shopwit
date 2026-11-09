@@ -1,0 +1,11 @@
+name: Facial Tissue
+parent: household/paper-goods
+dimension: tissue
+match:
+  include: [facial tissue, facial tissues, face tissue, face tissues]
+  exclude: [cover, holder, tissue paper, gift, toilet, bath, wipes]
+attributes:
+  ply: {type: int, values: [1, 2, 3], patterns: ['(?<![\d.])([123])[- ]?ply'], synonyms: {1: [single ply], 2: [double ply]}}
+  lotion: {type: bool, synonyms: {true: [lotion]}, absent: false}
+comparison: {default: sheets_x_ply, alternates: [per_100_sheets]}
+search: [facial tissue]

@@ -136,3 +136,13 @@ def _cache_rows():
 
 def test_cache_max_entries(settings):
     assert settings.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"] == 100_000
+
+
+def test_rate_limit_clock_is_frozen_mid_window():
+    # A test that straddles a 15-minute or hourly boundary would start a fresh counter.
+    from web import ratelimit
+
+    first = ratelimit._time()
+    assert ratelimit._time() == first
+    for secs in (900, 3600):
+        assert 60 < first % secs < secs - 60

@@ -1,0 +1,10 @@
+- {title: 'Cascade Complete ActionPacs Dishwasher Detergent, Fresh Scent, 78 Count', brand: Cascade, price: '19.97', expect: {category: household/dishwasher-detergent, attributes: {free_clear: false, brand_tier: name_brand}, measures: {count: 78}, unit_prices: {per_count: '0.256026'}, unresolved: []}}
+- {title: 'Finish Quantum Dishwasher Detergent Tablets, 82 Count', expect: {category: household/dishwasher-detergent, measures: {count: 82}}}
+- {title: 'Finish All in 1 Dishwasher Detergent, Powerball, 94 Tabs', expect: {category: household/dishwasher-detergent, measures: {count: 94}}}
+- {title: 'Cascade Platinum Plus ActionPacs Dishwasher Detergent Pods, 62 Count', expect: {category: household/dishwasher-detergent, measures: {count: 62}}}
+- {title: 'Great Value Dishwasher Detergent Pacs, Lemon Scent, 85 Count', brand: Great Value, expect: {category: household/dishwasher-detergent, attributes: {brand_tier: store_brand}, measures: {count: 85}}}
+- {title: 'Seventh Generation Free & Clear Dishwasher Detergent Packs, 45 Count', expect: {category: household/dishwasher-detergent, attributes: {free_clear: true}, measures: {count: 45}}}
+- {title: 'Kirkland Signature Dishwasher Detergent Pacs, 115 Count', brand: Kirkland Signature, expect: {category: household/dishwasher-detergent, attributes: {brand_tier: store_brand}, measures: {count: 115}}}
+- {title: 'Lemi Shine Dishwasher Pods, 60 Pods', expect: {category: household/dishwasher-detergent, measures: {count: 60}}}
+- {title: 'Cascade Complete Gel Dishwasher Detergent, 75 oz', expect: {category: null}}
+- {title: 'Cascade Complete Powder Dishwasher Detergent, 75 oz', expect: {category: null}}

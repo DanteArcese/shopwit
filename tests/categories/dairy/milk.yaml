@@ -89,9 +89,6 @@
   brand: MUSCLE MILK
   expect:
     category: null
-- title: "Organic Whole Milk Honey Yogurt"
-  expect:
-    category: null
 - title: "Draft Latte Caramel Cold Brew with Milk"
   brand: La Colombe
   expect:

@@ -71,7 +71,7 @@ def test_empty():
 
 @pytest.mark.parametrize(
     "text", ["chocolate milk", "almond milk", "oat milk", "soy milk", "coconut milk",
-             "egg noodles", "liquid egg", "toilet paper wipes"],
+             "egg noodles", "rice milk", "liquid egg", "toilet paper wipes"],
 )
 def test_excluded_queries_not_rewritten(text):
     res = r(text)
@@ -96,3 +96,116 @@ def test_filter_after_and_case():
 
 def test_punctuation_only_leftover_empty():
     assert r("(2% milk") == QueryResolution("dairy/milk", {"fat": "2"}, "")
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("unsalted butter", "dairy/butter", {"salted": "unsalted"}),
+        ("greek yogurt", "dairy/yogurt", {"greek": True}),
+        ("shredded cheddar", "dairy/cheese", {"form": "shredded", "variety": "cheddar"}),
+    ],
+)
+def test_dairy_extras(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_peanut_butter_not_butter():
+    assert r("peanut butter").category == "pantry/peanut-butter"
+
+
+def test_whole_milk_yogurt_is_yogurt_not_milk():
+    assert r("whole milk yogurt").category == "dairy/yogurt"
+
+
+def test_bread_flour_is_flour():
+    assert r("bread flour") == QueryResolution("pantry/flour", {"type": "bread"}, "")
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("whole wheat bread", "pantry/bread", {"grain": "whole_wheat"}),
+        ("jasmine rice", "pantry/rice", {"variety": "jasmine"}),
+        ("brown rice", "pantry/rice", {"brown": True}),
+        ("egg noodles", "pantry/pasta", {"shape": "egg_noodles"}),
+    ],
+)
+def test_grains(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_rice_milk_not_rewritten():
+    assert r("rice milk").category is None
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("olive oil", "pantry/cooking-oil", {"type": "olive"}),
+        ("extra virgin olive oil", "pantry/cooking-oil", {"type": "extra_virgin_olive"}),
+        ("brown sugar", "pantry/sugar", {"type": "brown"}),
+        ("whey protein isolate", "pantry/protein-powder", {"type": "whey_isolate"}),
+        ("peanut butter", "pantry/peanut-butter", {}),
+    ],
+)
+def test_pantry_staples(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("club soda", "beverages/sparkling-water", {"unflavored": True}),
+        ("diet soda", "beverages/soda", {"diet": True}),
+        ("spring water", "beverages/bottled-water", {"water_type": "spring"}),
+        (
+            "orange juice not from concentrate",
+            "beverages/orange-juice",
+            {"concentrate": "not_from_concentrate"},
+        ),
+    ],
+)
+def test_beverages(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_baking_soda_unmatched():
+    assert r("baking soda").category is None
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("3 ply facial tissue", "household/facial-tissue", {"ply": 3}),
+        ("13 gallon trash bags", "household/trash-bags", {"capacity_gal": 13}),
+    ],
+)
+def test_household_paper_and_bags(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+    assert r("paper towels").category == "household/paper-towels"
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("laundry detergent pods", "household/laundry-detergent", {"form": "pods"}),
+        ("free and clear laundry detergent", "household/laundry-detergent", {"free_clear": True}),
+        ("dish soap", "household/dish-soap", {}),
+        ("dishwasher pods", "household/dishwasher-detergent", {}),
+    ],
+)
+def test_cleaning(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters

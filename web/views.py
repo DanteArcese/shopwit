@@ -49,7 +49,7 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
-from .seo import category_description
+from .seo import category_description, category_has_prices
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -58,14 +58,18 @@ SIZE_UNITS = {
     "mass": {"imperial": ("oz", "oz"), "metric": ("kg", "kg")},
     "paper": {"imperial": ("sqft", "sq ft"), "metric": ("m2", "m²")},
     "count": {"imperial": ("ct", "ct"), "metric": ("ct", "ct")},
+    "laundry": {"imperial": ("loads", "loads"), "metric": ("loads", "loads")},
+    "tissue": {"imperial": ("sheets", "sheets"), "metric": ("sheets", "sheets")},
 }
+# Counted dimensions have one unit, so the URL code never picks a unit system.
+COUNTED_DIMENSIONS = frozenset({"count", "laundry", "tissue"})
 
 
 def _size_system(dimension: str, code: str | None, viewer_system: str) -> str:
     """The unit system a size bound is written in: the URL's size_unit when valid
     for this dimension, else the viewer's."""
     for system, (known, _label) in SIZE_UNITS.get(dimension, {}).items():
-        if code == known and dimension != "count":
+        if code == known and dimension not in COUNTED_DIMENSIONS:
             return system
     return viewer_system
 
@@ -236,6 +240,7 @@ def category(request, slug):
 
     url = reverse("category", args=[cat.slug])
     available = available_retailers(when, cat)
+    has_prices = category_has_prices(cat, when)
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
     unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
     context = {
@@ -264,7 +269,10 @@ def category(request, slug):
             cat.name,
             DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
             [display_name(c) for c in available if not is_chain_code(c)],
+            has_prices,
         ),
+        # Search engines skip a category page while it has no prices to show.
+        "noindex": not has_prices,
         "selected_stores": selected_stores or set(prefs.stores or ()),
         "ranked_total": result.total_products - result.unranked_total,
         "unranked_total": result.unranked_total,

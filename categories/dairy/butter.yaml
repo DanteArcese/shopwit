@@ -1,0 +1,12 @@
+name: Butter
+dimension: mass
+match:
+  include: [butter]
+  exclude: [peanut butter, almond butter, cashew butter, sunflower butter, nut butter, cookie butter, apple butter, cocoa butter, shea butter, body butter, cookies, crackers, popcorn, beans, lettuce, chicken, knife, dish, flavored, spread, spreadable, canola, olive oil, ghee, pickle, pickles, bread & butter, bread and butter, not butter, buttermilk, butter milk, candy, toffee, syrup, sauce,
+    pecan, pistachio, hazelnut, walnut, coconut, tahini, seed butter, manna, ice cream, gelato, cake, cookie, shrimp, salmon, spray, rolls, biscuits, seasoning, brittle, crisps, cobbler, chocolate, cups, plant butter, plant-based, pasta, soup, granola, nutter, shortbread, brown butter, cowboy butter, everything butter, butter plus, garlic butter, butter herb, butter flavor, herb butter, tastin, flake, butternut, buttermilk blend, onion butter, spirals, fresh garlic, kraeuterbutter, butter bar, chocolate bar, rxbar]
+attributes:
+  salted: {type: enum, values: [salted, unsalted], synonyms: {salted: [salted, lightly salted], unsalted: [unsalted]}}
+  grass_fed: {type: bool, synonyms: {true: [grass-fed, grass fed]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [salted butter, unsalted butter]
