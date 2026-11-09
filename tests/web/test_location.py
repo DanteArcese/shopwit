@@ -323,7 +323,7 @@ def test_settings_post_saves_normalized_postal_code(client, db):
         "/settings",
         {"postal_code": " 94043-1351 ", "radius": "50", "next": "/c/dairy/milk/"},
     )
-    assert resp.status_code == 302 and resp["Location"] == "/c/dairy/milk/"
+    assert resp.status_code == 302 and resp["Location"] == "/settings?saved=1&next=%2Fc%2Fdairy%2Fmilk%2F"
     prefs = client.session["prefs"]
     assert (prefs["postal_code"], prefs["country"], prefs["radius"]) == (
         "94043",
