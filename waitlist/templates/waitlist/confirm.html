@@ -1,7 +1,7 @@
-{% extends "waitlist/base_public.html" %}
+{% extends "web/base.html" %}
 {% block title %}Confirm your signup | UnitPricer{% endblock %}
 {% block main %}
 <h1>Confirm your signup</h1>
-<p>One more click to join the UnitPricer waitlist.</p>
-<form method="post">{% csrf_token %}<button type="submit">Confirm my signup</button></form>
+<p>One more click to get UnitPricer store announcements.</p>
+<form method="post">{% csrf_token %}<button type="submit" class="confirm">Confirm my signup</button></form>
 {% endblock %}

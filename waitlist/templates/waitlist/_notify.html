@@ -1,0 +1,14 @@
+<section class="notify" aria-labelledby="notify-heading">
+  <h2 id="notify-heading">Notify me about new stores</h2>
+  <p>We're adding stores. Leave your email and we'll write when a new one goes live: one confirmation email now, then only store news. Unsubscribe in one click.</p>
+  <form class="notify-form" method="post" action="/waitlist/">
+    {% if error %}<p class="error" role="alert">{{ error }}</p>{% endif %}
+    <label for="notify-email">Email address</label>
+    <input id="notify-email" type="email" name="email" required autocomplete="email">
+    <div class="hp" aria-hidden="true">
+      <label>Leave this empty <input name="website" tabindex="-1" autocomplete="off"></label>
+    </div>
+    <button type="submit">Notify me</button>
+  </form>
+  <p class="hint">See the <a href="/privacy">privacy page</a> for what we keep.</p>
+</section>

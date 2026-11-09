@@ -1,4 +1,4 @@
-{% extends "waitlist/base_public.html" %}
+{% extends "web/base.html" %}
 {% block title %}{% if rate_limited %}Too many requests{% else %}Try again tomorrow{% endif %} | UnitPricer{% endblock %}
 {% block main %}
 {% if rate_limited %}

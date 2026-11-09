@@ -1,7 +1,7 @@
-{% extends "waitlist/base_public.html" %}
+{% extends "web/base.html" %}
 {% block title %}Unsubscribe | UnitPricer{% endblock %}
 {% block main %}
 <h1>Unsubscribe</h1>
 <p>This removes you from the UnitPricer waitlist and deletes your address.</p>
-<form method="post">{% csrf_token %}<button type="submit">Unsubscribe</button></form>
+<form method="post">{% csrf_token %}<button type="submit" class="confirm">Unsubscribe</button></form>
 {% endblock %}

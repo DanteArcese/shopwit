@@ -229,3 +229,9 @@ a { color: var(--accent); }
   .item-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); align-items: start; }
 }
 .list-manage a.danger { display: inline-flex; align-items: center; text-decoration: none; }
+
+/* Notify-me block (home page and waitlist pages) */
+.notify { margin-top: 2rem; max-width: 40rem; }
+.notify-form { display: grid; gap: 0.5rem; }
+.notify-form input[type="email"] { min-height: 44px; font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--border); border-radius: 0.375rem; padding: 0.5rem; width: 100%; box-sizing: border-box; }
+.notify-form button, main form button[type="submit"].confirm { justify-self: start; min-height: 44px; min-width: 44px; padding: 0 1rem; font: inherit; font-weight: 600; color: var(--accent-fg); background: var(--accent); border: 0; border-radius: 0.375rem; cursor: pointer; }

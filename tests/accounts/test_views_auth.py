@@ -467,7 +467,8 @@ def test_password_change_fields_are_sensitive(client):
 
 def test_privacy_page_names_the_cookies(client):
     html = client.get("/privacy").content.decode()
-    assert "Beta app: a session cookie and a security (CSRF) cookie." in html
+    assert "<code>__Host-sessionid</code>" in html and "<code>__Host-csrftoken</code>" in html
+    assert "Browsing sets no cookies from us." in html
     assert "settings cookie" not in html
 
 
