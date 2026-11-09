@@ -44,7 +44,7 @@ Plan: `docs/superpowers/plans/2026-11-08-limited-public-launch.md` (issue #77). 
 
 - [ ] **ODbL.** Open Food Facts has answered whether our Open Prices store plus normalization is a Derivative Database and whether "free copy on request" satisfies section 4.6 (email drafted separately). Act on the answer (for example publish the `export_open_prices` dump at a public URL) before announcing.
 - [ ] **CAN-SPAM.** `UNITPRICER_POSTAL_ADDRESS` in `app.env` holds a real postal address (PO box or registered-agent address).
-- [ ] **Terms** reviewed; remove the draft banner in a separate PR.
+- [x] **Terms** finalized 2026-11-09 (Massachusetts law, accounts 13+, courts + small claims; #84).
 - [ ] **Announce:** `docker compose run --rm -T web python manage.py send_waitlist_announcement </dev/null` (it refuses without a postal address and URLs).
 - [ ] **HSTS, after 7 clean days** (no 5xx bursts, no Access or routing incidents): set `DJANGO_HSTS_SECONDS=31536000` in `app.env`, `docker compose up -d web`, then `curl -sI https://unitpricer.com/ | grep -i strict-transport`. Preload stays off.
 
