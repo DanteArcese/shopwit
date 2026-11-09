@@ -37,6 +37,13 @@
       {% for c in comparisons %}<option value="{{ c.name }}"{% if c.name == comparison %} selected{% endif %}>Price per {{ c.label }}</option>{% endfor %}
     </select>
   </label>
+  {% if ranks %}
+  <label>Rank by
+    <select name="rank">
+      {% for r in ranks %}<option value="{{ r.value }}"{% if r.value == rank %} selected{% endif %}>{{ r.label }}</option>{% endfor %}
+    </select>
+  </label>
+  {% endif %}
   {% if stores %}
   <fieldset class="stores">
     <legend>Stores{% if not selected_stores %} <span class="hint">(All stores)</span>{% endif %}</legend>

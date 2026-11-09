@@ -238,3 +238,115 @@ def test_generic_offer_on_curated_product_stays_off_category_page(milk):
 
     assert Offer.objects.get(retailer="r2").category is None
     assert [r.offer.retailer for r in [*res.ranked, *res.unranked]] == ["r1"]
+
+
+# --- rank by nutrition per dollar (#95) ---
+from catalog.models import Offer  # noqa: E402
+from normalize.nutrition import offer_nutrition  # noqa: E402
+from normalize.types import Nutrition  # noqa: E402
+
+
+def set_nutrition(title, basis="100ml", protein=3.4, kcal=60.0, **where):
+    """Store the nutrition JSON the way ingestion would, from the offer's own price and pack."""
+    for o in Offer.objects.filter(title__startswith=title, **where):
+        o.nutrition = offer_nutrition(
+            o.price, Nutrition(basis, protein, kcal), o.measures, o.measure_dim, o.measure_amount
+        )
+        o.save(update_fields=["nutrition"])
+
+
+def test_rank_protein_orders_by_cost_not_unit_price(milk):
+    load(milk, [
+        milk_offer("Acme Whole Milk, 1 L", "1.00", "a"),   # cheaper per L
+        milk_offer("Bravo Whole Milk, 1 L", "2.00", "b"),
+    ])
+    set_nutrition("Acme", protein=1.0)    # $10 per 100 g... 1.00*10000/(1*1000) = 10
+    set_nutrition("Bravo", protein=8.0)   # 2.00*10000/(8*1000) = 2.5
+    res = browse(milk, NONE, None, None, NOW, rank="protein")
+    assert titles(res.ranked) == ["Bravo Whole Milk, 1 L", "Acme Whole Milk, 1 L"]
+    assert res.ranked[0].cost == Decimal("2.500000")
+    assert res.ranked[0].unit_price == Decimal("0.002000")
+    assert res.rank == "protein"
+    assert titles(browse(milk, NONE, None, None, NOW).ranked)[0] == "Acme Whole Milk, 1 L"
+
+
+def test_rank_kcal_uses_kcal_cost(milk):
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "1.00", "a"), milk_offer("Bravo Whole Milk, 1 L", "1.00", "b")])
+    set_nutrition("Acme", kcal=50.0)
+    set_nutrition("Bravo", kcal=100.0)
+    res = browse(milk, NONE, None, None, NOW, rank="kcal")
+    assert titles(res.ranked) == ["Bravo Whole Milk, 1 L", "Acme Whole Milk, 1 L"]
+
+
+def test_rank_protein_unranked_rows_carry_nutrition_reason(milk):
+    load(milk, [
+        milk_offer("Acme Whole Milk, 1 L", "1.00", "a"),
+        milk_offer("Bravo Whole Milk, 1 L", "0.50", "b"),
+        milk_offer("Cargo Whole Milk, 1 L", "0.40", "c"),
+    ])
+    set_nutrition("Acme", protein=3.0)
+    set_nutrition("Bravo", basis="serving")
+    res = browse(milk, NONE, None, None, NOW, rank="protein")
+    assert titles(res.ranked) == ["Acme Whole Milk, 1 L"]
+    assert [(r.product.title, r.reason) for r in res.unranked] == [
+        ("Cargo Whole Milk, 1 L", "no nutrition data from Open Food Facts"),
+        ("Bravo Whole Milk, 1 L", "nutrition per serving only"),
+    ]
+    assert res.total_products == 3
+    assert res.unranked[0].unit_price is not None  # still shown for display
+
+
+def test_mixed_offers_rank_by_the_costed_offer(milk):
+    upc = "036000291452"
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "3.00", "s", retailer="target", upc=upc)])
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "1.00", "f", retailer="walmart", upc=upc)])
+    set_nutrition("Acme", protein=3.0, retailer="target")  # walmart (cheaper) has no nutrition
+    res = browse(milk, NONE, None, None, NOW, rank="protein")
+    assert len(res.ranked) == 1 and not res.unranked
+    assert res.ranked[0].offer.retailer == "target"
+    assert res.ranked[0].offer.price == Decimal("3.00")
+
+
+def test_rank_ties_break_by_price_title_retailer(milk):
+    load(milk, [
+        milk_offer("Zed Whole Milk, 1 L", "1.00", "z"),
+        milk_offer("Abe Whole Milk, 1 L", "1.00", "a"),
+        milk_offer("Mid Whole Milk, 2 L", "2.00", "m"),
+    ])
+    set_nutrition("Zed", protein=2.0)   # 5.0
+    set_nutrition("Abe", protein=2.0)   # 5.0
+    set_nutrition("Mid", protein=2.0)   # 2*10000/(2*2000) = 5.0
+    res = browse(milk, NONE, None, None, NOW, rank="protein")
+    assert titles(res.ranked) == ["Abe Whole Milk, 1 L", "Zed Whole Milk, 1 L", "Mid Whole Milk, 2 L"]
+
+
+def test_rank_unit_is_unchanged(milk):
+    load(milk, [
+        milk_offer("Acme Whole Milk, 1 L", "3.00", "a"),
+        milk_offer("Bravo Whole Milk, 1 L", "1.00", "b"),
+        milk_offer("Mystery Milk", "1.00", "m"),
+    ])
+    set_nutrition("Acme", protein=9.0)
+    plain = browse(milk, NONE, None, None, NOW)
+    unit = browse(milk, NONE, None, None, NOW, rank="unit")
+    assert plain == unit
+    assert titles(unit.ranked) == ["Bravo Whole Milk, 1 L", "Acme Whole Milk, 1 L"]
+    assert unit.ranked[0].cost is None and unit.rank == "unit"
+    assert unit.unranked[0].reason == "size unknown"
+
+
+def test_observed_rank_kcal(milk):
+    from tests.catalog.helpers import make_observed_offer
+
+    a = make_observed_offer(category=milk, item="o1")
+    b = make_observed_offer(category=milk, item="o2")
+    for o, price, kcal in ((a, "1.00", 50.0), (b, "1.00", 100.0)):
+        o.measures = {"volume_ml": 1000.0}
+        o.price = Decimal(price)
+        o.nutrition = offer_nutrition(o.price, Nutrition("100ml", 3.0, kcal), o.measures, None, None)
+        o.save()
+    a.product.title = "Slow"
+    a.product.save()
+    res = browse(milk, NONE, None, None, NOW, observed=True, rank="kcal")
+    assert [r.offer.pk for r in res.ranked] == [b.pk, a.pk]
+    assert res.ranked[0].cost == Decimal("1.000000")

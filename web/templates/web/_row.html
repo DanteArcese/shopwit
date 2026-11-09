@@ -6,10 +6,12 @@
   <div class="result-meta">
     {% if row.size %}<span>{{ row.size }}</span>{% endif %}
     <span class="result-price"><span class="visually-hidden">{{ row.price_label }}</span><span aria-hidden="true">{{ row.price }}</span>{% if row.unit_price %} <span class="unit-price" aria-hidden="true">{{ row.unit_price }}</span>{% endif %}</span>
+    {% if row.nutrition_cost %}<span class="nutrition-cost">{{ row.nutrition_cost }}</span>{% endif %}
     <span>{{ row.retailer }}</span>
     {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}
   </div>
   <div class="result-fine">
+    {% if row.nutrition_used %}<span class="nutrition-used">{{ row.nutrition_used }}</span> &middot;{% endif %}
     price as of <time data-localize datetime="{{ row.offer.last_seen_at|date:'c' }}">{{ row.offer.last_seen_at|date:"M j, g:i A" }} UTC</time>
     {% for label in row.unknown %}<span class="unknown">{{ label }}</span>{% endfor %}
   </div>

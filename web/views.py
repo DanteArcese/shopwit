@@ -21,6 +21,7 @@ from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
 from catalog.links import affiliate_programs
 from catalog.models import Category, ClickEvent, Offer
+from catalog.nutrition import RANKS, parse_rank
 from catalog.retailers import (
     RETAILERS,
     available_retailers,
@@ -31,6 +32,8 @@ from catalog.retailers import (
 from catalog.units import (
     DISPLAY,
     display_size,
+    display_nutrition_cost,
+    display_nutrition_used,
     display_unit_price,
     format_money,
     size_to_canonical,
@@ -159,7 +162,7 @@ def _controls(category: Category, params) -> list[dict]:
     return controls
 
 
-def _present(row, comparison: str, unit_system: str, dimension: str) -> dict:
+def _present(row, comparison: str, unit_system: str, dimension: str, rank: str = "unit") -> dict:
     offer = row.offer
     unit_text = None
     price_text = format_money(offer.price, offer.currency)
@@ -179,11 +182,19 @@ def _present(row, comparison: str, unit_system: str, dimension: str) -> dict:
         "offer": offer,
         "unknown": [f"{n.replace('_', ' ')} unknown" for n in row.unknown],
         "reason": row.reason,
+        "nutrition_cost": (
+            display_nutrition_cost(row.cost, rank, offer.currency)
+            if rank != "unit" and row.cost is not None else ""
+        ),
+        "nutrition_used": (
+            display_nutrition_used(offer.nutrition, rank)
+            if rank != "unit" and row.cost is not None else ""
+        ),
     }
 
 
-def _present_observed(row, comparison: str, unit_system: str, dimension: str) -> dict:
-    out = _present(row, comparison, unit_system, dimension)
+def _present_observed(row, comparison: str, unit_system: str, dimension: str, rank: str = "unit") -> dict:
+    out = _present(row, comparison, unit_system, dimension, rank)
     offer = row.offer
     out.update(
         store=offer.store.display if offer.store else "a store",
@@ -235,14 +246,16 @@ def category(request, slug):
     location, near = _location(prefs)
     # An explicit ?comparison= wins; else the saved default; browse() falls back to the category's.
     wanted = params.get("comparison") or prefs.comparisons.get(cat.slug)
-    result = browse(cat, spec, wanted, live_stores, when)
-    obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near)
+    # Only food categories rank by nutrition; anything else is price per unit.
+    rank = parse_rank(params.get("rank")) if cat.food else "unit"
+    result = browse(cat, spec, wanted, live_stores, when, rank=rank)
+    obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near, rank=rank)
 
     url = reverse("category", args=[cat.slug])
     available = available_retailers(when, cat)
     has_prices = category_has_prices(cat, when)
-    ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.ranked]
-    unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension) for r in result.unranked]
+    ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension, rank) for r in result.ranked]
+    unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension, rank) for r in result.unranked]
     context = {
         # The banner stays on the full page even when a filter empties the list,
         # since HTMX swaps can bring links in later.
@@ -264,6 +277,9 @@ def category(request, slug):
             for c in [cat.comparison_default, *cat.comparison_alternates]
         ],
         "comparison": result.comparison,
+        "rank": rank,
+        "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if cat.food else [],
+        "rank_label": RANKS[rank].lower(),
         "stores": _store_options(prefs, available),
         "meta_description": category_description(
             cat.name,
@@ -295,8 +311,8 @@ def category(request, slug):
         "comparison_label": DISPLAY.get((result.comparison, prefs.unit_system), ("", None))[0],
         "ranked": ranked,
         "unranked": unranked,
-        "observed_ranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension) for r in obs.ranked],
-        "observed_unranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension) for r in obs.unranked],
+        "observed_ranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension, rank) for r in obs.ranked],
+        "observed_unranked": [_present_observed(r, obs.comparison, prefs.unit_system, cat.dimension, rank) for r in obs.unranked],
         "observed_total": obs.total_products,
         "observed_ranked_total": obs.total_products - obs.unranked_total,
         "observed_unranked_total": obs.unranked_total,
