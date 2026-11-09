@@ -180,3 +180,17 @@ def test_beverages(text, category, filters):
 
 def test_baking_soda_unmatched():
     assert r("baking soda").category is None
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("3 ply facial tissue", "household/facial-tissue", {"ply": 3}),
+        ("13 gallon trash bags", "household/trash-bags", {"capacity_gal": 13}),
+    ],
+)
+def test_household_paper_and_bags(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+    assert r("paper towels").category == "household/paper-towels"

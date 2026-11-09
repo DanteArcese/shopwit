@@ -1,0 +1,10 @@
+- {title: 'Glad ForceFlex Tall Kitchen Drawstring Trash Bags, 13 Gallon, 110 Count', brand: Glad, price: '18.97', expect: {category: household/trash-bags, attributes: {capacity_gal: 13, drawstring: true, brand_tier: name_brand}, measures: {count: 110}, unit_prices: {per_count: '0.172455'}, unresolved: []}}
+- {title: 'Hefty Ultra Strong Large Trash Bags, 30 Gallon, 74 Count', expect: {category: household/trash-bags, attributes: {capacity_gal: 30, drawstring: false}, measures: {count: 74}}}
+- {title: 'Amazon Basics Tall Kitchen Drawstring Trash Bags, 13 Gallon, 120 Count (Pack of 1)', brand: Amazon Basics, expect: {category: household/trash-bags, attributes: {capacity_gal: 13, brand_tier: store_brand}, measures: {count: 120}}}
+- {title: 'Glad Small Kitchen Trash Bags, 4 Gallon, 26 Bags', expect: {category: household/trash-bags, attributes: {capacity_gal: 4}, measures: {count: 26}}}
+- {title: 'Hefty Strong Lawn & Leaf Bags, 39 Gallon, 38 Count', expect: {category: household/trash-bags, attributes: {capacity_gal: 39}, measures: {count: 38}}}
+- {title: 'simplehuman Code J Custom Fit Drawstring Trash Bags, 8-10 Gallon, 50 Count', brand: simplehuman, expect: {category: household/trash-bags, attributes: {drawstring: true}, measures: {count: 50}, unresolved: ['attribute:capacity_gal']}}
+- {title: 'Kirkland Signature Drawstring Kitchen Trash Bags, 13 Gallon, 200 Count', brand: Kirkland Signature, expect: {category: household/trash-bags, attributes: {capacity_gal: 13, brand_tier: store_brand}, measures: {count: 200}}}
+- {title: 'Glad OdorShield Tall Kitchen Drawstring Trash Bags, Febreze Fresh Clean, 13 Gallon, 80 Count', expect: {category: household/trash-bags, attributes: {capacity_gal: 13, drawstring: true}, measures: {count: 80}}}
+- {title: 'Under Sink Trash Bag Holder, Stainless Steel', expect: {category: null}}
+- {title: Trash Bag Dispenser Roll Holder for Grocery Bags, expect: {category: null}}

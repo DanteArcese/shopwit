@@ -228,6 +228,21 @@ CASES = [
     ("Mandarin Oranges in 100% fruit juice", "Dole", None),
     ("Voodoo Ranger Juice Force IPA Hazy Imperial IPA", "New Belgium", None),
     ("Sparkling Orange Flavored Espresso Tonic Beverage", "Trader Joe's", None),
+    # Household bags: tea bags, snack bags and brands with "liner" stay out.
+    ("Earl grey black tea bags", "twinings", None),
+    ("Organic Awake english breakfast tea 16 tea bags", "Tazo", None),
+    ("Nerds gummy clusters peg bag", "Nerds", None),
+    ("Sabritas Chili Lime Peanuts 7 Ounce Plastic Bag", None, None),
+    ("Asian Grill Rubbed Salmon", "Sea Cuisine, High Liner Foods (Usa) Incorporated", None),
+    # Household paper and bags: precedence and collisions (no real members in the data).
+    ("Kleenex Facial Tissues 2-Ply", "Kleenex", "household/facial-tissue"),
+    ("Bath Tissue Ultra Soft 2-Ply", "Charmin", "household/toilet-paper"),
+    ("Tissue Paper Gift Wrap White", None, None),
+    ("Facial Tissue Box Cover", None, None),
+    ("Glad Tall Kitchen Trash Bags 13 Gallon", "Glad", "household/trash-bags"),
+    ("Zip Top Storage Bags Gallon", "Ziploc", None),
+    ("Compost Bags Compostable 3 Gallon", "BioBag", None),
+    ("Dog Waste Poop Bags", None, None),
 ]
 
 

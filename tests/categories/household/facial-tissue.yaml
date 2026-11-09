@@ -1,0 +1,10 @@
+- {title: 'Kleenex Ultra Soft Facial Tissues, 3-Ply, 8 Flat Boxes, 120 Tissues per Box (960 Tissues Total)', brand: Kleenex, price: '15.99', expect: {category: household/facial-tissue, attributes: {ply: 3, lotion: false, brand_tier: name_brand}, measures: {boxes: 8, sheets: 960}, unit_prices: {sheets_x_ply: '0.555208', per_100_sheets: '1.665625'}, unresolved: []}}
+- {title: 'Puffs Plus Lotion Facial Tissues, 2-Ply, 6 Family Boxes, 124 Facial Tissues per Box', expect: {category: household/facial-tissue, attributes: {ply: 2, lotion: true}, measures: {boxes: 6, sheets: 744}}}
+- {title: 'Kleenex Trusted Care Facial Tissues, 2-Ply, 144 Tissues', expect: {category: household/facial-tissue, attributes: {ply: 2}, measures: {sheets: 144}}}
+- {title: 'Great Value Facial Tissues, 2-Ply, 4 Cube Boxes, 70 Tissues', brand: Great Value, expect: {category: household/facial-tissue, attributes: {ply: 2, brand_tier: store_brand}, measures: {boxes: 4, sheets: 280}}}
+- {title: 'Kleenex Facial Tissue, 160 Tissues per Box, Pack of 3', brand: Kleenex, price: '9.99', expect: {category: household/facial-tissue, measures: {boxes: 3, sheets: 480}, unit_prices_exact: true, unit_prices: {per_100_sheets: '2.081250'}, unresolved: ['attribute:ply', 'unit_price:sheets_x_ply']}}
+- {title: 'Kleenex Expressions Facial Tissues, 2-Ply, 18 Flat Boxes, 144 Tissues per Box (2,592 Total Tissues)', expect: {category: household/facial-tissue, attributes: {ply: 2}, measures: {boxes: 18, sheets: 2592}}}
+- {title: 'Puffs Basic Facial Tissues, 3 Pack, 128 Count', brand: Puffs, expect: {category: household/facial-tissue, measures: {}, unresolved: ['attribute:ply', quantity, 'unit_price:sheets_x_ply']}}
+- {title: 'Scotties Facial Tissue, 2-Ply, 10 Boxes, 1,200 Count', brand: Scotties, expect: {category: household/facial-tissue, attributes: {ply: 2}, measures: {}, unresolved: [quantity, 'unit_price:sheets_x_ply']}}
+- {title: 'Facial Tissue Box Cover, Rectangular, Wood', expect: {category: null}}
+- {title: 'Wall Mount Facial Tissue Holder, Brushed Nickel', expect: {category: null}}
