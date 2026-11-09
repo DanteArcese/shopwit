@@ -1,3 +1,4 @@
+# Plant-based yogurts titled "<x> Yogurt" are members; a title that says "Alternative" is not.
 name: Yogurt
 dimension: mass
 match:

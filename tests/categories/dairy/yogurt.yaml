@@ -22,3 +22,6 @@
 - {title: 'Fruit ''n Yogurt Snacks', expect: {category: null}}
 - {title: 'Organic Unsweetened Plain Cashew & Coconut Yogurt Alternative', expect: {category: null}}
 - {title: 'Yogurt Smoothie Melts', expect: {category: null}}
+- {title: 'Probiotic Cashewmilk Yogurt', expect: {category: dairy/yogurt}}
+- {title: 'Greek style Coconut & Cashew Yogurt', expect: {category: dairy/yogurt, attributes: {greek: true}}}
+- {title: 'Protien plant based Peach Yogurt', expect: {category: dairy/yogurt}}

@@ -24,3 +24,10 @@
 - {title: 'Original Spreadable Cheese Wedges', expect: {category: null}}
 - {title: 'Creamy Cheddar', brand: Prego, expect: {category: null}}
 - {title: 'Blue Cheese Dressing & Dip', expect: {category: null}}
+- {title: 'Mexican Blend', brand: Morton & Bassett Spices, expect: {category: null}}
+- {title: 'SMOKED PROVOLONE SLICES', brand: Violife, expect: {category: null}}
+- {title: 'Low Moisture Part Skim Mozzarella Cheese', brand: Frigo Cheese Heads, expect: {category: null}}
+- {title: 'White Cheddar Variety Semisoft Cheese', brand: Babybel, expect: {category: null}}
+- {title: 'Pepper Jack Cheese', brand: The Laughing Cow, expect: {category: null}}
+- {title: 'Light Laughing Cow Cheese Wedges', expect: {category: null}}
+- {title: 'Pepper Jack Cheese', brand: Cabot Creamery, expect: {category: dairy/cheese, attributes: {variety: pepper_jack}}}

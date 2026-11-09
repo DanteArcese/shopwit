@@ -9,6 +9,8 @@
 - {title: 'Pillsbury Quick Bread & Muffin Mix, Banana, 14 oz', expect: {category: null}}
 - {title: 'Cole''s Garlic Bread, Frozen, 10 oz', expect: {category: null}}
 - {title: 'Simply Sourdough Bread', brand: Base Culture, expect: {category: pantry/bread, attributes: {grain: sourdough}}}
-- {title: 'Organic Multigrain Sprouted Wheat Bread', brand: Silver Hills Sprouted Bakery, expect: {category: pantry/bread, attributes: {organic: true}}}
+- {title: 'Organic Multigrain Sprouted Wheat Bread', brand: Silver Hills Sprouted Bakery, expect: {category: pantry/bread, attributes: {organic: true}, unresolved: ['attribute:grain:ambiguous', quantity, 'unit_price:per_mass']}}
 - {title: 'Organic Mini Bagels Plain Awesome', brand: Dave's Killer Bread, expect: {category: null}}
 - {title: 'Brazilian Cheese Bread Cheddar & Parmesan', brand: Brazi Bites, expect: {category: null}}
+- {title: 'Multigrain Wheat Sandwich Bread, 20 oz', expect: {category: pantry/bread, attributes: {organic: false}, unresolved: ['attribute:grain:ambiguous', 'attribute:brand_tier']}}
+- {title: 'Nature''s Own Multigrain Bread, 20 oz', expect: {category: pantry/bread, attributes: {grain: multigrain}}}

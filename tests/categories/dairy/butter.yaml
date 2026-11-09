@@ -22,3 +22,8 @@
 - {title: 'Raw Tahini Sesame Seed Butter', expect: {category: null}}
 - {title: 'Ghee Clarified Butter', expect: {category: null}}
 - {title: 'Kinders', brand: 'Caramelized Onion Butter', expect: {category: null}}
+- {title: 'Fresh cream, butter, fresh garlic & parmigiano-reggiano cheese', expect: {category: null}}
+- {title: 'Sweet Cream Butter', expect: {category: dairy/butter}}
+- {title: 'Sea Salted Extra Creamy Butter', brand: Tillamook, expect: {category: dairy/butter, attributes: {salted: salted}}}
+- {title: 'Blueberry Cashew Butter Bar', brand: Rxbar, expect: {category: null}}
+- {title: 'Brown butter with nibs sea salt dark chcoolate bar', expect: {category: null}}
