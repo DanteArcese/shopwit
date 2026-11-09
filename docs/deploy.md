@@ -15,7 +15,7 @@ Both live in `/srv/unitpricer`, mode `600`, owner `deploy`. Never commit them.
 - `.env` (compose interpolation): `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all optional until R2 is enabled), `BACKUP_HEARTBEAT_URL` (optional), `UNITPRICER_IMAGE_TAG` (written by `deploy.sh`).
 - `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL` and `UNITPRICER_SITE_URL` (both `https://unitpricer.com` in production; check E023), `UNITPRICER_COMING_SOON` (set explicitly, for example `Walmart (December)`), `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`. `web` and `worker` share this one file (both use `env_file: app.env`), so a change applies to both; restart both after editing it (`docker compose up -d web worker`).
 - Open search (optional, in `app.env`): `UNITPRICER_LIVE_OFF=1` turns on the Open Food Facts → Open Prices live source (default off). `UNITPRICER_FETCH_THREADS` (1 or 2, default 1) sets the worker's fetch threads, and `UNITPRICER_WARM_HOURS` (default 12) the warm-refresh interval.
-- Source budgets (optional, in `app.env`): `UNITPRICER_BUDGET_<OFF_SEARCH|OPENPRICES|WALMART>_{CAPACITY,REFILL_PER_SECOND,DAILY_LIMIT}`. They seed a budget row only when it is first created; later changes go in the admin. `_DAILY_LIMIT` unset or blank keeps the default cap (Walmart 5000 per day, the others none), a number sets the cap, and `unlimited` (any case) removes it. Any other value stops startup with a configuration error. `_CAPACITY` must be at least 1. Open Prices defaults to capacity 1 at 1 per second (no burst), the pace the daily sync has always kept; a 429, 503 or transport error from it blocks the shared row with backoff.
+- Source budgets (optional, in `app.env`): `UNITPRICER_BUDGET_<OFF_SEARCH|OPENPRICES|WALMART|OFF_PRODUCT>_{CAPACITY,REFILL_PER_SECOND,DAILY_LIMIT}`. They seed a budget row only when it is first created; later changes go in the admin. `_DAILY_LIMIT` unset or blank keeps the default cap (Walmart 5000 per day, OFF product lookups 300 per day, the others none), a number sets the cap, and `unlimited` (any case) removes it. Any other value stops startup with a configuration error. `_CAPACITY` must be at least 1. Open Prices defaults to capacity 1 at 1 per second (no burst), the pace the daily sync has always kept; a 429, 503 or transport error from it blocks the shared row with backoff.
 
 ## First-deploy bootstrap
 
@@ -89,6 +89,19 @@ docker compose run --rm -T web python manage.py open_prices_sync </dev/null
 ```
 
 Confirm the `ingest connector=openprices category=all status=succeeded` log line shows `fetched` of about 10,500 (about 5,000 with assisted entries off), and that `/c/dairy/milk/` on the beta host shows "Seen in stores". The ODbL export for a data request: `docker compose run --rm -T web python manage.py export_open_prices --out /tmp/open-prices.jsonl.gz </dev/null` (write to a mounted path to keep the file). The public site has no dump link yet; that waits for the public launch.
+
+#### Sizes from Open Food Facts
+
+Many Open Prices entries carry no size, so their offers have no unit price. After each successful Open Prices sync the worker looks up observed offers' barcodes in the Open Food Facts product API: barcodes with no cached entry first (curated categories before generic offers, newest first), then entries without a quantity that were last checked more than 30 days ago. Each answer (a 404 too) is cached as an `OffEntry`, and the offers on that barcode are normalized again, so size, labels and categories come from OFF. Requests draw from the `off-product` budget: 1 per second, at most 300 a day (`UNITPRICER_BUDGET_OFF_PRODUCT_*`, or the admin). A 429, 5xx or transport error stores nothing, backs the budget off and is retried on a later run (not in the same run); a 404 or another non-retryable answer (400, 403, unreadable) is recorded like "not found" and asked again only after 30 days. A cached entry fills only the fields it has; labels, size and categories it lacks still come from Open Prices. Look for `ingest connector=off-product category=all status=succeeded` in the worker log.
+
+To run it once by hand (for example right after enabling Open Prices, or with the flag off):
+
+```bash
+docker compose run --rm -T web python manage.py off_observed_sizes </dev/null
+docker compose run --rm -T web python manage.py off_observed_sizes --limit 50 </dev/null   # fewer barcodes
+```
+
+It prints `status=succeeded requests=… stored=… not_found=… rejected=… failed=… renormalized=… matched=…`. A manual run counts toward the day's 300; once the cap is reached it stops with `note=budget exhausted` and the rest waits for the next day. Offers whose barcode OFF has no size for stay unresolved; nothing is guessed.
 
 ### Purge sample data
 

@@ -1,0 +1,17 @@
+{
+ "status": 200,
+ "json": {
+  "code": "0093966010015",
+  "product": {
+   "categories_tags": [
+    "en:dairies",
+    "en:milks-liquid-and-powder",
+    "en:milks"
+   ],
+   "code": "0093966010015",
+   "last_modified_t": 1769260729
+  },
+  "status": 1,
+  "status_verbose": "product found"
+ }
+}

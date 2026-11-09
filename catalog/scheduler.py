@@ -20,7 +20,7 @@ from connectors.base import Connector
 
 from connectors.open_prices import OpenPricesClient
 
-from . import observed
+from . import observed, observed_off
 from .budget import DbBudget, seed_budgets
 from .demand import prune_demand, warm_due, warm_round
 from .fetch import fetch_loop, housekeeping
@@ -123,7 +123,15 @@ def tick(
             logger.error("open prices due check failed: %s", type(exc).__name__)
             open_prices_due = False
         if open_prices_due:
-            runs.extend(_open_prices(now, budget))
+            synced = _open_prices(now, budget)
+            runs.extend(synced)
+            # Then OFF sizes for the observed barcodes; it needs the shared budget.
+            if (
+                budget is not None
+                and not budget.stopping
+                and synced[-1].status == IngestionRun.Status.SUCCEEDED
+            ):
+                runs.append(_off_sizes(now, budget))
     fetch_housekeeping(now)
     demand_housekeeping(now)
     clear_expired_sessions(now)
@@ -264,6 +272,16 @@ def _open_prices(now: datetime, budget: DbBudget | None = None) -> list[Ingestio
                 logger.warning("closing Open Prices client failed: %s", type(exc).__name__)
     log_run(run)
     return [run]
+
+
+def _off_sizes(now: datetime, budget: DbBudget) -> IngestionRun:
+    try:
+        run, _ = observed_off.backfill_sizes(now, budget, stopping=lambda: budget.stopping)
+    except Exception as exc:  # backfill_sizes never raises; this guards the unexpected
+        logger.error("ingest connector=%s failed: %s", observed_off.CONNECTOR, type(exc).__name__)
+        return _fail_run(observed_off.CONNECTOR, "all", now, exc)
+    log_run(run)
+    return run
 
 
 def run_loop(

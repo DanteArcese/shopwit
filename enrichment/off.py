@@ -207,30 +207,46 @@ def _retry_delay(response: httpx.Response | None, attempt: int) -> float:
     return max(BACKOFF_SECONDS * 2**attempt, MIN_INTERVAL_SECONDS)
 
 
+def product_url(source: Source, upc: str) -> str:
+    return f"{API_HOSTS[source]}/api/v2/product/{upc}"
+
+
+def retryable(response: httpx.Response | None) -> bool:
+    """A transport error, a 429 or a 5xx: worth asking again later."""
+    return response is None or response.status_code >= 500 or response.status_code == 429
+
+
+def read_product(
+    response: httpx.Response, source: Source, upc: str
+) -> OffRecord | None | Literal["missing"]:
+    """A non-retryable product response: a record, "missing" (404 or status 0), or None."""
+    if response.status_code == 404:
+        return "missing"
+    if response.status_code != 200:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    if not isinstance(body, dict) or body.get("status") == 0 or "product" not in body:
+        return "missing"
+    product = dict(body["product"]) if isinstance(body["product"], dict) else {}
+    product["code"] = upc
+    return _record_from_dict(product, source) or None
+
+
 def _fetch(
     client: httpx.Client, source: Source, upc: str, sleep: Callable[[float], None]
 ) -> OffRecord | None | Literal["missing"]:
     """Return a record, "missing" for a 404, or None if the lookup failed (nothing is recorded)."""
-    url = f"{API_HOSTS[source]}/api/v2/product/{upc}"
+    url = product_url(source, upc)
     for attempt in range(MAX_RETRIES + 1):
         try:
             response = client.get(url, params={"fields": FIELDS})
         except httpx.TransportError:
             response = None
-        if response is not None and response.status_code < 500 and response.status_code != 429:
-            if response.status_code == 404:
-                return "missing"
-            if response.status_code != 200:
-                return None
-            try:
-                body = response.json()
-            except ValueError:
-                return None
-            if not isinstance(body, dict) or body.get("status") == 0 or "product" not in body:
-                return "missing"
-            product = dict(body["product"]) if isinstance(body["product"], dict) else {}
-            product["code"] = upc
-            return _record_from_dict(product, source) or None
+        if not retryable(response):
+            return read_product(response, source, upc)
         if attempt < MAX_RETRIES:
             sleep(_retry_delay(response, attempt))
     return None

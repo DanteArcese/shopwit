@@ -85,3 +85,14 @@
   expect:
     category: dairy/milk
     measures: {volume_ml: 3785.41}
+- title: "HIGH PROTEIN SHAKE"
+  brand: MUSCLE MILK
+  expect:
+    category: null
+- title: "Organic Whole Milk Honey Yogurt"
+  expect:
+    category: null
+- title: "Draft Latte Caramel Cold Brew with Milk"
+  brand: La Colombe
+  expect:
+    category: null

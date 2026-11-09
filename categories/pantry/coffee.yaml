@@ -2,7 +2,22 @@ name: Coffee
 dimension: mass
 match:
   include: ["coffee"]
-  exclude: [k-cup, k cup, pods, instant, creamer, cold brew, coffee filter, coffee maker, k-cups, k cups, pod, capsules, capsule, pancake mix, cupcake, cake]
+  exclude: [k-cup, k cup, pods, instant, creamer, cold brew, coffee filter, coffee maker, k-cups, k cups, pod, capsules, capsule, pancake mix, cupcake, cake,
+    # Ready-to-drink coffee and energy drinks (#88).
+    cold pressed, cold-pressed, chilled, drink, beverage, latte, macchiato, frappuccino,
+    doubleshot, double shot, energy drink, energy coffee, coffee + energy, sport coffee, with cream, milk,
+    # Instant and single-serve forms (like instant and pods above).
+    soluble, stick, singles, teabags, nescafé, nescafe,
+    # Functional mixes: protein, creatine and mushroom coffees.
+    protein, creatine, mushroom, mushrooms, coffee+, mud wtr, mud water, four sigmatic,
+    everyday dose, every day dose,
+    # Creamers and syrups.
+    coffee mate, coffee-mate, enhancer, syrup,
+    # Desserts, candy and other foods flavored with coffee.
+    ice cream, gelato, frozen yogurt, affogato, almond toffee, coffee & toffee, candy, candies,
+    taza chocolate, sauce,
+    # Coffee substitutes.
+    chicory, herbal, coffee alt, teeccino]
 attributes:
   form:
     type: enum

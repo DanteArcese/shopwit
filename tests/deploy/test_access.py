@@ -173,6 +173,7 @@ def test_healthz_last_ingestion_ignores_open_prices(client):
 
     live = IngestionRun.objects.create(connector="walmart", category_slug="x", started_at=time_now())
     IngestionRun.objects.create(connector="openprices", category_slug="all", started_at=time_now())
+    IngestionRun.objects.create(connector="off-product", category_slug="all", started_at=time_now())
     body = get(client, path="/healthz").json()
     assert body["last_ingestion"] == live.created_at.isoformat()
 

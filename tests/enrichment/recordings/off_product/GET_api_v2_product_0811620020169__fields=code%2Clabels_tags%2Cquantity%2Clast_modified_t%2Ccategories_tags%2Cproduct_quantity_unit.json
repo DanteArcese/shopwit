@@ -1,0 +1,30 @@
+{
+ "status": 200,
+ "json": {
+  "code": "0811620020169",
+  "product": {
+   "categories_tags": [
+    "en:beverages-and-beverages-preparations",
+    "en:beverages",
+    "en:dairies",
+    "en:milks-liquid-and-powder",
+    "en:dairy-drinks",
+    "en:milks",
+    "en:whole-milks"
+   ],
+   "code": "0811620020169",
+   "labels_tags": [
+    "en:low-or-no-sugar",
+    "en:low-sugar",
+    "en:reduced-sugar",
+    "en:50-less-sugar",
+    "en:no-lactose"
+   ],
+   "last_modified_t": 1786982438,
+   "product_quantity_unit": "ml",
+   "quantity": "52 fl oz"
+  },
+  "status": 1,
+  "status_verbose": "product found"
+ }
+}
