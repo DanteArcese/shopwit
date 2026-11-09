@@ -6,7 +6,7 @@
 <p>UnitPricer is a free, open-source price comparison site run by Dante Arcese. This page says what it stores about you, who handles it and how to have it deleted. There are no analytics, no ads and no tracking pixels.</p>
 <h2>What we collect</h2>
 <ul>
-  <li>Browsing (home, categories, search, product pages): nothing is stored about you and no cookies are set. Search terms are used to find products; phrases we do not yet cover may be counted anonymously (the phrase and a tally, with no link to you).</li>
+  <li>Browsing (home, categories, search, product pages): nothing is stored about you and no cookies are set. Search terms are used to find products; phrases we do not yet cover may be counted anonymously (the phrase and a tally, with no link to you), and each phrase is deleted 30 days after it was last searched for.</li>
   <li>Store announcements ("Notify me about new stores"): your email address and the times you signed up, confirmed and were last sent an email. Nothing else; there is one list.</li>
   <li>Saved settings: the units, stores, ZIP code and distance you choose in Settings. They are stored on our server in your session record (linked to your browser by a session cookie, expiring 60 days after you last save your settings or lists) or, if you have an account, with your account. The ZIP code is used only to show in-store prices from nearby stores and is never logged. Clear it in Settings to remove it.</li>
   <li>Accounts and lists, described below.</li>
@@ -34,8 +34,8 @@
   <li>Resend: delivery of confirmation, sign-in and announcement emails.</li>
   <li>Cloudflare R2: off-site copies of database backups.</li>
   <li>GitHub: public issues for approved feedback (never your email address).</li>
-  <li>Sentry: error reports, only if switched on. Each report has the error type and message, the code lines where it happened (no variable values), the page address without anything after a <code>?</code>, your browser type, the time, and the software versions the site runs on. It never has cookies, form data, search words, your IP address, any sign-in or signup link token, or any email address (those are replaced before sending).</li>
-  <li>Backups: nightly dumps kept on our server (newest 7), DigitalOcean's daily server backups (kept 7 days) and off-site R2 copies (kept 30 days, once enabled).</li>
+  <li>Sentry: error reports, only if switched on. Each report has the error type and message, the code lines where it happened (no variable values), breadcrumbs (the most recent server log lines and database query templates before the error, scrubbed the same way), the page address without anything after a <code>?</code>, your browser type, the time, and the software versions the site runs on. It never has cookies, form data, search words, your IP address, any sign-in or signup link token, any email address or ZIP code (those are replaced before sending).</li>
+  <li>Backups: nightly dumps kept on our server (newest 7), DigitalOcean's daily server backups (kept 7 days) and off-site copies in Cloudflare R2 (kept 30 days).</li>
 </ul>
 <p>We do not sell your data or share it with anyone else. If you follow a link to a store, that store's own privacy policy applies from there.</p>
 <h2>Cookies</h2>
@@ -53,10 +53,11 @@
   <li>Confirmed signups are kept until you unsubscribe.</li>
   <li>Feedback reply emails: deleted when the item is closed or rejected, or after 90 days. The rest of a feedback item is kept until we delete it.</li>
   <li>Accounts, with their lists and settings, are kept until you delete them. Session records expire 60 days after last use.</li>
+  <li>Search phrases we do not yet cover: deleted 30 days after last seen.</li>
   <li>Backups age out as described above.</li>
 </ul>
 <h2>Your choices</h2>
 <p>Use the unsubscribe link in any email we send, which deletes your address. Delete your account from the Account page. Clear your ZIP code in Settings. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> to see or delete your data. Questions to <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> or the maintainer at <a href="mailto:dante@unitpricer.com">dante@unitpricer.com</a>.</p>
 <h2>Changes</h2>
-<p>Last updated: 2026-11-08</p>
+<p>Last updated: 2026-11-09</p>
 {% endblock %}

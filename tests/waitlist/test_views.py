@@ -275,7 +275,7 @@ def test_privacy_on_both_hosts(client, host):
     assert r.status_code == 200
     html = r.content.decode()
     assert "hello@unitpricer.com" in html and "Resend" in html
-    assert "Last updated: 2026-11-08" in html
+    assert "Last updated: 2026-11-09" in html
     for heading in (
         "What we collect",
         "Why",
@@ -294,6 +294,15 @@ def test_privacy_on_both_hosts(client, host):
     for needle in ("__Host-sessionid", "__Host-csrftoken", "ZIP code", "dante@unitpricer.com", "no IP addresses"):
         assert needle in html
     assert "Beta app" not in html and "the beta" not in html.lower().replace("staging", "")
+
+
+def test_privacy_states_backups_demand_and_breadcrumbs(client):
+    html = client.get("/privacy", HTTP_HOST=PUBLIC).content.decode()
+    assert "once enabled" not in html
+    assert "Cloudflare R2 (kept 30 days)" in html
+    assert "deleted 30 days after it was last searched for" in html
+    assert "breadcrumbs" in html and "query templates" in html
+    assert "ZIP code (those are replaced before sending)" in html
 
 
 def test_send_failure_shows_busy_page_and_removes_row(client, monkeypatch, caplog):
