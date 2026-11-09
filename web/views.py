@@ -107,6 +107,11 @@ def safe_next(request, value: str | None) -> str:
     return "/"
 
 
+def _has_safe_next(request, value: str | None) -> bool:
+    """True when value was given and is a usable same-site path (not the "/" fallback)."""
+    return bool(value) and (safe_next(request, value) == value)
+
+
 def _store_options(prefs: Prefs, available: list[str]) -> list[dict]:
     """Available stores, plus saved ones that currently have no fresh offers."""
     chains = chain_names([*available, *(prefs.stores or ())])
@@ -459,7 +464,11 @@ def settings_page(request):
         save_prefs(request, prefs)
         next_url = safe_next(request, request.POST.get("next"))
         if postal_error is None:
-            return HttpResponseRedirect(next_url)
+            # POST/redirect/GET back to Settings, keeping a safe next for the back link.
+            params = {"saved": "1"}
+            if _has_safe_next(request, request.POST.get("next")):
+                params["next"] = next_url
+            return HttpResponseRedirect(f"{reverse('settings')}?{urlencode(params)}")
     # The form always shows what is saved (never a rejected postal code).
     location, _near = _location(prefs)
     return render(
@@ -467,6 +476,13 @@ def settings_page(request):
         "web/settings.html",
         {
             "next": next_url,
+            "saved": request.method == "GET" and request.GET.get("saved") == "1",
+            "back_url": (
+                next_url
+                if _has_safe_next(request, request.GET.get("next") if request.method == "GET" else request.POST.get("next"))
+                and next_url.split("?")[0].split("#")[0].rstrip("/") != reverse("settings")
+                else None
+            ),
             "stores": _store_options(prefs, codes),
             "location": location,
             "postal_value": prefs.postal_code or "",
