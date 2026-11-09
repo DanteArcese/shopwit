@@ -674,3 +674,41 @@ def test_cached_row_newer_is_checked_and_its_offers_refreshed():
     assert OffEntry.objects.get(pk=NO_SIZE).nutrition_checked_at is not None
     live.refresh_from_db()
     assert live.nutrition["protein_cost"] == "3.000000"  # the newer cached values: 100 g protein in a 1,000 g pack at $3.00
+
+
+# --- final fixes ---
+
+
+def test_cached_row_newer_without_nutrition_takes_the_fetched_nutrients():
+    # a row cached before #95 deployed: newer than the API record, nutrition never stored
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+    )
+    live = _walmart_offer(NO_SIZE)
+    backfill_sizes(NOW, FakeBudget(), client=recorded())
+    entry = OffEntry.objects.get(pk=NO_SIZE)
+    assert entry.nutrition_checked_at is not None
+    assert (entry.nutrition_per, entry.protein_100g) == ("100g", 3.4)
+    assert entry.last_modified == NOW and entry.quantity == "1 L"  # the newer row's own fields stay
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] is not None
+
+
+def test_backfill_with_tiny_values_and_bad_packs_does_not_fail():
+    OffEntry.objects.create(  # newer than the recording, so its own tiny values are kept
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+        nutrition_per="100g", protein_100g=1e-30, kcal_100g=1e-30,
+    )
+    tiny = _walmart_offer(NO_SIZE)
+    nan_pack = Offer.objects.create(
+        product=tiny.product, retailer="walmart", retailer_item_id="w2", price=tiny.price,
+        currency="USD", url="https://example.com/y", title="Whole milk", last_seen_at=NOW,
+        kind=Offer.Kind.LIVE, measure_dim="mass", measure_amount=float("nan"),
+    )
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert run.status == "succeeded"
+    tiny.refresh_from_db()
+    nan_pack.refresh_from_db()
+    assert tiny.nutrition["protein_reason"] == "nutrition values look wrong"
+    assert nan_pack.nutrition["protein_reason"] == "pack size unknown"
+    assert observed_off.refresh_nutrition([NO_SIZE]) == 0

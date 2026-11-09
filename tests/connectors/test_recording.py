@@ -85,5 +85,5 @@ def test_long_recording_names_are_shortened_deterministically():
     url = "https://h.test/a?q=" + "x" * 300
     first = recording_name(httpx.Request("GET", url))
     assert first == recording_name(httpx.Request("GET", url))
-    assert len(first) <= 255 and first.endswith(".json") and "~" in first
+    assert len(first) == 255 and first.endswith(".json") and first[-46] == "~"
     assert first != recording_name(httpx.Request("GET", url + "y"))

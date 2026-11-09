@@ -36,7 +36,7 @@ from catalog.generic import (
     parse_generic_filters,
 )
 from catalog.models import FetchJob
-from catalog.nutrition import RANKS, parse_rank
+from catalog.nutrition import RANKS, has_cost, parse_rank
 from catalog.units import GENERIC_COMPARISON, display_generic_size
 from connectors.registry import live_source_info
 from normalize import load_store_brands
@@ -232,6 +232,17 @@ def _query_string(get, *, drop: tuple[str, ...] = (), add: tuple[tuple[str, str]
     return urlencode([*pairs, *add])
 
 
+def _with_rank(get, rank: str):
+    """A copy of the query with ``rank`` replaced by the validated rank in use (dropped for unit),
+    in its original place, so no raw ``rank`` value is ever echoed into a link."""
+    out = get.copy()
+    if rank == "unit":
+        out.pop("rank", None)
+    else:
+        out.setlist("rank", [rank])
+    return out
+
+
 def _settings_next(q: str, get) -> str:
     """The search to come back to from Settings: q and facet values only (never poll/seen)."""
     keep = {p for ps in FACET_PARAMS.values() for p in ps}
@@ -369,7 +380,7 @@ def _groups(
                 "rows": presented,
                 "ranked_rows": presented[:split],
                 "unranked_rows": presented[split:],
-                "rank_label": RANKS[rank].lower(),
+                "unranked_total": total - ranked_count,
             }
         )
     return groups
@@ -393,9 +404,14 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
 
     store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
     allowlist = load_label_allowlist(settings.LABELS_FILE)
-    rank = parse_rank(request.GET.get("rank"))
+    matched = [*live.offers, *seen_offers]  # in range, before any facet filter
+    # Nutrition ranking is offered only when a matched offer has a protein or kcal cost;
+    # otherwise ``rank`` is ignored, so a household search never ranks by nutrition.
+    can_rank = any(has_cost(o) for o in matched)
+    rank = parse_rank(request.GET.get("rank")) if can_rank else "unit"
+    get = _with_rank(request.GET, rank)  # URLs built from here carry only the rank in use
     filters = parse_generic_filters(request.GET, prefs.unit_system, allowlist)
-    facet_list = facets([*live.offers, *seen_offers], filters, store_brands, allowlist, prefs.unit_system)
+    facet_list = facets(matched, filters, store_brands, allowlist, prefs.unit_system)
     live_offers = apply_filters(live.offers, filters, store_brands)
     seen_offers = apply_filters(seen_offers, filters, store_brands)
 
@@ -403,7 +419,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
     seen_result = group_products(seen_offers, rank)
     unfiltered_hits = bool(live.offers or seen.offers or hidden_far or hidden_unplaced)
     no_results = not live_offers and not seen_offers and not hidden_far and not hidden_unplaced
-    keep = _query_string(request.GET)
+    keep = _query_string(get)
     held_total = len({o.product_id for o in [*live_offers, *seen_offers]})
 
     htmx = request.headers.get("HX-Request") == "true"
@@ -413,7 +429,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
 
     live_groups = _groups(
         live_result, section="live", observed=False, unit_system=prefs.unit_system, names=names,
-        expand=show if show_section == "live" else None, q=q, get=request.GET, rank=rank,
+        expand=show if show_section == "live" else None, q=q, get=get, rank=rank,
     )
     seen_groups = _groups(
         seen_result, section="observed", observed=True, unit_system=prefs.unit_system, names=names,
@@ -491,26 +507,22 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
         "empty": no_results and not unfiltered_hits,
         "filtered_empty": no_results and unfiltered_hits and filters.active,
         "facets": [
-            _present_facet(x, q=q, get=request.GET, f=filters, unit_system=prefs.unit_system)
+            _present_facet(x, q=q, get=get, f=filters, unit_system=prefs.unit_system)
             for x in facet_list
         ],
         "filters_active": filters.active,
         "path_param": filters.path or "",
         "clear_all_url": _facet_url(
-            q, request.GET, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)
+            q, get, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)
         ),
         "rank": rank,
-        "ranks": (
-            [{"value": v, "label": label} for v, label in RANKS.items()]
-            if rank != "unit" or any(o.nutrition for o in [*live.offers, *seen_offers])
-            else []
-        ),
+        "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if can_rank else [],
         "keep_qs": f"&{keep}" if keep else "",
         "live_empty": not live_groups and seen_result.total_products > 0,
         "status_text": status_text(held_total, fuzzy=fuzzy, capped=capped, q=q, live=live_text),
         # The same notes, visible: the status line above is a screen-reader live region only.
         "search_notes": [*([note] if note else []), *parts],
-        "settings_next": _settings_next(q, request.GET),
+        "settings_next": _settings_next(q, get),
     }
     if poll is not None:
         template = "web/_generic_poll.html"

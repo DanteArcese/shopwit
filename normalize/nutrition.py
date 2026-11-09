@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
+import math
 from collections.abc import Mapping
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 
 from normalize.types import Nutrition
 
@@ -27,15 +28,24 @@ _Q = Decimal("0.000001")
 def pack_of(
     measures: Mapping[str, float], measure_dim: str | None, measure_amount: float | None
 ) -> tuple[float | None, float | None]:
-    """(mass_g, volume_ml) of the pack. Curated measures first, then the generic mass/volume."""
+    """(mass_g, volume_ml) of the pack. Curated measures first, then the generic mass/volume.
+
+    A zero, negative or non-finite amount is no pack at all."""
     mass = measures.get("mass_g")
     volume = measures.get("volume_ml")
-    if mass is None and volume is None and measure_amount:
+    if mass is None and volume is None and measure_amount is not None:
         if measure_dim == "mass":
             mass = measure_amount
         elif measure_dim == "volume":
             volume = measure_amount
-    return (mass or None, volume or None)
+    return (_positive(mass), _positive(volume))
+
+
+def _positive(value) -> float | None:
+    try:
+        return value if value is not None and math.isfinite(value) and value > 0 else None
+    except TypeError:
+        return None
 
 
 def _result(n: Nutrition, pack, unit, protein_cost, kcal_cost, protein_reason, kcal_reason):
@@ -68,6 +78,8 @@ def offer_nutrition(
     if nutrition is None:
         return {}
     n = nutrition
+    if n.basis is None and n.protein is None and n.kcal is None:
+        return {}  # checked, but OFF has nothing (404, Open Products Facts, no nutriments)
     mass, volume = pack_of(measures, measure_dim, measure_amount)
 
     def unranked(reason: str, pack=None, unit=None) -> dict:
@@ -99,6 +111,9 @@ def offer_nutrition(
         c = price * scale / (Decimal(str(value)) * Decimal(str(pack)))
         return str(c.quantize(_Q)), None
 
-    p_cost, p_reason = cost(n.protein, 10000, "protein_missing", "zero_protein")
-    k_cost, k_reason = cost(n.kcal, 100000, "kcal_missing", "zero_kcal")
+    try:
+        p_cost, p_reason = cost(n.protein, 10000, "protein_missing", "zero_protein")
+        k_cost, k_reason = cost(n.kcal, 100000, "kcal_missing", "zero_kcal")
+    except InvalidOperation:  # a value so small the cost has too many digits to store
+        return unranked("implausible")
     return _result(n, pack, unit, p_cost, k_cost, p_reason, k_reason)

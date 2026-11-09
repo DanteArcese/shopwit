@@ -56,8 +56,28 @@ def test_rank_orders_rows_and_keeps_unranked(client, ranked_milk):
 
 
 def test_none_ranked_message_uses_rank_label(client, milk_rows):
-    html = client.get("/c/dairy/milk/?rank=kcal").content.decode()
+    nutrify("Acme", protein=8.0, kcal=100.0)  # the only cost, filtered out below
+    html = client.get("/c/dairy/milk/?rank=kcal&fat=whole").content.decode()
+    assert "Acme Organic" not in html
     assert "None of these can be ranked by calories per $" in html
+    assert re.search(r'<option[^>]*value="kcal"[^>]*selected', html)  # the select stays
+
+
+def test_food_category_without_costs_has_no_rank_select(client, milk_rows):
+    nutrify("Bravo", basis="serving")  # OFF data, but nothing to rank by
+    html = client.get("/c/dairy/milk/").content.decode()
+    assert "Rank by" not in html and 'name="rank"' not in html
+    ranked = client.get("/c/dairy/milk/?rank=protein").content.decode()
+    assert "Rank by" not in ranked and 'name="rank"' not in ranked
+    assert "None of these can be ranked by" not in ranked and "Nutrition: " not in ranked
+    assert ranked.index("Bravo Whole") < ranked.index("Cargo Milk") < ranked.index("Acme Organic")
+
+
+def test_rank_select_ignores_the_page_filters(client, milk_rows):
+    nutrify("Acme", protein=8.0)
+    html = client.get("/c/dairy/milk/?fat=whole&brand_tier=store_brand").content.decode()
+    assert "Acme Organic" not in html
+    assert "Rank by" in html and 'name="rank"' in html
 
 
 def test_non_food_category_ignores_rank(client, load, db):
@@ -88,7 +108,9 @@ def test_odd_rank_values(client, ranked_milk, qs):
     if qs.startswith("rank=PROTEIN") or "script" in qs:
         assert html.index("Bravo Whole") < html.index("Cargo Milk") < html.index("Acme Organic")
         assert "Nutrition: " not in html
-    else:  # a repeated param ranks by whichever value QueryDict.get returns
+    else:  # a repeated param: QueryDict.get returns the last value, so kcal wins
+        assert "per 1,000 kcal" in html and "per 100 g protein" not in html
+        assert re.search(r'<option[^>]*value="kcal"[^>]*selected', html)
         assert "Nutrition: " in html
 
 
@@ -98,7 +120,10 @@ def test_rank_row_shows_cost_nutrition_and_attribution(client, ranked_milk):
     assert "8 g protein per 100 ml · 1 L pack" in html
     assert html.count(ATTRIBUTION) == 1
     kcal = client.get("/c/dairy/milk/?rank=kcal").content.decode()
-    assert "$1.00 per 1,000 kcal" in kcal or "per 1,000 kcal" in kcal
+    # kcal cost = price * 100000 / (kcal * 1000 ml): Bravo 1.666667, Acme 2.00, Cargo 2.50
+    assert "$1.67 per 1,000 kcal" in kcal and "$2.00 per 1,000 kcal" in kcal
+    assert "$2.50 per 1,000 kcal" in kcal
+    assert kcal.index("Bravo Whole") < kcal.index("Acme Organic") < kcal.index("Cargo Milk")
     assert "100 kcal per 100 ml · 1 L pack" in kcal
     assert ATTRIBUTION not in client.get("/c/dairy/milk/").content.decode()
 

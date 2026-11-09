@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from decimal import Decimal
 
 from normalize.nutrition import REASONS, offer_nutrition
@@ -33,6 +33,22 @@ def nutrition_reason(offer: Offer, rank: str) -> str:
     if rank not in _FIELDS:
         return ""
     return offer.nutrition.get(_FIELDS[rank][1]) or ""
+
+
+def has_cost(offer: Offer) -> bool:
+    """Whether the offer can be ranked by protein or by calories per dollar."""
+    return any(nutrition_cost(offer, rank) is not None for rank in _FIELDS)
+
+
+def uncosted_reason(offers: Sequence[Offer], rank: str) -> str:
+    """Why a product none of whose offers has a cost can't be ranked.
+
+    The most specific reason wins: the first offer (in the caller's order) that has OFF
+    nutrition data, else "no nutrition data from Open Food Facts"."""
+    for offer in offers:
+        if offer.nutrition:
+            return nutrition_reason(offer, rank)
+    return REASONS["no_data"]
 
 
 def refresh_nutrition(upcs: Iterable[str], chunk: int = 1000) -> int:

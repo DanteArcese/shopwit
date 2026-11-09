@@ -15,7 +15,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.debug import sensitive_post_parameters
 from django.views.decorators.http import require_http_methods, require_POST
 
-from catalog.browse import BRAND_TIERS, browse, parse_filters, spec_params
+from catalog.browse import BRAND_TIERS, browse, nutrition_rankable, parse_filters, spec_params
 from catalog.coverage import nearby_categories, stores_we_cover
 from catalog.freshness import fresh_observed
 from catalog.geo import Near, locate, normalize_postal_code
@@ -246,8 +246,11 @@ def category(request, slug):
     location, near = _location(prefs)
     # An explicit ?comparison= wins; else the saved default; browse() falls back to the category's.
     wanted = params.get("comparison") or prefs.comparisons.get(cat.slug)
-    # Only food categories rank by nutrition; anything else is price per unit.
-    rank = parse_rank(params.get("rank")) if cat.food else "unit"
+    # Only food categories rank by nutrition, and only when an offer here (before the page's
+    # filters, at the stores in Settings) has a protein or kcal cost; else price per unit.
+    pref_live, pref_chain = split_stores(prefs.stores)
+    can_rank = cat.food and nutrition_rankable(cat, pref_live, pref_chain, when, near)
+    rank = parse_rank(params.get("rank")) if can_rank else "unit"
     result = browse(cat, spec, wanted, live_stores, when, rank=rank)
     obs = browse(cat, spec, wanted, chain_stores, when, observed=True, near=near, rank=rank)
 
@@ -278,7 +281,7 @@ def category(request, slug):
         ],
         "comparison": result.comparison,
         "rank": rank,
-        "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if cat.food else [],
+        "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if can_rank else [],
         "rank_label": RANKS[rank].lower(),
         "stores": _store_options(prefs, available),
         "meta_description": category_description(

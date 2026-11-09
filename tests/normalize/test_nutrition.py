@@ -102,3 +102,34 @@ def test_generic_measure_used_without_curated():
     assert pack_of({}, "mass", 907.0) == (907.0, None)
     assert pack_of({}, "volume", 500.0) == (None, 500.0)
     assert pack_of({"volume_ml": 250.0}, None, None) == (None, 250.0)
+
+
+def test_checked_without_any_nutrition_is_no_data():
+    # a 404 placeholder, an Open Products Facts entry or an OFF product without nutriments
+    assert offer_nutrition(Decimal(2), Nutrition(None, None, None), *MASS) == {}
+
+
+def test_serving_basis_without_values_is_still_per_serving():
+    _both(offer_nutrition(Decimal(2), Nutrition("serving", None, None), *MASS), "per_serving")
+
+
+@pytest.mark.parametrize("protein,kcal", [(1e-30, 380.0), (21.0, 1e-30)])
+def test_tiny_values_are_unranked_not_raised(protein, kcal):
+    n = offer_nutrition(Decimal(2), Nutrition("100g", protein, kcal), *MASS)
+    _both(n, "implausible")
+
+
+@pytest.mark.parametrize(
+    "pack",
+    [
+        ({"mass_g": -907.0}, "mass", 907.0),
+        ({"mass_g": float("nan")}, None, None),
+        ({}, "mass", -907.0),
+        ({}, "mass", float("nan")),
+        ({}, "volume", 0.0),
+    ],
+)
+def test_non_positive_or_nan_pack_is_pack_unknown(pack):
+    n = offer_nutrition(Decimal(2), Nutrition("100g", 5.0, 100.0), *pack)
+    _both(n, "pack_unknown")
+    assert n["pack"] is None and n["pack_unit"] is None

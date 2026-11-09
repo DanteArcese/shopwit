@@ -168,3 +168,10 @@ def test_display_nutrition_used_mass_and_volume():
     assert display_nutrition_used(vol, "protein") == "3.4 g protein per 100 ml · 3.79 L pack"
     big = {"basis": "100g", "protein": 5.0, "kcal": 1.0, "pack": 2000.0, "pack_unit": "g"}
     assert display_nutrition_used(big, "protein").endswith("· 2 kg pack")
+
+
+def test_display_nutrition_used_kcal_rounds_half_up():
+    n = {"basis": "100g", "protein": 1.0, "kcal": 50.5, "pack": 500.0, "pack_unit": "g"}
+    assert display_nutrition_used(n, "kcal") == "51 kcal per 100 g · 500 g pack"
+    n["kcal"] = 2.5
+    assert display_nutrition_used(n, "kcal") == "3 kcal per 100 g · 500 g pack"

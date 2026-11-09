@@ -350,3 +350,12 @@ def test_observed_rank_kcal(milk):
     res = browse(milk, NONE, None, None, NOW, observed=True, rank="kcal")
     assert [r.offer.pk for r in res.ranked] == [b.pk, a.pk]
     assert res.ranked[0].cost == Decimal("1.000000")
+
+
+def test_uncosted_reason_prefers_an_offer_with_nutrition_data(milk):
+    upc = "036000291452"
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "3.00", "s", retailer="target", upc=upc)])
+    load(milk, [milk_offer("Acme Whole Milk, 1 L", "1.00", "f", retailer="walmart", upc=upc)])
+    set_nutrition("Acme", basis="serving", retailer="target")  # walmart (cheaper) has no data
+    res = browse(milk, NONE, None, None, NOW, rank="protein")
+    assert [(r.offer.retailer, r.reason) for r in res.unranked] == [("walmart", "nutrition per serving only")]

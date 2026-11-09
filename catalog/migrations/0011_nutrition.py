@@ -38,6 +38,6 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='offer',
             name='nutrition',
-            field=models.JSONField(default=dict),
+            field=models.JSONField(db_default={}, default=dict),
         ),
     ]

@@ -113,7 +113,7 @@ class Offer(TimestampedModel):
     measure_dim = models.CharField(max_length=10, null=True, blank=True)
     measure_amount = models.FloatField(null=True, blank=True)
     measure_reason = models.CharField(max_length=100, null=True, blank=True)
-    nutrition = models.JSONField(default=dict)
+    nutrition = models.JSONField(default=dict, db_default={})
     generic_unit_price = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
     search_vector = models.GeneratedField(
         expression=(

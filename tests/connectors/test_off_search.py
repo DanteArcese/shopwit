@@ -92,7 +92,8 @@ def test_us_only_and_fields_params():
 
 def _sequence(statuses):
     ok = json.loads((RECORDINGS / "off_search" / "503.json").read_text())
-    ok_body = max(RECORDINGS.glob("off_search/GET_cgi*"), key=lambda f: f.stat().st_size).read_text()  # the oat milk search
+    (oat_milk,) = RECORDINGS.glob("off_search/GET_cgi*&search_terms=o~*.json")  # "oat milk", hashed
+    ok_body = oat_milk.read_text()
     seen = []
 
     def handler(request):

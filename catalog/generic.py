@@ -28,7 +28,7 @@ from django.http import QueryDict
 from catalog.browse import BRAND_TIERS, SIZE_TOLERANCE, _tie
 from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Offer, Product
-from catalog.nutrition import nutrition_cost, nutrition_reason
+from catalog.nutrition import nutrition_cost, uncosted_reason
 from catalog.units import (
     FL_OZ_PER_GAL,
     G_PER_OZ,
@@ -177,7 +177,7 @@ def group_products(offers: Iterable[Offer], rank: str = "unit") -> GenericResult
                 row = GenericRow(product, best, best.generic_unit_price, None, cost)
             else:
                 best = min(same, key=_unit_key)
-                reason = nutrition_reason(best, rank) if nutrition else None
+                reason = uncosted_reason(sorted(same, key=_unit_key), rank) if nutrition else None
                 row = GenericRow(product, best, best.generic_unit_price, reason)
             grouped.setdefault(dim, []).append(row)
         else:

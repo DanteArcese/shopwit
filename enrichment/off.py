@@ -61,14 +61,14 @@ def normalize_upc(code: str | None) -> str | None:
 
 
 def _number(value: object) -> float | None:
-    """A finite int, float or numeric string; anything else (bools included) is missing."""
+    """A finite, non-negative int, float or numeric string; anything else (bools included) is missing."""
     if isinstance(value, bool) or not isinstance(value, (int, float, str)):
         return None
     try:
         number = float(value)
-    except ValueError:
+    except (ValueError, OverflowError):
         return None
-    return number if math.isfinite(number) else None
+    return number if math.isfinite(number) and number >= 0 else None
 
 
 def _kcal(nutriments: dict) -> float | None:

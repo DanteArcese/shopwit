@@ -139,7 +139,9 @@ def candidates(now: datetime, limit: int) -> list[tuple[str, Source]]:
 
 
 def nutrition_candidates(limit: int, exclude: set[str]) -> list[tuple[str, Source]]:
-    """OFF entries whose nutrition was never checked (no 404 placeholders), oldest pk first."""
+    """OFF entries whose nutrition was never checked (no 404 placeholders), in barcode order.
+
+    The pk is the UPC string, so the order is lexicographic: stable across runs, not by age."""
     if limit <= 0:
         return []
     rows = (
@@ -197,7 +199,16 @@ def _store(upc: str, source: Source, result, now: datetime, stats: Stats) -> Non
     stats.stored += 1
     if enrichment.off._save(result):
         stats.changed.add(upc)
-    else:  # the cached row is newer; remember that it was checked
+    else:  # the cached row is newer; keep it, but fill nutrition it never had, then mark checked
+        n = result.nutrition
+        if n is not None:
+            OffEntry.objects.filter(
+                pk=upc,
+                nutrition_checked_at__isnull=True,
+                nutrition_per__isnull=True,
+                protein_100g__isnull=True,
+                kcal_100g__isnull=True,
+            ).update(nutrition_per=n.basis, protein_100g=n.protein, kcal_100g=n.kcal)
         OffEntry.objects.filter(pk=upc).update(fetched_at=now, nutrition_checked_at=now)
         stats.changed.add(upc)  # its offers' nutrition is recomputed from the cached row
 

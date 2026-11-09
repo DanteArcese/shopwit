@@ -303,3 +303,14 @@ def test_group_rank_count_and_oz_labeled_all_unranked():
     for g in result.groups:
         assert g.ranked_count == 0
         assert [r.reason for r in g.rows] == ["pack size unknown"] and g.rows[0].cost is None
+
+
+@pytest.mark.django_db
+def test_group_rank_uncosted_reason_prefers_an_offer_with_nutrition_data():
+    p = Product.objects.create(identity="u2", title="Water")
+    cheapest = make_generic_offer("Water", "1", dim="mass", amount=500, retailer="a", product=p)  # no data
+    nutrify_offer(make_generic_offer("Water", "3", dim="mass", amount=500, retailer="c", product=p), basis="serving")
+    nutrify_offer(make_generic_offer("Water", "2", dim="mass", amount=500, retailer="b", product=p), protein=0.0)
+    row = group_products(_all(), rank="protein").groups[0].rows[0]
+    assert row.offer == cheapest and row.cost is None
+    assert row.reason == "no protein"  # the cheapest offer with data, not "no nutrition data"

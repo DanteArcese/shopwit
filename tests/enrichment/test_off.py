@@ -284,3 +284,28 @@ def test_delta_line_carries_nutrition(tmp_path):
     f.write_text(line + "\n")
     assert off.sync_file(f) == 1
     assert OffEntry.objects.get(pk="0093966010015").protein_100g == 3.4
+
+
+def test_huge_and_negative_nutrient_values_are_missing():
+    assert _rec({"proteins_100g": 10**400, "energy-kcal_100g": 380}).nutrition == Nutrition(
+        "100g", None, 380.0
+    )
+    assert _rec({"proteins_100g": -1, "energy-kcal_100g": -5}).nutrition == Nutrition("100g", None, None)
+    assert _rec({"energy-kcal_100g": -5, "energy-kj_100g": 418.4}).nutrition.kcal == 418.4 / 4.184
+
+
+@pytest.mark.django_db
+def test_kj_only_delta_line_stores_kcal(tmp_path):
+    Product.objects.create(identity="m", title="M", upc="0093966010015")
+    line = json.dumps(
+        {
+            "code": "0093966010015",
+            "last_modified_t": 1767225600,
+            "nutrition_data_per": "100g",
+            "nutriments": {"proteins_100g": 3.4, "energy-kj_100g": 1046},
+        }
+    )
+    f = tmp_path / "d.jsonl"
+    f.write_text(line + "\n")
+    assert off.sync_file(f) == 1
+    assert OffEntry.objects.get(pk="0093966010015").kcal_100g == 250.0

@@ -6,7 +6,7 @@
     {% for row in group.ranked_rows %}{% if group.observed %}{% include "web/_observed_row.html" %}{% else %}{% include "web/_row.html" %}{% endif %}{% endfor %}
   </ol>{% endif %}
   {% if group.unranked_rows %}
-  <h3>Can't rank by {{ group.rank_label }}</h3>
+  <h3>Can't rank ({{ group.unranked_total }})</h3>
   <ul class="results unranked">
     {% for row in group.unranked_rows %}{% if group.observed %}{% include "web/_observed_row.html" %}{% else %}{% include "web/_row.html" %}{% endif %}{% endfor %}
   </ul>

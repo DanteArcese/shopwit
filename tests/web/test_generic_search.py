@@ -396,12 +396,16 @@ def protein_rice(db):
     make_generic_offer("Rice Bare", "1", dim="mass", amount=1000)
 
 
-def test_rank_select_only_when_off_nutrition_exists(client, db):
+def test_rank_select_only_when_an_offer_has_a_nutrition_cost(client, db):
     make_generic_offer("Plain Rice", "2", dim="mass", amount=1000)
     page = html(client, "plain rice")
     assert "Rank by" not in page and 'name="rank"' not in page
-    resp = client.get("/search", {"q": "plain rice", "rank": "protein"})
-    assert "Rank by" in resp.content.decode()  # an explicit rank keeps the control
+    page = client.get("/search", {"q": "plain rice", "rank": "protein"}).content.decode()
+    assert "Rank by" not in page and 'name="rank"' not in page  # nothing to rank: price per unit
+    assert "Can't rank" not in page and RANK_ATTRIBUTION not in page
+    serving = nutrify_offer(Offer.objects.get(title="Plain Rice"), basis="serving")
+    assert serving.nutrition["protein_cost"] is None
+    assert "Rank by" not in html(client, "plain rice")  # OFF data, but no cost to rank by
     nutrify_offer(Offer.objects.get(title="Plain Rice"))
     page = html(client, "plain rice")
     assert "Rank by" in page and 'name="rank"' in page
@@ -414,8 +418,9 @@ def test_generic_rank_protein_renders_cost_and_attribution(client, protein_rice)
     page = html(client, "rice")
     assert "$5.00 per 100 g protein" not in page and RANK_ATTRIBUTION not in page
     page = client.get("/search", {"q": "rice", "rank": "protein"}).content.decode()
-    assert page.index("Rice High") < page.index("Rice Low") < page.index("Can't rank by protein per $")
-    assert page.index("Can't rank by protein per $") < page.index("Rice Bare")
+    assert page.index("Rice High") < page.index("Rice Low") < page.index("<h3>Can't rank (1)</h3>")
+    assert page.index("<h3>Can't rank (1)</h3>") < page.index("Rice Bare")
+    assert "Can't rank by" not in page
     assert "$2.50 per 100 g protein" in page and "$5.00 per 100 g protein" in page
     assert "8 g protein per 100 g · 1 kg pack" in page
     assert "no nutrition data from Open Food Facts" in page
@@ -425,7 +430,7 @@ def test_generic_rank_protein_renders_cost_and_attribution(client, protein_rice)
 
 def test_generic_rank_kcal_label(client, protein_rice):
     page = client.get("/search", {"q": "rice", "rank": "kcal"}).content.decode()
-    assert "Can't rank by calories per $" in page
+    assert "<h3>Can't rank (1)</h3>" in page
     assert "$1.00 per 1,000 kcal" in page and "$2.00 per 1,000 kcal" in page
     assert page.index("Rice Low") < page.index("Rice High") < page.index("Rice Bare")
 
@@ -434,7 +439,7 @@ def test_generic_rank_kcal_label(client, protein_rice):
 def test_generic_hostile_rank_falls_back_to_unit(client, protein_rice, raw):
     page = client.get("/search", {"q": "rice", "rank": raw}).content.decode()
     assert "per 100 g protein" not in page and RANK_ATTRIBUTION not in page
-    assert "<script>" not in page and "Can't rank by" not in page
+    assert "<script>" not in page and "Can't rank" not in page
 
 
 def test_generic_repeated_rank_uses_last_value(client, protein_rice):
@@ -442,6 +447,32 @@ def test_generic_repeated_rank_uses_last_value(client, protein_rice):
     assert "per 1,000 kcal" in page and "per 100 g protein" not in page
 
 
+def test_household_search_with_checked_empty_off_entries_has_no_rank(client, db):
+    # 404 placeholders and Open Products Facts entries: checked, but no nutrition at all
+    from catalog.models import OffEntry
+    from catalog.nutrition import refresh_nutrition
+
+    for i, source in enumerate(("off", "opf")):
+        upc = f"000000000000{i}"
+        offer = make_generic_offer(f"Paper Towels {i}", "6", dim="count", amount=6)
+        Product.objects.filter(pk=offer.product_id).update(upc=upc)
+        OffEntry.objects.create(upc=upc, source=source, labels=[], nutrition_checked_at=offer.last_seen_at)
+    assert refresh_nutrition(["0000000000000", "0000000000001"]) == 0
+    assert [o.nutrition for o in Offer.objects.all()] == [{}, {}]
+    page = html(client, "paper towels")
+    assert "Rank by" not in page and 'name="rank"' not in page
+    page = client.get("/search", {"q": "paper towels", "rank": "protein"}).content.decode()
+    assert "nutrition basis unknown" not in page and "Can't rank" not in page
+    assert "Rank by" not in page and RANK_ATTRIBUTION not in page
+
+
+def test_rank_select_uses_matches_before_facet_filters(client, db):
+    make_generic_offer("Facet Quinoa Live", "2", dim="mass", amount=500, brand="Bravo")
+    seen_offer("Facet Quinoa Shelf")
+    nutrify_offer(Offer.objects.get(title="Facet Quinoa Shelf"))
+    page = client.get("/search", {"q": "facet quinoa", "brand": "Bravo"}).content.decode()
+    assert "Facet Quinoa Shelf" not in page  # filtered out, but it still has a cost
+    assert '<label class="facet facet-rank">Rank by' in page
 
 
 @pytest.fixture
@@ -457,6 +488,18 @@ def test_generic_rank_kept_in_facet_and_clear_urls(client, oat_nutrition):
     assert 'href="/search?q=oat+drink&amp;rank=kcal&amp;brand=Oatly"' in page  # path Clear
     assert 'href="/search?q=oat+drink&amp;rank=kcal"' in page  # Clear all filters
     assert '<option value="kcal" selected>' in page
+
+
+@pytest.mark.parametrize("raw", ["<script>", "PROTEIN"])
+def test_generic_invalid_rank_dropped_from_facet_and_clear_urls(client, oat_nutrition, raw):
+    page = client.get(
+        "/search", {"q": "oat drink", "rank": raw, "brand": "Oatly", "path": "Food/Dairy/Milk"}
+    ).content.decode()
+    assert 'href="/search?q=oat+drink&amp;path=Food%2FDairy%2FMilk"' in page  # brand Clear
+    assert 'href="/search?q=oat+drink&amp;brand=Oatly"' in page  # path Clear
+    assert 'href="/search?q=oat+drink"' in page  # Clear all filters
+    assert "rank=" not in page.replace('name="rank"', "")
+    assert "%3Cscript" not in page and "&lt;script" not in page and "PROTEIN" not in page
 
 
 def test_show_all_keeps_rank(client, db):

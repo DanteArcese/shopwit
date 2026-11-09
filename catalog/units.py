@@ -326,5 +326,5 @@ def display_nutrition_used(nutrition: Mapping, rank: str) -> str:
     if rank == "protein":
         value = f"{_num(_dec(nutrition['protein']))} g protein"
     else:
-        value = f"{_num(_dec(round(nutrition['kcal'])))} kcal"
+        value = f"{_num(_dec(nutrition['kcal']).quantize(ONE, rounding=ROUND_HALF_UP))} kcal"
     return f"{value} per {per} · {pack} pack"
