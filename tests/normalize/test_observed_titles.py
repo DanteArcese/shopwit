@@ -19,6 +19,7 @@ CATEGORIES = load_categories(ROOT / "categories")
 
 MILK, COFFEE, EGGS = "dairy/milk", "pantry/coffee", "dairy/eggs"
 BREAD, RICE, PASTA, FLOUR = "pantry/bread", "pantry/rice", "pantry/pasta", "pantry/flour"
+PB, OIL, SUGAR = "pantry/peanut-butter", "pantry/cooking-oil", "pantry/sugar"
 
 CASES = [
     # Milk: plain dairy milk matches.
@@ -150,6 +151,43 @@ CASES = [
     ("Spaghetti & Meatballs", "Banquet", None),
     ("FLOUR TORTILLAS", "PUEBLO LINDO", None),
     ("PAM Baking with Flour", "PAM", None),
+    # Pantry staples: members.
+    ("Extra Crunchy Super Chunk Peanut Butter", "SKIPPY", PB),
+    ("Peanut Butter & Co Smooth Operator", "Peanut Butter & Co", PB),
+    ("Peanut butter", "Jiffy", PB),
+    ("Peanut Butter Spread", "Skippy", PB),
+    ("Extra Virgin Olive Oil", "Pompeian", OIL),
+    ("Extra Virgin Olive Oil Global Blend", "California Olive Ranch", OIL),
+    ("Mazola canola oil", "Mazola", OIL),
+    ("Avocado oil", None, OIL),
+    ("Brown Sugar", "Kinder's", SUGAR),
+    ("White Sugar Cubes", "India Tree", SUGAR),
+    ("Demerara Sugar", None, SUGAR),
+    # Pantry staples: look-alikes.
+    ("Peanut butter", None, PB),
+    ("Reese's 2 Peanut Butter Cups", None, None),
+    ("PB2 Original Powdered Peanut Butter", None, None),
+    ("Peanut butter chip", "Protein pint", None),
+    ("Peanut butter \u2019s", "M&M", None),
+    ("Cosmic Bliss Chocolate peanut butter", None, None),
+    ("choc peanut butter protein shake", None, None),
+    ("PEANUT BUTTER FILLED PRETZEL NUGGETS", None, None),
+    ("Thai Peanut Sauce", None, None),
+    ("Butter with Olive Oil & Sea Salt", None, None),
+    ("Albacore Tuna in Olive Oil", None, None),
+    ("Olive oil cooking spray", None, None),
+    ("Mayo Real Mayonnaise With Avocado Oil", None, None),
+    ("GF Focaccia Olive Oil And Rosemary", None, None),
+    ("Avocado Oil Shortening", None, None),
+    ("Organic Olive Oil, Basil & Garlic Sauce", "Bertolli", None),
+    ("Sesame Oil", None, None),
+    ("Red Wine Vinegar", "Pompeian", None),
+    ("Sprinkles white sugar pearls", None, None),
+    ("Sweet Brown Sugar Barbecue Sauce", None, None),
+    ("Maple And Brown Sugar Instant Oatmeal", "Premier protein", None),
+    ("Zero Sugar Cranberry Juice", None, None),
+    ("Chocolate High Protein Shake", "Premier Protein", None),
+    ("Builders Protein Bar", None, None),
 ]
 
 

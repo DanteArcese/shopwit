@@ -173,7 +173,7 @@ Final name decided 2026-11-07: **UnitPricer**. `unitpricer.com` is registered on
 |---|---|
 | 7.1 | Nutrition fields from Open Food Facts (protein, calories, etc.) stored per product |
 | 7.2 | Comparison methods: cost per 10 g protein, cost per 100 kcal |
-| 7.3 | Protein-powder and other high-protein categories; a "fitness" landing page |
+| 7.3 | High-protein categories beyond protein powder (added in 5.2, per mass); a "fitness" landing page |
 
 ---
 

@@ -1,0 +1,11 @@
+name: Peanut Butter
+dimension: mass
+match:
+  include: [peanut butter]
+  exclude: [cups, cup, cookies, cookie, cracker, crackers, pretzel, pretzels, powder, powdered, pb2, bar, bars, candy, chips, morsels, dog, treats, cereal, puffs, filled, granola, ice cream, sandwich, pie, fudge, jelly, wafer, wafers, bites, balls, protein powder, dessert, pops, protein shake, shake, blitz, brownie, brownies, "m&m", cinnamon, roll, rolls, waffles, sauce, chocolate peanut butter, chocolate chip, chip, chocolate flavored, and chocolate, '& chocolate', banana chocolate, feastables]
+attributes:
+  texture: {type: enum, values: [creamy, crunchy], synonyms: {creamy: [creamy, smooth], crunchy: [crunchy, chunky, extra crunchy, super chunk]}}
+  natural: {type: bool, synonyms: {true: [natural]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [creamy peanut butter, crunchy peanut butter]

@@ -1,0 +1,10 @@
+- {title: 'Domino Premium Pure Cane Granulated Sugar, 4 lb', brand: Domino, price: '3.98', expect: {category: pantry/sugar, attributes: {type: granulated, organic: false, brand_tier: name_brand}, measures: {mass_g: 1814.37}, unit_prices: {per_mass: '0.002194'}, unresolved: []}}
+- {title: 'C&H Pure Cane Light Brown Sugar, 2 lb', expect: {category: pantry/sugar, attributes: {type: brown}, measures: {mass_g: 907.18}}}
+- {title: 'Great Value Pure Granulated Sugar, 4 lb', brand: Great Value, expect: {category: pantry/sugar, attributes: {type: granulated, brand_tier: store_brand}}}
+- {title: 'Domino Confectioners Powdered Sugar, 2 lb', expect: {category: pantry/sugar, attributes: {type: powdered}, measures: {mass_g: 907.18}}}
+- {title: 'Wholesome Organic Turbinado Raw Cane Sugar, 1.5 lb', expect: {category: pantry/sugar, attributes: {type: raw, organic: true}, measures: {mass_g: 680.39}}}
+- {title: 'Imperial Sugar Dark Brown Sugar, 2 lb', expect: {category: pantry/sugar, attributes: {type: brown}}}
+- {title: 'Florida Crystals Organic Cane Sugar, 2 lb', expect: {category: pantry/sugar, attributes: {organic: true}, unresolved: ['attribute:type', 'attribute:brand_tier']}}
+- {title: 'Quaker Instant Oatmeal, Maple & Brown Sugar, 10 Packets', expect: {category: null}}
+- {title: 'Pop-Tarts Frosted Brown Sugar Cinnamon Toaster Pastries, 8 ct', expect: {category: null}}
+- {title: 'Truvia Cane Sugar Blend, 1.5 lb', expect: {category: null}}

@@ -1,0 +1,10 @@
+- {title: 'Pompeian Robust Extra Virgin Olive Oil, 68 fl oz', brand: Pompeian, price: '21.98', expect: {category: pantry/cooking-oil, attributes: {type: extra_virgin_olive, organic: false, brand_tier: name_brand}, measures: {volume_ml: 2011.0}, unit_prices: {per_volume: '0.010930'}, unresolved: []}}
+- {title: 'Great Value Canola Oil, 1 gal', brand: Great Value, expect: {category: pantry/cooking-oil, attributes: {type: canola, brand_tier: store_brand}, measures: {volume_ml: 3785.41}}}
+- {title: 'Crisco Pure Vegetable Oil, 48 oz', expect: {category: pantry/cooking-oil, attributes: {type: vegetable}, measures: {volume_ml: 1419.53}}}
+- {title: 'Bertolli Classico Olive Oil, 33.8 fl oz', expect: {category: pantry/cooking-oil, attributes: {type: olive}, measures: {volume_ml: 999.59}}}
+- {title: 'Chosen Foods 100% Pure Avocado Oil, 1 L', expect: {category: pantry/cooking-oil, attributes: {type: avocado}, measures: {volume_ml: 1000}}}
+- {title: 'Mazola Corn Oil, 40 fl oz', expect: {category: pantry/cooking-oil, attributes: {type: corn}, measures: {volume_ml: 1182.94}}}
+- {title: 'Kirkland Signature Organic Extra Virgin Olive Oil, 2 L', brand: Kirkland Signature, expect: {category: pantry/cooking-oil, attributes: {type: extra_virgin_olive, organic: true, brand_tier: store_brand}, measures: {volume_ml: 2000}}}
+- {title: 'Pompeian Extra Virgin Olive Oil Cooking Spray, 7 oz', expect: {category: null}}
+- {title: 'StarKist Chunk Light Tuna in Olive Oil, 5 oz', expect: {category: null}}
+- {title: 'Hellmann''s Mayonnaise Dressing with Olive Oil, 30 fl oz', expect: {category: null}}

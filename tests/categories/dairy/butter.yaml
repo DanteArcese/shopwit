@@ -13,7 +13,6 @@
 - {title: 'Salted Irish Butter', expect: {category: dairy/butter, attributes: {salted: salted}}}
 - {title: 'Whipped Butter', expect: {category: dairy/butter}}
 - {title: 'Cultured Butter Lightly Salted', expect: {category: dairy/butter, attributes: {salted: salted}}}
-- {title: 'Peanut butter', expect: {category: null}}
 - {title: 'Almond Butter Smooth', expect: {category: null}}
 - {title: 'Butter Pecan Ice Cream', expect: {category: null}}
 - {title: 'Butter Chicken Sauce', expect: {category: null}}

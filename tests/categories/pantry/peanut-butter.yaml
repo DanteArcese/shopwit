@@ -1,0 +1,10 @@
+- {title: 'Jif Creamy Peanut Butter, 40 oz', brand: Jif, price: '6.98', expect: {category: pantry/peanut-butter, attributes: {texture: creamy, natural: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 1133.98}, unit_prices: {per_mass: '0.006155'}, unresolved: []}}
+- {title: 'Skippy Super Chunk Peanut Butter, 16.3 oz', expect: {category: pantry/peanut-butter, attributes: {texture: crunchy}, measures: {mass_g: 462.1}}}
+- {title: 'Smucker''s Natural Creamy Peanut Butter, 16 oz', expect: {category: pantry/peanut-butter, attributes: {texture: creamy, natural: true}, measures: {mass_g: 453.59}}}
+- {title: 'Jif Creamy Peanut Butter, 7g Protein per Serving, 40 oz', expect: {category: pantry/peanut-butter, attributes: {texture: creamy}, measures: {mass_g: 1133.98}}}
+- {title: 'Justin''s Classic Peanut Butter Squeeze Packs, 1.15 oz, 10 Count', brand: Justin's, expect: {category: pantry/peanut-butter, measures: {}, unresolved: ['attribute:texture', quantity, 'unit_price:per_mass']}}
+- {title: 'Crazy Richard''s 100% Natural Crunchy Peanut Butter, 16 oz', expect: {category: pantry/peanut-butter, attributes: {texture: crunchy, natural: true}}}
+- {title: '365 by Whole Foods Market Organic Creamy Peanut Butter, 16 oz', brand: 365 by Whole Foods Market, expect: {category: pantry/peanut-butter, attributes: {texture: creamy, organic: true, brand_tier: store_brand}}}
+- {title: 'Reese''s Peanut Butter Cups, Milk Chocolate, 1.5 oz', expect: {category: null}}
+- {title: 'PB2 Powdered Peanut Butter, 6.5 oz', expect: {category: null}}
+- {title: 'Ritz Peanut Butter Cracker Sandwiches, 8 ct', expect: {category: null}}

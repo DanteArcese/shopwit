@@ -1,0 +1,10 @@
+name: Cooking Oil
+dimension: volume
+match:
+  include: [olive oil, vegetable oil, canola oil, avocado oil, corn oil, peanut oil, sunflower oil, cooking oil]
+  exclude: [spray, mist, mister, sprayer, tuna, sardines, salmon, anchovies, mayo, mayonnaise, dressing, chips, crackers, olives, soap, shampoo, conditioner, lotion, skin, hair, body, ear, baby, dispenser, infused, truffle, popcorn, hummus, pesto, with olive oil, in olive oil, made with, margarine, spread, butter, focaccia, steak, cubes, fillets, shortening, sauce, tomatoes, vermicelli, couscous, 'oil & italian herb', cruet, pourer]
+attributes:
+  type: {type: enum, values: [extra_virgin_olive, olive, vegetable, canola, avocado, corn, peanut, sunflower], patterns: ['(?<!\bvirgin )\b(olive) oil\b'], synonyms: {extra_virgin_olive: [extra virgin, extra-virgin, evoo], vegetable: [vegetable oil], canola: [canola], avocado: [avocado], corn: [corn oil], peanut: [peanut oil], sunflower: [sunflower]}}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_volume}
+search: [olive oil, vegetable oil, canola oil]

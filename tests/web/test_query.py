@@ -113,7 +113,7 @@ def test_dairy_extras(text, category, filters):
 
 
 def test_peanut_butter_not_butter():
-    assert r("peanut butter").category != "dairy/butter"
+    assert r("peanut butter").category == "pantry/peanut-butter"
 
 
 def test_whole_milk_yogurt_is_yogurt_not_milk():
@@ -141,3 +141,19 @@ def test_grains(text, category, filters):
 
 def test_rice_milk_not_rewritten():
     assert r("rice milk").category is None
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("olive oil", "pantry/cooking-oil", {"type": "olive"}),
+        ("extra virgin olive oil", "pantry/cooking-oil", {"type": "extra_virgin_olive"}),
+        ("brown sugar", "pantry/sugar", {"type": "brown"}),
+        ("whey protein isolate", "pantry/protein-powder", {"type": "whey_isolate"}),
+        ("peanut butter", "pantry/peanut-butter", {}),
+    ],
+)
+def test_pantry_staples(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
