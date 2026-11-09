@@ -19,7 +19,7 @@ def root(tmp_path):
 @pytest.mark.django_db
 def test_sync_creates_all_repo_categories():
     result = sync_categories(REPO_CATEGORIES)
-    assert result == SyncResult(created=22, updated=0, deactivated=0)
+    assert result == SyncResult(created=25, updated=0, deactivated=0)
     milk = Category.objects.get(slug="dairy/milk")
     assert milk.search[0] == "2% milk"
     assert milk.dimension == "volume"
@@ -45,7 +45,7 @@ def test_removed_category_deactivated_not_deleted(root):
     eggs = Category.objects.get(slug="dairy/eggs")
     assert eggs.active is False
     assert eggs.attribute_defs.exists()
-    assert Category.objects.filter(active=True).count() == 21
+    assert Category.objects.filter(active=True).count() == 24
     # second run: nothing newly deactivated
     assert sync_categories(root).deactivated == 0
     # reappearing reactivates and counts as updated
@@ -85,4 +85,4 @@ def test_sync_categories_command_prints_counts(capsys):
     from django.core.management import call_command
 
     call_command("sync_categories")
-    assert "created=22 updated=0 deactivated=0" in capsys.readouterr().out
+    assert "created=25 updated=0 deactivated=0" in capsys.readouterr().out

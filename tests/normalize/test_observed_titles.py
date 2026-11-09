@@ -243,6 +243,18 @@ CASES = [
     ("Zip Top Storage Bags Gallon", "Ziploc", None),
     ("Compost Bags Compostable 3 Gallon", "BioBag", None),
     ("Dog Waste Poop Bags", None, None),
+    # Cleaning and laundry: no real members in the data; precedence and collisions only.
+    ("Free clear mighty pacs", "all", None),
+    ("Tide Original Liquid Laundry Detergent", "Tide", "household/laundry-detergent"),
+    ("Tide Fabric Softener", "Tide", None),
+    ("Downy Fabric Softener Dryer Sheets", "Downy", None),
+    ("Shout Laundry Stain Remover Spray", "Shout", None),
+    ("Dawn Ultra Dish Soap", "Dawn", "household/dish-soap"),
+    ("Dawn Hand Renewal Hand Soap", "Dawn", None),
+    ("Dove Body Wash", "Dove", None),
+    ("Cascade Dishwasher Detergent Pods 40 Count", "Cascade", "household/dishwasher-detergent"),
+    ("Finish Dishwasher Cleaner", "Finish", None),
+    ("Dishwasher Detergent Dish Soap", "Dawn", "household/dishwasher-detergent"),
 ]
 
 

@@ -1,0 +1,11 @@
+name: Laundry Detergent
+dimension: laundry
+match:
+  include: [laundry detergent, laundry soap, laundry pacs, laundry pods]
+  exclude: [stain remover, fabric softener, softener, dryer sheets, booster, scent beads, in-wash, sanitizer, basket, hamper, dispenser, pretreater, pen, wipes]
+attributes:
+  form: {type: enum, values: [liquid, powder, pods, sheets], synonyms: {liquid: [liquid], powder: [powder, powdered], pods: [pods, pacs, pac, flings], sheets: [sheets, strips]}}
+  he: {type: bool, synonyms: {true: [he, high efficiency]}, absent: false}
+  free_clear: {type: bool, synonyms: {true: [free & clear, free and clear, free clear, free + clear]}, absent: false}
+comparison: {default: per_load, alternates: [per_volume, per_mass, per_count]}
+search: [laundry detergent, laundry detergent pods]

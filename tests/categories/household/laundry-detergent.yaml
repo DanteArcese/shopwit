@@ -1,0 +1,10 @@
+- {title: 'Tide Original Liquid Laundry Detergent, 92 fl oz, 64 Loads', brand: Tide, price: '12.97', expect: {category: household/laundry-detergent, attributes: {form: liquid, he: false, free_clear: false, brand_tier: name_brand}, measures: {loads: 64, volume_ml: 2720.76}, unit_prices: {per_load: '0.202656', per_volume: '0.004767'}, unresolved: []}}
+- {title: 'Gain Original Scent HE Liquid Laundry Detergent, 154 fl oz, 107 Loads', expect: {category: household/laundry-detergent, attributes: {form: liquid, he: true}, measures: {loads: 107, volume_ml: 4554.32}}}
+- {title: 'Tide PODS Laundry Detergent Pacs, Original, 81 Count', brand: Tide, price: '21.97', expect: {category: household/laundry-detergent, attributes: {form: pods}, measures: {count: 81}, unit_prices_exact: true, unit_prices: {per_count: '0.271235'}, unresolved: ['unit_price:per_load']}}
+- {title: 'Arm & Hammer Clean Burst Liquid Laundry Detergent, 105 oz, 70 Loads', expect: {category: household/laundry-detergent, attributes: {form: liquid}, measures: {loads: 70, volume_ml: 3105.22}}}
+- {title: 'Tide Original Powder Laundry Detergent, 143 oz, 102 Loads', expect: {category: household/laundry-detergent, attributes: {form: powder}, measures: {loads: 102, mass_g: 4053.98}}}
+- {title: 'all Free Clear Liquid Laundry Detergent, 88 fl oz, 58 Loads', expect: {category: household/laundry-detergent, attributes: {form: liquid, free_clear: true}, measures: {loads: 58, volume_ml: 2602.47}}}
+- {title: 'Earth Breeze Laundry Detergent Sheets, Fresh Scent, 60 Loads', expect: {category: household/laundry-detergent, attributes: {form: sheets}, measures: {loads: 60}}}
+- {title: 'Purex Laundry Detergent, Mountain Breeze, 50 oz, 33 Loads', brand: Purex, expect: {category: household/laundry-detergent, measures: {loads: 33}, unresolved: ['attribute:form']}}
+- {title: 'OxiClean White Revive Laundry Detergent Booster, 3 lb', expect: {category: null}}
+- {title: 'Wall Mounted Laundry Detergent Dispenser, 2 Pack', expect: {category: null}}

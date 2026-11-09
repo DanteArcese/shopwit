@@ -194,3 +194,18 @@ def test_household_paper_and_bags(text, category, filters):
     assert res.category == category
     assert res.filters == filters
     assert r("paper towels").category == "household/paper-towels"
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("laundry detergent pods", "household/laundry-detergent", {"form": "pods"}),
+        ("free and clear laundry detergent", "household/laundry-detergent", {"free_clear": True}),
+        ("dish soap", "household/dish-soap", {}),
+        ("dishwasher pods", "household/dishwasher-detergent", {}),
+    ],
+)
+def test_cleaning(text, category, filters):
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters

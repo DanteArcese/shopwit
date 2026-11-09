@@ -1,0 +1,10 @@
+name: Dish Soap
+dimension: volume
+match:
+  include: [dish soap, dishwashing liquid, dish liquid, dishwashing soap, dish spray, liquid dish soap, dish washing liquid]
+  exclude: [dishwasher, dispenser, brush, sponge, scrubber, holder, caddy, rack, wand, tray]
+attributes:
+  antibacterial: {type: bool, synonyms: {true: [antibacterial, anti-bacterial]}, absent: false}
+  free_clear: {type: bool, synonyms: {true: [free & clear, free and clear, free clear, free + clear]}, absent: false}
+comparison: {default: per_volume}
+search: [dish soap]

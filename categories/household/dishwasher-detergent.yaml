@@ -1,0 +1,9 @@
+name: Dishwasher Detergent
+dimension: count
+match:
+  include: [dishwasher detergent, dishwasher pods, dishwasher pacs, dishwasher tablets, dishwasher tabs]
+  exclude: [gel, powder, cleaner, rinse aid]
+attributes:
+  free_clear: {type: bool, synonyms: {true: [free & clear, free and clear, free clear, free + clear, fragrance free]}, absent: false}
+comparison: {default: per_count}
+search: [dishwasher pods, dishwasher detergent]
