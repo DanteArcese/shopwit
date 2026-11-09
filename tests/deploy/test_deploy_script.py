@@ -74,7 +74,7 @@ def test_orders_pull_migrate_up(run):
     assert "git fetch" in log and f"git show {SHA}:compose.prod.yaml" in log
     line = _script_line(log)
     assert f"sha-{SHA}" in line and "umask 077" in line
-    _order(line, ["compose pull", "manage.py check --deploy", "manage.py migrate", "createcachetable", "up -d"])
+    _order(line, ["compose pull", "manage.py check --deploy", "manage.py migrate", "sync_categories", "createcachetable", "up -d"])
     assert "docker build" not in line
     assert SHA in proc.stdout
 
@@ -82,8 +82,8 @@ def test_orders_pull_migrate_up(run):
 def test_remote_script_is_argument_not_stdin_and_run_uses_T(run):
     proc, log = run("1")
     line = _script_line(log)
-    assert line.count("compose run") == 3
-    assert line.count("compose run --rm -T") == 3
+    assert line.count("compose run") == 4
+    assert line.count("compose run --rm -T") == 4
     stdin_after = log.split(line, 1)[1].split("---stdin---", 1)[1]
     assert "migrate" not in stdin_after
 
@@ -96,7 +96,14 @@ def test_build_on_server_mode_order(run):
     assert "compose pull\n" not in line
     _order(line, [f"docker build -t ghcr.io/dantearcese/unitpricer:sha-{SHA}",
                   f"unitpricer-backup:sha-{SHA}", "compose pull db cloudflared",
-                  "manage.py check --deploy", "manage.py migrate", "createcachetable", "up -d"])
+                  "manage.py check --deploy", "manage.py migrate", "sync_categories", "createcachetable", "up -d"])
+
+
+def test_category_sync_runs_after_migrate(run):
+    proc, log = run("1")
+    line = _script_line(log)
+    assert "compose run --rm -T web python manage.py sync_categories </dev/null" in line
+    _order(line, ["manage.py migrate --noinput", "manage.py sync_categories", "up -d"])
 
 
 def test_deploy_check_runs_before_migrate_and_aborts(run):
