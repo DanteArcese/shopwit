@@ -13,7 +13,7 @@ Create the droplet with `deploy/cloud-init.yaml` as user data, your SSH key atta
 Both live in `/srv/unitpricer`, mode `600`, owner `deploy`. Never commit them.
 
 - `.env` (compose interpolation): `POSTGRES_PASSWORD`, `TUNNEL_TOKEN`, `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY` (all optional until R2 is enabled), `BACKUP_HEARTBEAT_URL` (optional), `UNITPRICER_IMAGE_TAG` (written by `deploy.sh`).
-- `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL` and `UNITPRICER_SITE_URL` (both `https://unitpricer.com` in production; check E023), `UNITPRICER_COMING_SOON` (set explicitly, for example `Walmart (December)`), `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`.
+- `app.env` (Django, passed to `web` and `worker`): `DJANGO_SECRET_KEY`, `DJANGO_ALLOWED_HOSTS=unitpricer.com,www.unitpricer.com,beta.unitpricer.com`, `UNITPRICER_PUBLIC_HOST`, `UNITPRICER_APP_HOST`, `UNITPRICER_PUBLIC_URL` and `UNITPRICER_SITE_URL` (both `https://unitpricer.com` in production; check E023), `UNITPRICER_COMING_SOON` (set explicitly, for example `Walmart (December)`), `UNITPRICER_POSTAL_ADDRESS`, `UNITPRICER_TRUST_CF_IP=1`, `UNITPRICER_DAILY_EMAIL_CAP`, `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD`, `DJANGO_EMAIL_*` (Resend SMTP, `smtp.resend.com` port 2587, user `resend`, password = Resend API key), `DJANGO_DEFAULT_FROM_EMAIL`. `DATABASE_URL` is set by compose. Names are listed in `.env.example`. `web` and `worker` share this one file (both use `env_file: app.env`), so a change applies to both; restart both after editing it (`docker compose up -d web worker`).
 - Open search (optional, in `app.env`): `UNITPRICER_LIVE_OFF=1` turns on the Open Food Facts → Open Prices live source (default off). `UNITPRICER_FETCH_THREADS` (1 or 2, default 1) sets the worker's fetch threads, and `UNITPRICER_WARM_HOURS` (default 12) the warm-refresh interval.
 - Source budgets (optional, in `app.env`): `UNITPRICER_BUDGET_<OFF_SEARCH|OPENPRICES|WALMART>_{CAPACITY,REFILL_PER_SECOND,DAILY_LIMIT}`. They seed a budget row only when it is first created; later changes go in the admin. `_DAILY_LIMIT` unset or blank keeps the default cap (Walmart 5000 per day, the others none), a number sets the cap, and `unlimited` (any case) removes it. Any other value stops startup with a configuration error. `_CAPACITY` must be at least 1. Open Prices defaults to capacity 1 at 1 per second (no burst), the pace the daily sync has always kept; a 429, 503 or transport error from it blocks the shared row with backoff.
 
@@ -39,7 +39,7 @@ deploy/deploy.sh            # origin/main
 deploy/deploy.sh <git-ref>
 ```
 
-The script runs `git fetch origin`, then refuses unless GitHub Actions workflow `CI` has a successful `push` run on `main` for that commit (which pushed the `sha-<sha>` image). It installs that commit's own `compose.prod.yaml` (so rollbacks get the old file), sets `UNITPRICER_IMAGE_TAG`, pulls, runs `manage.py check --deploy --fail-level ERROR` on the new image (an error, such as `unitpricer.E023`, stops the deploy before anything changes), runs `migrate` and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
+The script runs `git fetch origin`, then refuses unless GitHub Actions workflow `CI` has a successful `push` run on `main` for that commit (which pushed the `sha-<sha>` image). It installs that commit's own `compose.prod.yaml` (so rollbacks get the old file), sets `UNITPRICER_IMAGE_TAG`, pulls, runs `manage.py check --deploy --fail-level ERROR` on the new image (an error, such as `unitpricer.E023`, stops the deploy before `migrate` and before the running containers are replaced), runs `migrate` and `createcachetable`, starts the stack, waits up to 90 s for `web` to be healthy (printing its logs and failing otherwise), prunes images and prints the SHA.
 
 ### Build-on-server mode
 
@@ -66,7 +66,7 @@ A worker shutdown during the daily Open Prices sync ends the run as `interrupted
 
 ## Rollback
 
-`deploy/deploy.sh <older-sha>`. Migrations are not reversed: only roll back across commits with no new migration, or restore the database from a backup first.
+`deploy/deploy.sh <older-sha>`. Migrations are not reversed: only roll back across commits with no new migration, or restore the database from a backup first. Rolling back past the public launch (#77) needs the `app.env` changes in `docs/launch.md` (Rollback) as well.
 
 ## Logs
 
