@@ -1,4 +1,5 @@
 import re
+from datetime import timedelta
 
 import pytest
 from django.contrib.auth import get_user_model
@@ -85,3 +86,53 @@ def test_successful_sign_ins_are_not_counted():
     User.objects.create_user(username="a@example.com", email="a@example.com", password=PASSWORD)
     for _ in range(8):
         assert Client().post("/account/sign-in", {"email": "a@example.com", "password": PASSWORD}).status_code == 302
+
+
+@pytest.mark.django_db
+def test_lockout_survives_junk_email_flood(settings):
+    """A blocked IP's requests add no counters, so it can't cull the victim's lockout."""
+    from django.db import connection
+
+    from web.ratelimit import exceeded
+
+    settings.TRUST_CF_IP = True
+    User.objects.create_user(username="victim@example.com", email="victim@example.com", password=PASSWORD)
+    attacker = {"HTTP_CF_CONNECTING_IP": "203.0.113.9"}
+    for i in range(5):
+        Client().post("/account/sign-in", {"email": "victim@example.com", "password": f"x{i}"}, **attacker)
+    with connection.cursor() as cur:
+        cur.execute("SELECT count(*) FROM unitpricer_cache")
+        (rows_before,) = cur.fetchone()
+    for i in range(400):
+        Client().post("/account/sign-in", {"email": f"junk{i}@example.com", "password": "x"}, **attacker)
+    with connection.cursor() as cur:
+        cur.execute("SELECT count(*) FROM unitpricer_cache")
+        (rows_after,) = cur.fetchone()
+    # Only 15 more per-email counters fit before the IP is blocked (20 failures / hour).
+    assert rows_after - rows_before <= 15
+    assert exceeded("signin-fail-email", "victim@example.com", 5, timedelta(minutes=15))
+    c = Client()
+    r = c.post("/account/sign-in", {"email": "victim@example.com", "password": PASSWORD}, HTTP_CF_CONNECTING_IP="198.51.100.1")
+    assert b"Email or password is incorrect." in r.content
+    assert "_auth_user_id" not in c.session
+
+
+@pytest.mark.django_db
+def test_blocked_request_adds_no_counter():
+    for i in range(20):
+        Client().post("/account/sign-in", {"email": f"x{i}@example.com", "password": "bad-pass-1"})
+    keys_before = _cache_rows()
+    Client().post("/account/sign-in", {"email": "fresh@example.com", "password": "bad-pass-1"})
+    assert _cache_rows() == keys_before
+
+
+def _cache_rows():
+    from django.db import connection
+
+    with connection.cursor() as cur:
+        cur.execute("SELECT cache_key, value FROM unitpricer_cache ORDER BY cache_key")
+        return cur.fetchall()
+
+
+def test_cache_max_entries(settings):
+    assert settings.CACHES["default"]["OPTIONS"]["MAX_ENTRIES"] == 100_000

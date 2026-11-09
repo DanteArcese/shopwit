@@ -260,6 +260,9 @@ CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.db.DatabaseCache",
         "LOCATION": "unitpricer_cache",
+        # Culling (a third of the rows once full) would reset rate-limit lockouts;
+        # keep the cap far above what rate-limited traffic can create.
+        "OPTIONS": {"MAX_ENTRIES": 100_000},
     }
 }
 

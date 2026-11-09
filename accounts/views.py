@@ -30,6 +30,7 @@ from web.net import client_ip
 from web.ratelimit import allow, exceeded
 
 from .emails import normalize_email
+from .models import MagicLinkToken
 from .magic import consume_token, peek_token, send_magic_link
 
 logger = logging.getLogger(__name__)
@@ -81,19 +82,21 @@ def sign_in(request):
     email = normalize_email(request.POST.get("email"))
     password = request.POST.get("password") or ""
     ip = client_ip(request)
+    if exceeded("signin-fail-ip", ip, *SIGNIN_IP_LIMIT) or (
+        email is not None and exceeded("signin-fail-email", email, *SIGNIN_EMAIL_LIMIT)
+    ):
+        # Blocked: answer before counting anything, so a blocked client creates
+        # no cache rows (and can't cull a victim's lockout by flooding).
+        return _sign_in_page(request, next_path, password_error=SIGNIN_ERROR)
     user = None
-    blocked = exceeded("signin-fail-ip", ip, SIGNIN_IP_LIMIT[0]) or (
-        email is not None
-        and exceeded("signin-fail-email", email, SIGNIN_EMAIL_LIMIT[0])
-    )
-    if email and password and not blocked:
+    if email and password:
         # ModelBackend runs the hasher for unknown users and unusable passwords too.
         user = authenticate(request, username=email, password=password)
     if user is not None:
         login(request, user)
         return redirect(next_path)
-    allow("signin-fail-ip", ip, *SIGNIN_IP_LIMIT)
-    if email is not None:
+    # Count the email only while the IP is under its limit.
+    if allow("signin-fail-ip", ip, *SIGNIN_IP_LIMIT) and email is not None:
         allow("signin-fail-email", email, *SIGNIN_EMAIL_LIMIT)
     return _sign_in_page(request, next_path, password_error=SIGNIN_ERROR)
 
@@ -150,10 +153,13 @@ def magic(request, token):
     now = _now()
     if request.method == "GET":
         # Mail scanners and link previews GET links; that must not use them up.
-        if peek_token(token, now) is None:
+        row = peek_token(token, now)
+        if row is None:
             return _invalid_link(request)
         return render(
-            request, "accounts/magic_confirm.html", {"token": token, **_NO_NEXT}
+            request,
+            "accounts/magic_confirm.html",
+            {"token": token, "email": row.email, **_NO_NEXT},
         )
     row = consume_token(token, now)
     if row is None:
@@ -219,5 +225,6 @@ def delete(request):
         return _account_page(request, delete_error="Type delete to confirm.")
     user = request.user
     logout(request)
+    MagicLinkToken.objects.filter(email__in={user.email, user.username}).delete()
     user.delete()  # cascades to lists (and saved settings)
     return redirect("/")

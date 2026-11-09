@@ -1,6 +1,7 @@
 """Magic-link sign-in tokens: 32 random bytes, stored only as SHA-256, 15 minutes, single use."""
 
 import hashlib
+import logging
 import secrets
 from datetime import datetime, timedelta
 
@@ -11,6 +12,8 @@ from django.template.loader import render_to_string
 from waitlist.mail import send_budgeted
 
 from .models import MagicLinkToken
+
+logger = logging.getLogger(__name__)
 
 SUBJECT = "Your UnitPricer sign-in link"
 PURGE_AFTER = timedelta(days=1)
@@ -25,9 +28,14 @@ def _valid_raw(raw: str) -> bool:
     return bool(raw) and len(raw) <= _MAX_RAW
 
 
+def purge_expired(now: datetime) -> int:
+    """Delete rows that expired more than PURGE_AFTER ago (they hold an email address)."""
+    deleted, _ = MagicLinkToken.objects.filter(expires_at__lt=now - PURGE_AFTER).delete()
+    return deleted
+
+
 def issue_token(email: str, next_path: str, now: datetime) -> str:
-    # Expired rows hold an email address; don't let them accumulate.
-    MagicLinkToken.objects.filter(expires_at__lt=now - PURGE_AFTER).delete()
+    purge_expired(now)
     raw = secrets.token_urlsafe(32)
     MagicLinkToken.objects.create(
         email=email,
@@ -71,9 +79,14 @@ def _origin() -> str:
 def send_magic_link(email: str, next_path: str, now: datetime) -> bool:
     """Issue and mail a link through the shared daily email budget.
 
-    Returns False when the budget is spent; the unsent token is deleted, as it
-    is when sending raises (the exception propagates).
+    Returns False when the budget is spent, or when there is no origin for the
+    link (SITE_URL unset outside DEBUG: fail closed, never a relative link);
+    the unsent token is deleted, as it is when sending raises (the exception
+    propagates).
     """
+    if not _origin():
+        logger.error("Sign-in link not sent: SITE_URL is unset")
+        return False
     raw = issue_token(email, next_path, now)
     link = f"{_origin()}/account/magic/{raw}"
     message = EmailMessage(

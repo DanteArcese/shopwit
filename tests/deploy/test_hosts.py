@@ -127,10 +127,10 @@ def test_ratelimit_exceeded_peeks_without_counting():
     from web.ratelimit import allow, exceeded
 
     window = timedelta(minutes=1)
-    assert exceeded("p", "a", 2) is False
-    assert exceeded("p", "a", 2) is False  # peeking never counts
+    assert exceeded("p", "a", 2, window) is False
+    assert exceeded("p", "a", 2, window) is False  # peeking never counts
     allow("p", "a", 2, window)
-    assert exceeded("p", "a", 2) is False
+    assert exceeded("p", "a", 2, window) is False
     allow("p", "a", 2, window)
-    assert exceeded("p", "a", 2) is True
-    assert exceeded("p", "b", 2) is False
+    assert exceeded("p", "a", 2, window) is True
+    assert exceeded("p", "b", 2, window) is False

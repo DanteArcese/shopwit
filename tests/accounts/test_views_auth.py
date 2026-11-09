@@ -387,3 +387,39 @@ def test_privacy_page_accounts_section(client, settings, host):
     section = html.split(">Accounts and lists<", 1)[1].split("<h2", 1)[0]
     for phrase in ("email address", "password", "lists", "settings", "Delete account", "15 minutes"):
         assert phrase in section, phrase
+
+
+@pytest.mark.django_db
+def test_delete_account_deletes_its_magic_link_tokens(client):
+    user = _user("gone@example.com")
+    _request_link(client, "gone@example.com")
+    _request_link(client, "keep@example.com")
+    client.force_login(user)
+    client.post("/account/delete", {"confirm": "delete"})
+    assert list(MagicLinkToken.objects.values_list("email", flat=True)) == ["keep@example.com"]
+
+
+@pytest.mark.django_db
+def test_magic_link_fails_closed_without_site_url(client, settings):
+    settings.DEBUG = False
+    settings.SITE_URL = ""
+    r = _request_link(client, "a@example.com")
+    assert r.status_code == 503
+    assert b"can't send email right now" in r.content
+    assert len(mail.outbox) == 0
+    assert MagicLinkToken.objects.count() == 0
+
+
+@pytest.mark.django_db
+def test_magic_link_debug_without_site_url_uses_localhost(client, settings):
+    settings.DEBUG = True
+    settings.SITE_URL = ""
+    _request_link(client, "a@example.com")
+    assert "http://localhost:8000/account/magic/" in mail.outbox[0].body
+
+
+@pytest.mark.django_db
+def test_confirm_page_names_the_account(client):
+    _request_link(client, "Who@Example.com")
+    html = client.get(f"/account/magic/{_token_from_outbox()}").content.decode()
+    assert "Sign in as" in html and "who@example.com" in html

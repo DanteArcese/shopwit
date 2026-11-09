@@ -44,3 +44,34 @@ def test_settings_logging_uses_redact_filter():
     from django.conf import settings
 
     assert "redact" in settings.LOGGING["handlers"]["stdout"]["filters"]
+
+
+def test_log_filter_never_raises_on_bad_records():
+    import logging
+
+    from web.glogging import RedactFilter
+
+    record = logging.LogRecord("x", logging.ERROR, __file__, 1, "%s %s", ("only one",), None)
+    assert RedactFilter().filter(record) is True
+
+
+def test_log_filter_redacts_tracebacks():
+    import logging
+    import sys
+
+    from web.glogging import RedactFilter
+
+    try:
+        raise ValueError("bad path /account/magic/SECRETTOKEN")
+    except ValueError:
+        exc_info = sys.exc_info()
+    record = logging.LogRecord("django.request", logging.ERROR, __file__, 1, "boom", (), exc_info)
+    assert RedactFilter().filter(record) is True
+    text = logging.Formatter().format(record)
+    assert "SECRETTOKEN" not in text
+    assert "/account/magic/…" in text
+
+    record = logging.LogRecord("x", logging.ERROR, __file__, 1, "boom", (), None)
+    record.exc_text = "Traceback: /waitlist/confirm/SECRET"
+    RedactFilter().filter(record)
+    assert "SECRET" not in record.exc_text

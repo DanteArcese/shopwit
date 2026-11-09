@@ -14,8 +14,8 @@
 <h2>Accounts and lists</h2>
 <ul>
   <li>Accounts are optional; lists work without one, saved in your session. If you create an account (by asking for a sign-in link), we store your email address, a password hash only if you set a password (never the password itself), when the account was created and last signed in, your lists and your saved settings (units, stores, ZIP code and distance). No names, IP addresses, user agents or tracking ids.</li>
-  <li>Sign-in links: we store your email address with a one-way hash of the link (never the link itself). A link works once and expires after 15 minutes; the record is deleted about a day after it expires. Sign-in emails are sent through Resend.</li>
-  <li>To limit abuse, we count sign-in attempts per email address and per IP address under salted one-way hashes in a temporary cache that expires within an hour. Emails, links and IP addresses are never logged.</li>
+  <li>Sign-in links: we store your email address with a one-way hash of the link (never the link itself). A link works once and expires after 15 minutes; the record is deleted within two days after it expires, or at once if you delete your account. Sign-in emails are sent through Resend.</li>
+  <li>To limit abuse, we count sign-in attempts per email address and per IP address under salted one-way hashes in a temporary cache. The counts expire within an hour and are deleted within a day after that. Emails, links and IP addresses are never logged.</li>
   <li>To delete your account, sign in, open Account and use Delete account. That deletes your email address, password hash, lists and saved settings at once. Or email <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a> and we will delete it for you.</li>
 </ul>
 <h2>Feedback</h2>

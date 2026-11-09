@@ -33,6 +33,7 @@ SESSION_CLEANUP_INTERVAL = timedelta(days=1)
 # Per-process marker: a restarted worker clears once more, which is harmless.
 _sessions_cleared_at: datetime | None = None
 _feedback_purged_at: datetime | None = None
+_magic_purged_at: datetime | None = None
 _demand_pruned_at: datetime | None = None
 DEMAND_PRUNE_INTERVAL = timedelta(days=1)
 
@@ -127,6 +128,7 @@ def tick(
     demand_housekeeping(now)
     clear_expired_sessions(now)
     purge_feedback_emails(now)
+    purge_magic_tokens(now)
     return runs
 
 
@@ -167,6 +169,40 @@ def purge_feedback_emails(now: datetime) -> bool:
         return False
     logger.info("feedback email purge done purged=%s", purged)
     return True
+
+
+def purge_magic_tokens(now: datetime) -> bool:
+    """Once per SESSION_CLEANUP_INTERVAL, delete sign-in link rows a day past expiry
+    and expired cache rows (rate-limit counters).
+
+    Never raises; a failure waits for the next interval.
+    """
+    global _magic_purged_at
+    if _magic_purged_at is not None and now - _magic_purged_at < SESSION_CLEANUP_INTERVAL:
+        return False
+    _magic_purged_at = now
+    try:
+        from accounts import magic
+
+        purged = magic.purge_expired(now)
+        _purge_expired_cache_rows()
+    except Exception as exc:
+        logger.error("sign-in link purge failed: %s", type(exc).__name__)
+        return False
+    logger.info("sign-in link purge done purged=%s", purged)
+    return True
+
+
+def _purge_expired_cache_rows() -> None:
+    """DatabaseCache only deletes expired rows when culling; delete them here."""
+    from django.db import connection
+
+    conf = settings.CACHES["default"]
+    if conf["BACKEND"] != "django.core.cache.backends.db.DatabaseCache":
+        return
+    table = connection.ops.quote_name(conf["LOCATION"])
+    with connection.cursor() as cur:
+        cur.execute(f"DELETE FROM {table} WHERE expires < %s", [timezone.now()])
 
 
 def demand_housekeeping(now: datetime) -> None:
