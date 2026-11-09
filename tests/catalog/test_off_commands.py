@@ -101,6 +101,7 @@ def test_backfill_records_404_and_skips_next_time(monkeypatch, sleeps):
     entry = OffEntry.objects.get()
     assert entry.labels == [] and entry.quantity is None and entry.last_modified is None
     assert entry.source == "off"
+    assert entry.nutrition_checked_at is not None  # checked, nothing usable
     run()
     assert len(count) == 1
 

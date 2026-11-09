@@ -334,7 +334,13 @@ def backfill(
         if result == "missing":
             OffEntry.objects.update_or_create(
                 upc=upc,
-                defaults={"source": source, "labels": [], "quantity": None, "last_modified": None},
+                defaults={
+                    "source": source,
+                    "labels": [],
+                    "quantity": None,
+                    "last_modified": None,
+                    "nutrition_checked_at": datetime.now(UTC),
+                },
             )
             stats["not_found"] += 1
         elif result is None:

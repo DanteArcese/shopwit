@@ -290,3 +290,23 @@ def test_boost_keeps_unlimited_unlimited(settings):
 def test_no_boost_when_until_is_unset(settings):
     settings.OFF_PRODUCT_BOOST_UNTIL = None
     assert budget_module.boosted_limit("off-product", 300, T0) == 300
+
+
+@pytest.mark.django_db
+def test_boost_end_to_end_through_db_budget(settings):
+    settings.OFF_PRODUCT_BOOST_UNTIL = date(2026, 11, 16)
+    settings.OFF_PRODUCT_BOOST_DAILY = 400
+    now = datetime(2026, 11, 16, 12, tzinfo=UTC)
+    make_row("off-product", capacity=1000.0, tokens=1000.0, daily_limit=300, day=now.date())
+    budget = DbBudget(now=lambda: now)
+    for _ in range(400):  # past the stored 300, up to the boosted limit
+        budget.acquire("off-product")
+    with pytest.raises(BudgetExhausted):
+        budget.acquire("off-product")
+    assert SourceBudget.objects.get(pk="off-product").daily_limit == 300
+    after = datetime(2026, 11, 17, 12, tzinfo=UTC)
+    later = DbBudget(now=lambda: after)
+    for _ in range(300):
+        later.acquire("off-product")
+    with pytest.raises(BudgetExhausted):
+        later.acquire("off-product")

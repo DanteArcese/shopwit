@@ -618,3 +618,59 @@ def test_run_limit_boost(settings):
     assert run_limit(datetime(2026, 11, 17, 0, 1, tzinfo=timezone.utc)) == 300
     settings.OFF_PRODUCT_BOOST_UNTIL = None
     assert run_limit(NOW) == 300
+
+
+# --- fix round 1 ---
+
+
+def test_stopping_mid_loop_still_refreshes_offers_of_processed_upcs():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    OffEntry.objects.create(  # sorts after NO_SIZE, so it is never reached
+        upc=FAIRLIFE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    live = _walmart_offer(NO_SIZE)
+    calls = iter([False, True])
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded(), stopping=lambda: next(calls))
+    assert run.error == "interrupted"
+    live.refresh_from_db()
+    assert live.nutrition.get("protein_cost") is not None
+
+
+def test_unexpected_error_mid_loop_still_refreshes_and_finishes_run(monkeypatch):
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    OffEntry.objects.create(
+        upc=FAIRLIFE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    live = _walmart_offer(NO_SIZE)
+    real = observed_off._store
+    seen = []
+
+    def store(upc, *a, **k):
+        if seen:
+            raise RuntimeError("boom")
+        seen.append(upc)
+        real(upc, *a, **k)
+
+    monkeypatch.setattr(observed_off, "_store", store)
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert run.status == "failed" and run.error == "RuntimeError"
+    live.refresh_from_db()
+    assert live.nutrition.get("protein_cost") is not None
+
+
+def test_cached_row_newer_is_checked_and_its_offers_refreshed():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+        nutrition_per="100g", protein_100g=10.0, kcal_100g=100.0,
+    )
+    live = _walmart_offer(NO_SIZE)
+    OffEntry.objects.filter(pk=NO_SIZE).update(nutrition_checked_at=None)
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert NO_SIZE in stats.changed
+    assert OffEntry.objects.get(pk=NO_SIZE).nutrition_checked_at is not None
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] == "3.000000"  # the newer cached values: 100 g protein in a 1,000 g pack at $3.00

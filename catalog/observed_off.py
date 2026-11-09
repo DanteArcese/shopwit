@@ -199,6 +199,7 @@ def _store(upc: str, source: Source, result, now: datetime, stats: Stats) -> Non
         stats.changed.add(upc)
     else:  # the cached row is newer; remember that it was checked
         OffEntry.objects.filter(pk=upc).update(fetched_at=now, nutrition_checked_at=now)
+        stats.changed.add(upc)  # its offers' nutrition is recomputed from the cached row
 
 
 def _raw(offer: Offer, row: OpenPriceObservation, now: datetime) -> RawOffer:
@@ -348,10 +349,14 @@ def backfill_sizes(
             raise
         except BudgetExhausted:
             stats.stopped = "budget exhausted"
-        try:
-            renormalize(stats.changed, now, stats, stopping=stopping)
-        finally:  # stored entries are marked checked, so their offers must be refreshed now
-            refresh_nutrition(stats.changed)
+        finally:
+            # Stored entries are marked checked, so their offers must be renormalized and
+            # their nutrition refreshed even when the loop was stopped or failed. The original
+            # exception (if any) still propagates after this.
+            try:
+                renormalize(stats.changed, now, stats, stopping=stopping)
+            finally:
+                refresh_nutrition(stats.changed)
     except Stopping:
         stats.stopped = INTERRUPTED
     except Exception as exc:  # never leave a RUNNING row; type name only
