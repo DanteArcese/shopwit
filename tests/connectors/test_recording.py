@@ -79,3 +79,11 @@ def test_redaction_is_case_insensitive_and_covers_tokens():
         name("https://h.test/a?q=1&access_token=s&token=s&Secret=s&KEY=s")
         == "GET_a__q=1.json"
     )
+
+
+def test_long_recording_names_are_shortened_deterministically():
+    url = "https://h.test/a?q=" + "x" * 300
+    first = recording_name(httpx.Request("GET", url))
+    assert first == recording_name(httpx.Request("GET", url))
+    assert len(first) == 255 and first.endswith(".json") and first[-46] == "~"
+    assert first != recording_name(httpx.Request("GET", url + "y"))

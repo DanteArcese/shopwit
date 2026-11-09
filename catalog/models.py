@@ -21,6 +21,7 @@ class Category(TimestampedModel):
     comparison_alternates = models.JSONField(default=list)
     search = models.JSONField(default=list)
     active = models.BooleanField(default=True)
+    food = models.BooleanField(default=False)
 
     def __str__(self):
         return self.slug
@@ -112,6 +113,7 @@ class Offer(TimestampedModel):
     measure_dim = models.CharField(max_length=10, null=True, blank=True)
     measure_amount = models.FloatField(null=True, blank=True)
     measure_reason = models.CharField(max_length=100, null=True, blank=True)
+    nutrition = models.JSONField(default=dict, db_default={})
     generic_unit_price = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
     search_vector = models.GeneratedField(
         expression=(
@@ -211,6 +213,10 @@ class OffEntry(models.Model):
     categories = models.JSONField(default=list)
     last_modified = models.DateTimeField(null=True, blank=True)
     fetched_at = models.DateTimeField(auto_now=True)
+    nutrition_per = models.CharField(max_length=10, null=True, blank=True)
+    protein_100g = models.FloatField(null=True, blank=True)
+    kcal_100g = models.FloatField(null=True, blank=True)
+    nutrition_checked_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
 
 class OpenPriceObservation(models.Model):

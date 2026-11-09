@@ -17,7 +17,7 @@ from typing import Literal
 
 import httpx
 
-from normalize.types import OffProduct
+from normalize.types import Nutrition, OffProduct
 
 USER_AGENT = "unitpricer/0.1 (+https://github.com/DanteArcese/unitpricer)"
 DELTA_BASE_URL = "https://static.openfoodfacts.org/data/delta/"
@@ -25,7 +25,7 @@ API_HOSTS = {
     "off": "https://world.openfoodfacts.org",
     "opf": "https://world.openproductsfacts.org",
 }
-FIELDS = "code,labels_tags,quantity,last_modified_t,categories_tags,product_quantity_unit"
+FIELDS = "code,labels_tags,quantity,last_modified_t,categories_tags,product_quantity_unit,nutriments,nutrition_data_per"
 MAX_RETRIES = 3
 BACKOFF_SECONDS = 1.0
 MIN_INTERVAL_SECONDS = 1.0
@@ -43,6 +43,10 @@ class OffRecord:
     last_modified: datetime | None
     categories: tuple[str, ...] = ()
     quantity_unit: str | None = None
+    nutrition: Nutrition | None = None
+
+
+KJ_PER_KCAL = 4.184
 
 
 def normalize_upc(code: str | None) -> str | None:
@@ -54,6 +58,43 @@ def normalize_upc(code: str | None) -> str | None:
     if len(digits) in (8, 13, 14):
         return digits
     return None
+
+
+def _number(value: object) -> float | None:
+    """A finite, non-negative int, float or numeric string; anything else (bools included) is missing."""
+    if isinstance(value, bool) or not isinstance(value, (int, float, str)):
+        return None
+    try:
+        number = float(value)
+    except (ValueError, OverflowError):
+        return None
+    return number if math.isfinite(number) and number >= 0 else None
+
+
+def _kcal(nutriments: dict) -> float | None:
+    """kcal per 100: OFF's kcal value, else its kJ value converted exactly (kJ / 4.184)."""
+    kcal = _number(nutriments.get("energy-kcal_100g"))
+    if kcal is not None:
+        return kcal
+    kj = _number(nutriments.get("energy-kj_100g"))
+    if kj is None:
+        unit = nutriments.get("energy_unit")
+        if isinstance(unit, str) and unit.strip().lower() == "kj":
+            kj = _number(nutriments.get("energy_100g"))
+    return kj / KJ_PER_KCAL if kj is not None else None
+
+
+def _nutrition(data: dict) -> Nutrition | None:
+    if "nutriments" not in data and "nutrition_data_per" not in data:
+        return None
+    nutriments = data.get("nutriments")
+    if not isinstance(nutriments, dict):
+        nutriments = {}
+    basis = data.get("nutrition_data_per")
+    basis = basis.strip().lower() if isinstance(basis, str) else None
+    if basis not in ("100g", "100ml", "serving"):
+        basis = None
+    return Nutrition(basis, _number(nutriments.get("proteins_100g")), _kcal(nutriments))
 
 
 def _record_from_dict(data: object, source: str) -> OffRecord | None:
@@ -78,7 +119,7 @@ def _record_from_dict(data: object, source: str) -> OffRecord | None:
     categories = tuple(t for t in raw_cats if isinstance(t, str)) if isinstance(raw_cats, list) else ()
     unit = data.get("product_quantity_unit")
     unit = unit.strip() or None if isinstance(unit, str) else None
-    return OffRecord(upc, source, labels, quantity, last_modified, categories, unit)
+    return OffRecord(upc, source, labels, quantity, last_modified, categories, unit, _nutrition(data))
 
 
 def parse_off_line(line: str, source: Source) -> OffRecord | None:
@@ -119,11 +160,15 @@ def lookup(upc: str | None) -> OffProduct | None:
     entry = OffEntry.objects.filter(pk=normalized).first()
     if entry is None:
         return None
+    nutrition = None
+    if entry.nutrition_checked_at is not None:
+        nutrition = Nutrition(entry.nutrition_per, entry.protein_100g, entry.kcal_100g)
     return OffProduct(
         labels=frozenset(entry.labels),
         quantity=entry.quantity,
         categories=tuple(entry.categories),
         quantity_unit=entry.quantity_unit,
+        nutrition=nutrition,
     )
 
 
@@ -134,9 +179,14 @@ def _save(record: OffRecord) -> bool:
     stored = OffEntry.objects.filter(pk=record.upc).values_list("last_modified", flat=True).first()
     if stored is not None and (record.last_modified is None or stored > record.last_modified):
         return False
+    n = record.nutrition
     OffEntry.objects.update_or_create(
         upc=record.upc,
         defaults={
+            "nutrition_per": n.basis if n else None,
+            "protein_100g": n.protein if n else None,
+            "kcal_100g": n.kcal if n else None,
+            "nutrition_checked_at": datetime.now(UTC),
             "source": record.source,
             "labels": sorted(record.labels),
             "quantity": record.quantity,
@@ -284,7 +334,13 @@ def backfill(
         if result == "missing":
             OffEntry.objects.update_or_create(
                 upc=upc,
-                defaults={"source": source, "labels": [], "quantity": None, "last_modified": None},
+                defaults={
+                    "source": source,
+                    "labels": [],
+                    "quantity": None,
+                    "last_modified": None,
+                    "nutrition_checked_at": datetime.now(UTC),
+                },
             )
             stats["not_found"] += 1
         elif result is None:

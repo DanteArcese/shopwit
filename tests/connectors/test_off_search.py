@@ -83,7 +83,7 @@ def test_us_only_and_fields_params():
     assert params["tag_0"] == "united-states"
     assert params["fields"] == FIELDS == (
         "code,product_name,brands,quantity,product_quantity,product_quantity_unit,"
-        "labels_tags,categories_tags"
+        "labels_tags,categories_tags,nutriments,nutrition_data_per"
     )
     assert params["search_terms"] == "oat milk" and params["json"] == "1"
     assert params["page_size"] == "50"
@@ -92,7 +92,8 @@ def test_us_only_and_fields_params():
 
 def _sequence(statuses):
     ok = json.loads((RECORDINGS / "off_search" / "503.json").read_text())
-    ok_body = next(RECORDINGS.glob("off_search/*oat%20milk*")).read_text()
+    (oat_milk,) = RECORDINGS.glob("off_search/GET_cgi*&search_terms=o~*.json")  # "oat milk", hashed
+    ok_body = oat_milk.read_text()
     seen = []
 
     def handler(request):

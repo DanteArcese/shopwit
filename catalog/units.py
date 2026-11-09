@@ -303,3 +303,28 @@ def default_target(
 
 def display_target(measure_key: str, amount: Decimal, dimension: str, unit_system: str) -> str:
     return display_size({measure_key: float(amount)}, dimension, unit_system)
+
+
+_COST_SUFFIX = {"protein": "per 100 g protein", "kcal": "per 1,000 kcal"}
+
+
+def display_nutrition_cost(cost: Decimal, rank: str, currency: str) -> str:
+    """"$1.42 per 100 g protein" or "$0.78 per 1,000 kcal"."""
+    return f"{format_money(cost, currency)} {_COST_SUFFIX[rank]}"
+
+
+def _metric_pack(pack: float, unit: str) -> str:
+    value = _dec(pack)
+    big, small = ("kg", "g") if unit == "g" else ("L", "ml")
+    return f"{_num(value / 1000)} {big}" if value >= 1000 else f"{_num(value)} {small}"
+
+
+def display_nutrition_used(nutrition: Mapping, rank: str) -> str:
+    """The OFF values behind a cost: "21 g protein per 100 g · 907 g pack". Always metric."""
+    per = "100 g" if nutrition["basis"] == "100g" else "100 ml"
+    pack = _metric_pack(nutrition["pack"], nutrition["pack_unit"])
+    if rank == "protein":
+        value = f"{_num(_dec(nutrition['protein']))} g protein"
+    else:
+        value = f"{_num(_dec(nutrition['kcal']).quantize(ONE, rounding=ROUND_HALF_UP))} kcal"
+    return f"{value} per {per} · {pack} pack"

@@ -36,6 +36,7 @@ from catalog.generic import (
     parse_generic_filters,
 )
 from catalog.models import FetchJob
+from catalog.nutrition import RANKS, has_cost, parse_rank
 from catalog.units import GENERIC_COMPARISON, display_generic_size
 from connectors.registry import live_source_info
 from normalize import load_store_brands
@@ -231,10 +232,24 @@ def _query_string(get, *, drop: tuple[str, ...] = (), add: tuple[tuple[str, str]
     return urlencode([*pairs, *add])
 
 
+def _with_rank(get, rank: str):
+    """A copy of the query with ``rank`` replaced by the validated rank in use (dropped for unit),
+    in its original place, so no raw ``rank`` value is ever echoed into a link."""
+    out = get.copy()
+    if rank == "unit":
+        out.pop("rank", None)
+    else:
+        out.setlist("rank", [rank])
+    return out
+
+
 def _settings_next(q: str, get) -> str:
     """The search to come back to from Settings: q and facet values only (never poll/seen)."""
     keep = {p for ps in FACET_PARAMS.values() for p in ps}
     pairs = [(k, v) for k, values in get.lists() if k in keep for v in values]
+    rank = parse_rank(get.get("rank"))
+    if rank != "unit":
+        pairs.append(("rank", rank))
     return f"{reverse('search')}?{urlencode([('q', q), *pairs])}"
 
 
@@ -303,19 +318,21 @@ def status_text(total: int, *, fuzzy: bool, capped: bool, q: str, live: str | No
     return text
 
 
-def _present_row(row: GenericRow, *, observed: bool, unit_system: str, names: dict[str, str]) -> dict:
+def _present_row(
+    row: GenericRow, *, observed: bool, unit_system: str, names: dict[str, str], rank: str = "unit"
+) -> dict:
     from . import views  # views imports this module lazily; avoid an import cycle
 
     offer = row.offer
     adapted = SimpleNamespace(
-        offer=offer, product=row.product, unit_price=None, unknown=(), reason=row.reason
+        offer=offer, product=row.product, unit_price=None, unknown=(), reason=row.reason, cost=row.cost
     )
     dimension = offer.measure_dim if row.unit_price is not None else None
     comparison = GENERIC_COMPARISON.get(dimension or "", "")
     if row.unit_price is not None and comparison:
         adapted.unit_price = row.unit_price
     present = views._present_observed if observed else views._present
-    out = present(adapted, comparison, unit_system, "")
+    out = present(adapted, comparison, unit_system, "", rank)
     out["size"] = ""
     if offer.measure_dim in GENERIC_COMPARISON and offer.measure_amount is not None:
         out["size"] = display_generic_size(offer.measure_dim, offer.measure_amount, unit_system)
@@ -337,14 +354,19 @@ def _add_url(q: str, dimension: str, get) -> str | None:
 
 def _groups(
     result: GenericResult, *, section: str, observed: bool, unit_system: str, names, expand: str | None,
-    q: str = "", get=None,
+    q: str = "", get=None, rank: str = "unit",
 ):
-    entries = [(g.dimension, g.rows, g.total) for g in result.groups]
-    if result.unknown:
-        entries.append(("unknown", result.unknown, len(result.unknown)))
+    entries = [(g.dimension, g.rows, g.total, g.ranked_count) for g in result.groups]
+    if result.unknown:  # never ranked by nutrition; listed as before, each with its reason
+        entries.append(("unknown", result.unknown, len(result.unknown), len(result.unknown)))
     groups = []
-    for dimension, rows, total in entries:
+    for dimension, rows, total, ranked_count in entries:
         shown = rows if expand == dimension else rows[:GROUP_PAGE]
+        presented = [
+            _present_row(r, observed=observed, unit_system=unit_system, names=names, rank=rank)
+            for r in shown
+        ]
+        split = min(ranked_count, len(presented))
         groups.append(
             {
                 "dimension": dimension,
@@ -355,9 +377,10 @@ def _groups(
                 "heading": f"{HEADINGS[dimension]} ({total})",
                 "total": total,
                 "more": total > len(shown),
-                "rows": [
-                    _present_row(r, observed=observed, unit_system=unit_system, names=names) for r in shown
-                ],
+                "rows": presented,
+                "ranked_rows": presented[:split],
+                "unranked_rows": presented[split:],
+                "unranked_total": total - ranked_count,
             }
         )
     return groups
@@ -381,16 +404,22 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
 
     store_brands = load_store_brands(settings.STORE_BRANDS_FILE)
     allowlist = load_label_allowlist(settings.LABELS_FILE)
+    matched = [*live.offers, *seen_offers]  # in range, before any facet filter
+    # Nutrition ranking is offered only when a matched offer has a protein or kcal cost;
+    # otherwise ``rank`` is ignored, so a household search never ranks by nutrition.
+    can_rank = any(has_cost(o) for o in matched)
+    rank = parse_rank(request.GET.get("rank")) if can_rank else "unit"
+    get = _with_rank(request.GET, rank)  # URLs built from here carry only the rank in use
     filters = parse_generic_filters(request.GET, prefs.unit_system, allowlist)
-    facet_list = facets([*live.offers, *seen_offers], filters, store_brands, allowlist, prefs.unit_system)
+    facet_list = facets(matched, filters, store_brands, allowlist, prefs.unit_system)
     live_offers = apply_filters(live.offers, filters, store_brands)
     seen_offers = apply_filters(seen_offers, filters, store_brands)
 
-    live_result = group_products(live_offers)
-    seen_result = group_products(seen_offers)
+    live_result = group_products(live_offers, rank)
+    seen_result = group_products(seen_offers, rank)
     unfiltered_hits = bool(live.offers or seen.offers or hidden_far or hidden_unplaced)
     no_results = not live_offers and not seen_offers and not hidden_far and not hidden_unplaced
-    keep = _query_string(request.GET)
+    keep = _query_string(get)
     held_total = len({o.product_id for o in [*live_offers, *seen_offers]})
 
     htmx = request.headers.get("HX-Request") == "true"
@@ -400,11 +429,11 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
 
     live_groups = _groups(
         live_result, section="live", observed=False, unit_system=prefs.unit_system, names=names,
-        expand=show if show_section == "live" else None, q=q, get=request.GET,
+        expand=show if show_section == "live" else None, q=q, get=get, rank=rank,
     )
     seen_groups = _groups(
         seen_result, section="observed", observed=True, unit_system=prefs.unit_system, names=names,
-        expand=show if show_section == "observed" else None,
+        expand=show if show_section == "observed" else None, rank=rank,
     )
     if show and htmx and not restore:
         pool = live_groups if show_section == "live" else seen_groups
@@ -478,20 +507,22 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
         "empty": no_results and not unfiltered_hits,
         "filtered_empty": no_results and unfiltered_hits and filters.active,
         "facets": [
-            _present_facet(x, q=q, get=request.GET, f=filters, unit_system=prefs.unit_system)
+            _present_facet(x, q=q, get=get, f=filters, unit_system=prefs.unit_system)
             for x in facet_list
         ],
         "filters_active": filters.active,
         "path_param": filters.path or "",
         "clear_all_url": _facet_url(
-            q, request.GET, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)
+            q, get, drop=tuple(p for ps in FACET_PARAMS.values() for p in ps)
         ),
+        "rank": rank,
+        "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if can_rank else [],
         "keep_qs": f"&{keep}" if keep else "",
         "live_empty": not live_groups and seen_result.total_products > 0,
         "status_text": status_text(held_total, fuzzy=fuzzy, capped=capped, q=q, live=live_text),
         # The same notes, visible: the status line above is a screen-reader live region only.
         "search_notes": [*([note] if note else []), *parts],
-        "settings_next": _settings_next(q, request.GET),
+        "settings_next": _settings_next(q, get),
     }
     if poll is not None:
         template = "web/_generic_poll.html"

@@ -10,3 +10,4 @@ attributes:
   caffeine_free: {type: bool, synonyms: {true: [caffeine free, caffeine-free]}, absent: false}
 comparison: {default: per_volume}
 search: [cola, soda pop]
+food: true

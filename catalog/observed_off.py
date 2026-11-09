@@ -20,7 +20,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 import httpx
 from django.conf import settings
@@ -38,6 +38,7 @@ from normalize.types import RawOffer
 
 from .ingest import INTERRUPTED, _upsert
 from .merge import merge_product
+from .nutrition import refresh_nutrition
 from .observed import observed_off_product
 from .models import IngestionRun, OffEntry, Offer, OpenPriceObservation, Product
 
@@ -49,6 +50,14 @@ RECHECK_AFTER = timedelta(
     days=30
 )  # an entry without a quantity is asked again after this
 CHUNK = 1000
+
+
+def run_limit(now: datetime) -> int:
+    """Barcodes per run: the boosted daily cap during the first-week boost, else 300."""
+    until = settings.OFF_PRODUCT_BOOST_UNTIL
+    if until is not None and now.astimezone(UTC).date() <= until:
+        return settings.OFF_PRODUCT_BOOST_DAILY
+    return DEFAULT_LIMIT
 
 
 @dataclass
@@ -66,6 +75,7 @@ class Stats:
     not_found: int = 0
     rejected: int = 0  # non-retryable answer without a product (400, 403, unreadable)
     failed: int = 0
+    nutrition: int = 0
     renormalized: int = 0
     matched: int = 0
     fully_parsed: int = 0
@@ -81,6 +91,7 @@ class Stats:
             "not_found",
             "rejected",
             "failed",
+            "nutrition",
             "renormalized",
             "matched",
             "errors",
@@ -127,6 +138,23 @@ def candidates(now: datetime, limit: int) -> list[tuple[str, Source]]:
     return [(e.upc, "opf" if e.household else "off") for _, e in wanted[:limit]]
 
 
+def nutrition_candidates(limit: int, exclude: set[str]) -> list[tuple[str, Source]]:
+    """OFF entries whose nutrition was never checked (no 404 placeholders), in barcode order.
+
+    The pk is the UPC string, so the order is lexicographic: stable across runs, not by age."""
+    if limit <= 0:
+        return []
+    rows = (
+        OffEntry.objects.filter(
+            nutrition_checked_at__isnull=True, source="off", last_modified__isnull=False
+        )
+        .exclude(pk__in=exclude)
+        .order_by("pk")
+        .values_list("pk", flat=True)[:limit]
+    )
+    return [(upc, "off") for upc in rows]
+
+
 def _lookup(client: httpx.Client, budget, source: Source, upc: str, stats: Stats):
     """One budgeted request, no retry: a record, "missing", "rejected" (a non-retryable
     answer without a product), or None (429, 5xx or transport error: ask again later)."""
@@ -154,16 +182,35 @@ def _store(upc: str, source: Source, result, now: datetime, stats: Stats) -> Non
             stats.not_found += 1
         else:
             stats.rejected += 1
-        if not OffEntry.objects.filter(pk=upc).update(fetched_at=now):
+        # nutrition_checked_at: "checked, nothing usable", so it is not fetched again
+        if not OffEntry.objects.filter(pk=upc).update(
+            fetched_at=now, nutrition_checked_at=now
+        ):
             OffEntry.objects.get_or_create(
-                upc=upc, defaults={"source": source, "labels": [], "quantity": None}
+                upc=upc,
+                defaults={
+                    "source": source,
+                    "labels": [],
+                    "quantity": None,
+                    "nutrition_checked_at": now,
+                },
             )
         return  # an existing entry keeps its data; only the check time moves
     stats.stored += 1
     if enrichment.off._save(result):
         stats.changed.add(upc)
-    else:  # the cached row is newer; remember that it was checked
-        OffEntry.objects.filter(pk=upc).update(fetched_at=now)
+    else:  # the cached row is newer; keep it, but fill nutrition it never had, then mark checked
+        n = result.nutrition
+        if n is not None:
+            OffEntry.objects.filter(
+                pk=upc,
+                nutrition_checked_at__isnull=True,
+                nutrition_per__isnull=True,
+                protein_100g__isnull=True,
+                kcal_100g__isnull=True,
+            ).update(nutrition_per=n.basis, protein_100g=n.protein, kcal_100g=n.kcal)
+        OffEntry.objects.filter(pk=upc).update(fetched_at=now, nutrition_checked_at=now)
+        stats.changed.add(upc)  # its offers' nutrition is recomputed from the cached row
 
 
 def _raw(offer: Offer, row: OpenPriceObservation, now: datetime) -> RawOffer:
@@ -277,7 +324,7 @@ def backfill_sizes(
     now: datetime,
     budget,
     *,
-    limit: int = DEFAULT_LIMIT,
+    limit: int | None = None,
     client: httpx.Client | None = None,
     stopping: Callable[[], bool] | None = None,
 ) -> tuple[IngestionRun, Stats]:
@@ -295,7 +342,11 @@ def backfill_sizes(
         if owned:
             client = enrichment.off.default_client()
         try:
-            wanted = candidates(now, max(0, limit))
+            limit = run_limit(now) if limit is None else max(0, limit)
+            sizes = candidates(now, limit)
+            nutrition = nutrition_candidates(limit - len(sizes), {u for u, _ in sizes})
+            stats.nutrition = len(nutrition)
+            wanted = sizes + nutrition
             run.fetched = len(wanted)
             for upc, source in wanted:
                 if stopping is not None and stopping():
@@ -309,7 +360,14 @@ def backfill_sizes(
             raise
         except BudgetExhausted:
             stats.stopped = "budget exhausted"
-        renormalize(stats.changed, now, stats, stopping=stopping)
+        finally:
+            # Stored entries are marked checked, so their offers must be renormalized and
+            # their nutrition refreshed even when the loop was stopped or failed. The original
+            # exception (if any) still propagates after this.
+            try:
+                renormalize(stats.changed, now, stats, stopping=stopping)
+            finally:
+                refresh_nutrition(stats.changed)
     except Stopping:
         stats.stopped = INTERRUPTED
     except Exception as exc:  # never leave a RUNNING row; type name only

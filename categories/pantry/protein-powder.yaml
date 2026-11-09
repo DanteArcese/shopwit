@@ -8,3 +8,4 @@ attributes:
   organic: {type: bool, synonyms: {true: [organic]}, off_label: 'en:organic', absent: false}
 comparison: {default: per_mass}
 search: [whey protein powder, plant protein powder]
+food: true

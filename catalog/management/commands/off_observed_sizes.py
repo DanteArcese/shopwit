@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from catalog.budget import DbBudget, seed_budgets
 from catalog.models import IngestionRun
-from catalog.observed_off import DEFAULT_LIMIT, backfill_sizes
+from catalog.observed_off import backfill_sizes
 from connectors.recording import recorded_transport
 from enrichment.off import USER_AGENT
 
@@ -25,7 +25,7 @@ class Command(BaseCommand):
     )
 
     def add_arguments(self, parser):
-        parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Most barcodes to look up")
+        parser.add_argument("--limit", type=int, default=None, help="Most barcodes to look up (default: the daily cap, boosted in the first week)")
         parser.add_argument("--recordings", help="Serve recorded responses from DIR")
 
     def handle(self, *args, **options):

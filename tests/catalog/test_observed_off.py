@@ -462,3 +462,253 @@ def test_renormalize_filters_offers_by_barcode_in_the_database():
         and '"catalog_offer"."kind" = ' in q["sql"]
     ]
     assert offer_selects and all("0000000000010@" in sql for sql in offer_selects)
+
+
+# --- nutrition backfill (#95) ---
+
+from datetime import date, datetime, timezone  # noqa: E402
+
+from catalog.models import Product  # noqa: E402
+from catalog.observed_off import nutrition_candidates, run_limit  # noqa: E402
+
+
+OLDER = datetime(2026, 1, 1, tzinfo=timezone.utc)  # before the recordings' last_modified
+
+
+def stamp(upc, *, source="off", checked=False, last_modified=True):
+    return OffEntry.objects.create(
+        upc=upc,
+        source=source,
+        labels=[],
+        quantity="1 gal",  # has a size, so it is not a size candidate
+        fetched_at=NOW,
+        last_modified=NOW if last_modified else None,
+        nutrition_checked_at=NOW if checked else None,
+    )
+
+
+def test_nutrition_candidates_skip_checked_opf_and_placeholders():
+    stamp("0000000000001")
+    stamp("0000000000002", checked=True)
+    stamp("0000000000003", source="opf")
+    stamp("0000000000004", last_modified=False)  # 404 placeholder
+    stamp("0000000000005")
+    assert nutrition_candidates(10, set()) == [
+        ("0000000000001", "off"),
+        ("0000000000005", "off"),
+    ]
+    assert nutrition_candidates(10, {"0000000000001"}) == [("0000000000005", "off")]
+    assert nutrition_candidates(1, set()) == [("0000000000001", "off")]
+    assert nutrition_candidates(0, set()) == []
+
+
+def test_sizes_first_then_nutrition_within_limit():
+    observe((FAIRLIFE, "Whole ultra-filtered milk", "fairlife"), (EGGS, "EGGS", "E"))
+    for i in range(1, 6):
+        stamp(f"00000000000{i:02d}")
+    seen = []
+    _, stats = backfill_sizes(NOW, FakeBudget(), limit=4, client=bad_recorded(seen))
+    asked = [r.url.path.rsplit("/", 1)[-1] for r in seen]
+    assert asked[:2] == sorted([FAIRLIFE, EGGS], key=asked.index)
+    assert set(asked[:2]) == {FAIRLIFE, EGGS}
+    assert asked[2:] == ["0000000000001", "0000000000002"]
+    assert stats.nutrition == 2 and stats.requests == 4
+
+
+def bad_recorded(seen):
+    """Recordings for the known barcodes, 404 for anything else."""
+    transport = recorded_transport(RECORDINGS, strict=True)
+
+    def handler(request):
+        seen.append(request)
+        if request.url.path.rsplit("/", 1)[-1] in (FAIRLIFE, EGGS):
+            return transport.handle_request(request)
+        return httpx.Response(404, json={"status": 0, "status_verbose": "product not found"})
+
+    return httpx.Client(transport=httpx.MockTransport(handler), headers={"User-Agent": USER_AGENT})
+
+
+def _walmart_offer(upc):
+    product, _ = Product.objects.get_or_create(
+        identity=f"p-{upc}", defaults=dict(title="Whole milk 1 gal", upc=upc)
+    )
+    from decimal import Decimal
+
+    return Offer.objects.create(
+        product=product, retailer="walmart", retailer_item_id="w1", price=Decimal("3.00"),
+        currency="USD", url="https://example.com/x", title="Whole milk 1 gal",
+        last_seen_at=NOW, kind=Offer.Kind.LIVE, measure_dim="mass", measure_amount=1000.0,
+    )
+
+
+def test_backfill_stores_nutrition_and_refreshes_offers():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", fetched_at=NOW,
+        last_modified=OLDER,
+    )
+    live = _walmart_offer(NO_SIZE)
+    assert live.nutrition == {}
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    entry = OffEntry.objects.get(pk=NO_SIZE)
+    assert entry.nutrition_checked_at is not None and entry.protein_100g == 3.4
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] is not None
+    assert stats.failed == 0
+
+
+def test_backfill_refreshes_offers_from_a_nutrition_only_candidate():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    live = _walmart_offer(NO_SIZE)
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert stats.nutrition == 1 and stats.requests == 1
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] is not None
+    assert "nutrition=1" in stats.line()
+
+
+@pytest.mark.parametrize("status", [429, 503])
+def test_backfill_retryable_failure_leaves_row_unchecked(status):
+    stamp("0000000000001")
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(status)))
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=client)
+    assert stats.failed == 1 and stats.stored == 0
+    assert OffEntry.objects.get(pk="0000000000001").nutrition_checked_at is None
+    assert nutrition_candidates(10, set()) == [("0000000000001", "off")]
+
+
+def test_backfill_404_marks_existing_entry_checked_and_keeps_data():
+    OffEntry.objects.create(
+        upc=MISSING, source="off", labels=["en:organic"], quantity="1 gal",
+        last_modified=NOW, fetched_at=NOW - timedelta(days=1),
+    )
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    entry = OffEntry.objects.get(pk=MISSING)
+    assert stats.not_found == 1
+    assert entry.nutrition_checked_at is not None
+    assert entry.labels == ["en:organic"] and entry.quantity == "1 gal"
+    assert nutrition_candidates(10, set()) == []
+
+
+def test_backfill_404_placeholder_is_marked_checked_and_not_refetched():
+    observe((MISSING, "Organic Whole Milk", "H"))
+    seen = []
+    backfill_sizes(NOW, FakeBudget(), client=recorded(seen))
+    placeholder = OffEntry.objects.get(pk=MISSING)
+    assert placeholder.last_modified is None and placeholder.nutrition_checked_at is not None
+    assert nutrition_candidates(10, set()) == []
+    seen.clear()
+    later = NOW + timedelta(hours=1)
+    backfill_sizes(later, FakeBudget(), client=recorded(seen))
+    assert seen == []  # neither a size nor a nutrition candidate
+
+
+def test_non_retryable_answer_marks_checked():
+    observe((FAIRLIFE, "Whole ultra-filtered milk", "fairlife"))
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(403)))
+    backfill_sizes(NOW, FakeBudget(), client=client)
+    assert OffEntry.objects.get(pk=FAIRLIFE).nutrition_checked_at is not None
+
+
+def test_run_limit_boost(settings):
+    settings.OFF_PRODUCT_BOOST_UNTIL = date(2026, 11, 16)
+    settings.OFF_PRODUCT_BOOST_DAILY = 2000
+    assert run_limit(datetime(2026, 11, 16, 23, 0, tzinfo=timezone.utc)) == 2000
+    assert run_limit(datetime(2026, 11, 17, 0, 1, tzinfo=timezone.utc)) == 300
+    settings.OFF_PRODUCT_BOOST_UNTIL = None
+    assert run_limit(NOW) == 300
+
+
+# --- fix round 1 ---
+
+
+def test_stopping_mid_loop_still_refreshes_offers_of_processed_upcs():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    OffEntry.objects.create(  # sorts after NO_SIZE, so it is never reached
+        upc=FAIRLIFE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    live = _walmart_offer(NO_SIZE)
+    calls = iter([False, True])
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded(), stopping=lambda: next(calls))
+    assert run.error == "interrupted"
+    live.refresh_from_db()
+    assert live.nutrition.get("protein_cost") is not None
+
+
+def test_unexpected_error_mid_loop_still_refreshes_and_finishes_run(monkeypatch):
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    OffEntry.objects.create(
+        upc=FAIRLIFE, source="off", labels=[], quantity="1 L", last_modified=OLDER, fetched_at=NOW
+    )
+    live = _walmart_offer(NO_SIZE)
+    real = observed_off._store
+    seen = []
+
+    def store(upc, *a, **k):
+        if seen:
+            raise RuntimeError("boom")
+        seen.append(upc)
+        real(upc, *a, **k)
+
+    monkeypatch.setattr(observed_off, "_store", store)
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert run.status == "failed" and run.error == "RuntimeError"
+    live.refresh_from_db()
+    assert live.nutrition.get("protein_cost") is not None
+
+
+def test_cached_row_newer_is_checked_and_its_offers_refreshed():
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+        nutrition_per="100g", protein_100g=10.0, kcal_100g=100.0,
+    )
+    live = _walmart_offer(NO_SIZE)
+    OffEntry.objects.filter(pk=NO_SIZE).update(nutrition_checked_at=None)
+    _, stats = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert NO_SIZE in stats.changed
+    assert OffEntry.objects.get(pk=NO_SIZE).nutrition_checked_at is not None
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] == "3.000000"  # the newer cached values: 100 g protein in a 1,000 g pack at $3.00
+
+
+# --- final fixes ---
+
+
+def test_cached_row_newer_without_nutrition_takes_the_fetched_nutrients():
+    # a row cached before #95 deployed: newer than the API record, nutrition never stored
+    OffEntry.objects.create(
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+    )
+    live = _walmart_offer(NO_SIZE)
+    backfill_sizes(NOW, FakeBudget(), client=recorded())
+    entry = OffEntry.objects.get(pk=NO_SIZE)
+    assert entry.nutrition_checked_at is not None
+    assert (entry.nutrition_per, entry.protein_100g) == ("100g", 3.4)
+    assert entry.last_modified == NOW and entry.quantity == "1 L"  # the newer row's own fields stay
+    live.refresh_from_db()
+    assert live.nutrition["protein_cost"] is not None
+
+
+def test_backfill_with_tiny_values_and_bad_packs_does_not_fail():
+    OffEntry.objects.create(  # newer than the recording, so its own tiny values are kept
+        upc=NO_SIZE, source="off", labels=[], quantity="1 L", last_modified=NOW, fetched_at=NOW,
+        nutrition_per="100g", protein_100g=1e-30, kcal_100g=1e-30,
+    )
+    tiny = _walmart_offer(NO_SIZE)
+    nan_pack = Offer.objects.create(
+        product=tiny.product, retailer="walmart", retailer_item_id="w2", price=tiny.price,
+        currency="USD", url="https://example.com/y", title="Whole milk", last_seen_at=NOW,
+        kind=Offer.Kind.LIVE, measure_dim="mass", measure_amount=float("nan"),
+    )
+    run, _ = backfill_sizes(NOW, FakeBudget(), client=recorded())
+    assert run.status == "succeeded"
+    tiny.refresh_from_db()
+    nan_pack.refresh_from_db()
+    assert tiny.nutrition["protein_reason"] == "nutrition values look wrong"
+    assert nan_pack.nutrition["protein_reason"] == "pack size unknown"
+    assert observed_off.refresh_nutrition([NO_SIZE]) == 0

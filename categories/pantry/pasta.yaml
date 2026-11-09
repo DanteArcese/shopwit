@@ -9,3 +9,4 @@ attributes:
   gluten_free: {type: bool, synonyms: {true: [gluten free, gluten-free]}, absent: false}
 comparison: {default: per_mass}
 search: [spaghetti, penne pasta, elbow macaroni]
+food: true

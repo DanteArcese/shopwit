@@ -18,7 +18,7 @@ KNOWN_COMPARISONS: frozenset[str] = frozenset(
 )
 
 _ATTR_TYPES = ("int", "enum", "bool")
-_TOP_KEYS = {"name", "parent", "dimension", "match", "attributes", "comparison", "search"}
+_TOP_KEYS = {"name", "parent", "dimension", "match", "attributes", "comparison", "search", "food"}
 _ATTR_KEYS = {"type", "values", "patterns", "synonyms", "off_label", "absent"}
 
 
@@ -49,6 +49,7 @@ class CategoryDef:
     comparison_default: str
     comparison_alternates: tuple[str, ...]
     search: tuple[str, ...] = ()
+    food: bool = False
 
 
 def _check_keys(data: Any, allowed: set[str], what: str, fail) -> dict:
@@ -183,6 +184,9 @@ def _load_file(path: Path, slug: str) -> CategoryDef:
             fail(f"unknown comparison alternate {alt!r}")
 
     search = _str_list(data.get("search"), "search", fail) or (name,)
+    food = data.get("food", False)
+    if not isinstance(food, bool):
+        fail("food must be true or false")
 
     return CategoryDef(
         slug=slug,
@@ -195,6 +199,7 @@ def _load_file(path: Path, slug: str) -> CategoryDef:
         comparison_default=default,
         comparison_alternates=alternates,
         search=search,
+        food=food,
     )
 
 

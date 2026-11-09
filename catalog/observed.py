@@ -59,6 +59,7 @@ def observed_off_product(
         if entry is not None and entry.categories
         else tuple(categories),
         quantity_unit=unit,
+        nutrition=entry.nutrition if entry is not None else None,
     )
 
 

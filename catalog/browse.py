@@ -13,12 +13,14 @@ from datetime import datetime
 from decimal import Decimal, InvalidOperation
 
 from django.db.models import Q
+from django.db.models.fields.json import KT
 
 from normalize.compare import COMPARISONS
 
 from .freshness import fresh_observed, fresh_offers
 from .geo import Near, bounding_box, within
 from .models import Category, Offer, Product
+from .nutrition import nutrition_cost, uncosted_reason
 
 BRAND_TIERS = ("name_brand", "store_brand")
 SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2", "laundry": "loads", "tissue": "sheets"}
@@ -43,6 +45,7 @@ class Row:
     unit_price: Decimal | None
     unknown: tuple[str, ...]
     reason: str | None
+    cost: Decimal | None = None  # nutrition cost, set only when ranking by protein or kcal
 
 
 @dataclass(frozen=True)
@@ -52,6 +55,7 @@ class BrowseResult:
     comparison: str
     total_products: int
     unranked_total: int = 0
+    rank: str = "unit"
     hidden_far: int = 0  # products hidden because their stores are outside the radius
     hidden_unplaced: int = 0  # products hidden only because their stores have no location
 
@@ -249,6 +253,33 @@ def matching_offers(
     return [o for o in qs.select_related("product") if _size_ok(o.measures, key, spec)]
 
 
+def nutrition_rankable(
+    category: Category,
+    live_stores: frozenset[str] | None,
+    chain_stores: frozenset[str] | None,
+    now: datetime,
+    near: Near | None = None,
+) -> bool:
+    """Whether any fresh offer on the page, before its filters, has a protein or kcal cost.
+
+    Live offers at ``live_stores`` and observed offers at ``chain_stores`` (inside the
+    radius's bounding box when ``near`` is set). The page's attribute, brand-tier and size
+    filters are ignored, so narrowing the list never hides the "Rank by" select. One query.
+    """
+    none = FilterSpec(attributes={})
+    live = _filtered_qs(category, none, live_stores, fresh_offers(now))
+    seen = _filtered_qs(category, none, chain_stores, fresh_observed(now))
+    if near is not None:
+        seen = seen.filter(_in_box(near))
+    costed = Q(protein_cost__isnull=False) | Q(kcal_cost__isnull=False)
+    return (
+        (live | seen)
+        .annotate(protein_cost=KT("nutrition__protein_cost"), kcal_cost=KT("nutrition__kcal_cost"))
+        .filter(costed)
+        .exists()
+    )
+
+
 def browse(
     category: Category,
     spec: FilterSpec,
@@ -259,8 +290,12 @@ def browse(
     *,
     observed: bool = False,
     near: Near | None = None,
+    rank: str = "unit",
 ) -> BrowseResult:
-    """Rank offers by unit price.
+    """Rank offers by unit price, or by nutrition cost with ``rank`` "protein" or "kcal".
+
+    Nutrition ranking keeps each product's cheapest-per-nutrient offer; products
+    with no costed offer are unranked with their nutrition reason, never dropped.
 
     With ``near`` (observed offers only), offers from stores outside the radius
     or without coordinates are left out. A product left with no offer counts in
@@ -309,6 +344,18 @@ def browse(
         unknown = tuple(
             n for n in attr_names if n not in spec.attributes and n not in product.attributes
         )
+        if rank in ("protein", "kcal"):
+            costed = [(c, o) for o in group if (c := nutrition_cost(o, rank)) is not None]
+            if costed:
+                c, offer = min(costed, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
+                ranked.append(Row(product, offer, _unit_price(offer, comparison), unknown, None, c))
+            else:
+                order = sorted(group, key=lambda o: (o.price, o.retailer, _tie(o)))
+                offer = order[0]
+                unranked.append(
+                    Row(product, offer, _unit_price(offer, comparison), unknown, uncosted_reason(order, rank))
+                )
+            continue
         priced = [(up, o) for o in group if (up := _unit_price(o, comparison)) is not None]
         if priced:
             up, offer = min(priced, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
@@ -317,13 +364,17 @@ def browse(
             offer = min(group, key=lambda o: (o.price, o.retailer, _tie(o)))
             unranked.append(Row(product, offer, None, unknown, _reason(offer, comparison)))
 
-    ranked.sort(key=lambda r: (r.unit_price, r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
+    if rank in ("protein", "kcal"):
+        ranked.sort(key=lambda r: (r.cost, r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
+    else:
+        ranked.sort(key=lambda r: (r.unit_price, r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
     unranked.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer, _tie(r.offer)))
     return BrowseResult(
         ranked=ranked[:limit],
         unranked=unranked[:limit],
         unranked_total=len(unranked),
         comparison=comparison,
+        rank=rank if rank in ("protein", "kcal") else "unit",
         total_products=len(ranked) + len(unranked),
         hidden_far=hidden_far,
         hidden_unplaced=hidden_unplaced,

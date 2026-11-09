@@ -1,3 +1,10 @@
+{% if ranks %}
+<label class="facet facet-rank">Rank by
+  <select name="rank">
+    {% for r in ranks %}<option value="{{ r.value }}"{% if r.value == rank %} selected{% endif %}>{{ r.label }}</option>{% endfor %}
+  </select>
+</label>
+{% endif %}
 {% if path_param %}<input type="hidden" name="path" value="{{ path_param }}">{% endif %}
 {% if facets %}
 <details class="filters-drawer" open>

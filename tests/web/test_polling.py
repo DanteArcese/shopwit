@@ -335,3 +335,35 @@ def test_disclosure_sentence(client, settings):
     body = client.get("/disclosure").content.decode()
     assert "When you search for something we haven&#x27;t seen" in body or "haven't seen" in body
     assert "We send only the search words." in body
+
+
+def test_poll_with_rank_renders_ranked_groups(client):
+    from tests.catalog.test_generic_match import nutrify_offer
+
+    page(client)
+    nutrify_offer(make_generic_offer("Oat Milk Acme", "4", dim="mass", amount=500), protein=20.0)
+    make_generic_offer("Oat Milk Bare", "1", dim="mass", amount=500)
+    finish(count=2)
+    resp = client.get(
+        "/search", {"q": "oat milk", "poll": START, "seen": START, "rank": "protein"},
+        HTTP_HX_REQUEST="true",
+    )
+    body = resp.content.decode()
+    assert "$4.00 per 100 g protein" in body and "<h3>Can't rank (1)</h3>" in body
+    assert body.index("Oat Milk Acme") < body.index("Oat Milk Bare")
+    facets = body[body.index('id="facets"'):]
+    assert '<option value="protein" selected>Protein per $</option>' in facets
+    assert "Nutrition: <a" in body
+    assert parse_qs(urlparse(_settings_next(body)).query) == {"q": ["oat milk"], "rank": ["protein"]}
+
+
+def test_poller_carries_rank_through_the_facets_form(client):
+    from tests.catalog.test_generic_match import nutrify_offer
+
+    nutrify_offer(make_generic_offer("Oat Milk Acme", "4", dim="mass", amount=500), protein=20.0)
+    resp = client.get("/search", {"q": "oat milk", "rank": "protein"})
+    body = resp.content.decode()
+    poller = re.search(r'<div id="poller"[^>]*>', body).group(0)
+    assert 'hx-include="#facets"' in poller and "rank" not in poller  # rank comes from the form
+    facets = body[body.index('id="facets"'):]
+    assert '<option value="protein" selected>Protein per $</option>' in facets

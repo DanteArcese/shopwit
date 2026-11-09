@@ -154,3 +154,31 @@ def test_load_categories_rereads_changed_files(tmp_path):
     assert load_categories(tmp_path)["dairy/milk"].include == ("milk", "whole milk")
     write(tmp_path, "dairy/eggs.yaml", MINIMAL.replace("Milk", "Eggs"))
     assert set(load_categories(tmp_path)) == {"dairy/milk", "dairy/eggs"}
+
+
+def test_food_flag_parses_and_defaults_false(tmp_path):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL)
+    write(tmp_path, "dairy/other.yaml", MINIMAL + "food: true\n")
+    cats = load_categories(tmp_path)
+    assert cats["dairy/milk"].food is False
+    assert cats["dairy/other"].food is True
+
+
+@pytest.mark.parametrize("bad", ["'yes'", "1", "null", "[true]"])
+def test_food_flag_must_be_bool(tmp_path, bad):
+    write(tmp_path, "dairy/milk.yaml", MINIMAL + f"food: {bad}\n")
+    with pytest.raises(CategoryError, match="food"):
+        load_categories(tmp_path)
+
+
+FOOD_SLUGS = {
+    "dairy/butter", "dairy/cheese", "dairy/milk", "dairy/yogurt",
+    "pantry/bread", "pantry/cooking-oil", "pantry/flour", "pantry/pasta",
+    "pantry/peanut-butter", "pantry/protein-powder", "pantry/rice", "pantry/sugar",
+    "beverages/orange-juice", "beverages/soda",
+}
+
+
+def test_repo_food_categories_are_exactly_the_agreed_set():
+    root = Path(__file__).resolve().parents[2] / "categories"
+    assert {slug for slug, d in load_categories(root).items() if d.food} == FOOD_SLUGS
