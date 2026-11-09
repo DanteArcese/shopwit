@@ -7,7 +7,7 @@ Plan: `docs/superpowers/plans/2026-11-08-limited-public-launch.md` (issue #77). 
 - [ ] **Cloudflare Bot Fight Mode** (before the deploy, so the apex is never public without it): `PUT /zones/{zone}/bot_management` with `{"fight_mode": true}`.
 - [ ] **Cloudflare rate limit** (before the deploy; free plan, phase `http_ratelimit`). The free plan allows one rate-limiting rule and its expressions can only match on the URI path, so the rule is path-only:
   ```
-  (starts_with(http.request.uri.path, "/search") or http.request.uri.path in {"/waitlist/" "/click" "/feedback"} or starts_with(http.request.uri.path, "/account/") or starts_with(http.request.uri.path, "/lists/"))
+  (starts_with(http.request.uri.path, "/search") or starts_with(http.request.uri.path, "/waitlist/") or http.request.uri.path in {"/click" "/feedback" "/settings"} or starts_with(http.request.uri.path, "/account/") or starts_with(http.request.uri.path, "/lists/"))
   ```
   Characteristics `ip.src` and `cf.colo.id`, `period` 10, `requests_per_period` 30, action `block`, `mitigation_timeout` 10 (30 requests per 10 s per IP, blocked for 10 s). With no host condition it also applies to `beta.unitpricer.com`, which is fine (Access is in front there too).
   - Check: the uptime monitor still gets 200 from `/healthz` (Bot Fight Mode cannot be skipped on the free plan; if the monitor is challenged, change monitor provider, or turn Bot Fight Mode off and keep only the rate rule). Beta with no token still redirects to the Access login.
