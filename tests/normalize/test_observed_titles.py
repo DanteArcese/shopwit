@@ -4,7 +4,7 @@ Each case is a short (title, brand) pair as it arrived from Open Prices, with th
 category it must match, or None when it must stay out of every curated category.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 
@@ -200,7 +200,7 @@ def _offer(title, brand):
         price=Decimal("1.00"),
         currency="USD",
         url="https://example.invalid",
-        fetched_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
+        fetched_at=datetime(2026, 1, 1, tzinfo=UTC),
         brand=brand,
     )
 

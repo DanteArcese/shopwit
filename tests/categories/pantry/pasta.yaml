@@ -15,3 +15,10 @@
 - {title: 'Pesto Chicken Pasta', brand: Kevin's, expect: {category: null}}
 - {title: 'White Cheddar Pasta Shells As Packaged', brand: Kraft, expect: {category: null}}
 - {title: 'Spaghetti & Meatballs', brand: Banquet, expect: {category: null}}
+- {title: 'No-Bake Lasagna', expect: {category: pantry/pasta, attributes: {shape: lasagna}}}
+- {title: 'Vegetable Rotini', expect: {category: pantry/pasta, attributes: {shape: rotini}}}
+- {title: 'Salad Macaroni', expect: {category: pantry/pasta}}
+- {title: 'Pasta Penne', brand: Italiano, expect: {category: pantry/pasta, attributes: {shape: penne}}}
+- {title: 'Chicken Pasta Salad', expect: {category: null}}
+- {title: 'Vegetable Lasagna', brand: Amy's, expect: {category: null}}
+- {title: 'Spaghetti Italiano', brand: Amy's, expect: {category: null}}

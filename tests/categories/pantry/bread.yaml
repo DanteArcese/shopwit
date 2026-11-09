@@ -14,3 +14,5 @@
 - {title: 'Brazilian Cheese Bread Cheddar & Parmesan', brand: Brazi Bites, expect: {category: null}}
 - {title: 'Multigrain Wheat Sandwich Bread, 20 oz', expect: {category: pantry/bread, attributes: {organic: false}, unresolved: ['attribute:grain:ambiguous', 'attribute:brand_tier']}}
 - {title: 'Nature''s Own Multigrain Bread, 20 oz', expect: {category: pantry/bread, attributes: {grain: multigrain}}}
+- {title: 'Bread', brand: Bowl & Basket, expect: {category: pantry/bread}}
+- {title: 'Hamburger Buns', brand: Dave's Killer Bread, expect: {category: null}}

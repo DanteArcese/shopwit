@@ -14,3 +14,9 @@
 - {title: 'Rice Vinegar', brand: Marukan, expect: {category: null}}
 - {title: 'Chicken Fried Rice', brand: P.F. Chang's Home Menu, expect: {category: null}}
 - {title: 'RICE SEASONING', brand: NORI KOMI FURIKAKE, expect: {category: null}}
+- {title: 'Long Grain White Rice, Enriched with Iron', brand: Great Value, expect: {category: pantry/rice, attributes: {variety: long_grain}}}
+- {title: 'Parboiled Rice with vitamins', expect: {category: pantry/rice}}
+- {title: 'Jasmine Rice', brand: Bowl & Basket, expect: {category: pantry/rice, attributes: {variety: jasmine}}}
+- {title: 'Texmati Orzo', brand: Rice Select, expect: {category: null}}
+- {title: 'Organic Pizza Crust', brand: Rice Select, expect: {category: null}}
+- {title: 'Rice with Beans', expect: {category: null}}
