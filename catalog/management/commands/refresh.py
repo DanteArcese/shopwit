@@ -3,6 +3,7 @@ from pathlib import Path
 import httpx
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
+from django.conf import settings
 from django.core.management.base import BaseCommand, CommandError
 from django.utils import timezone
 
@@ -37,6 +38,8 @@ class Command(BaseCommand):
         name, slug, recordings = options["connector"], options["category"], options["recordings"]
         client = None
         if recordings:
+            if not settings.DEBUG:
+                raise CommandError("--recordings loads sample data; it refuses to run when DEBUG is off.")
             name = name or "walmart"
             if name != "walmart":
                 raise CommandError("--recordings is supported only with --connector walmart")

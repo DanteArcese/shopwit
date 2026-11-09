@@ -75,7 +75,8 @@ def test_tick_runs_ingest_for_due_pairs(cats):
     assert scheduler.tick(NOW, {"fake": conn}) == []  # now fresh
 
 
-def test_refresh_command_with_recordings(cats, monkeypatch):
+def test_refresh_command_with_recordings(cats, monkeypatch, settings):
+    settings.DEBUG = True
     for var in ("WALMART_CONSUMER_ID", "WALMART_PRIVATE_KEY", "WALMART_KEY_VERSION"):
         monkeypatch.delenv(var, raising=False)
     call_command("refresh", connector="walmart", category="dairy/milk", recordings=str(RECORDINGS))
@@ -84,7 +85,8 @@ def test_refresh_command_with_recordings(cats, monkeypatch):
     assert IngestionRun.objects.filter(connector="walmart", status="succeeded").exists()
 
 
-def test_refresh_recordings_defaults_to_walmart(cats):
+def test_refresh_recordings_defaults_to_walmart(cats, settings):
+    settings.DEBUG = True
     call_command("refresh", category="dairy/milk", recordings=str(RECORDINGS))
     assert IngestionRun.objects.filter(connector="walmart", status="succeeded").exists()
 
@@ -94,7 +96,8 @@ def test_refresh_unknown_connector_names_valid_ones(cats):
         call_command("refresh", connector="nope")
 
 
-def test_refresh_rejects_recordings_for_other_connector(cats):
+def test_refresh_rejects_recordings_for_other_connector(cats, settings):
+    settings.DEBUG = True
     with pytest.raises(CommandError):
         call_command("refresh", connector="other", recordings=str(RECORDINGS))
 
