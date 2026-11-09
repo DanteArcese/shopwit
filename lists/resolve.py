@@ -33,6 +33,7 @@ from catalog.retailers import available_retailers, display_name, is_chain_code
 from connectors.registry import live_source_info
 from normalize.generic import normalize_phrase
 from normalize.text import fold
+from web.prefs import split_stores
 
 from .basket import (
     Split,
@@ -253,30 +254,36 @@ def queue_fetches(spec: ListSpec, now: datetime, client_key: str | None) -> int:
         sources = live_source_info(live_off=settings.LIVE_OFF_ENABLED)
         if not sources:
             return 0
+        oldest = now - max(info.refresh_after for info in sources.values())
+        fresh: dict[str, set[str]] = {}
+        # One query for every phrase: (source, phrase, finished_at) of recent successes.
+        for name, phrase, finished in FetchJob.objects.filter(
+            source__in=list(sources),
+            phrase__in=phrases,
+            status=FetchJob.Status.SUCCEEDED,
+            finished_at__gte=oldest,
+        ).values_list("source", "phrase", "finished_at"):
+            if finished >= now - sources[name].refresh_after:
+                fresh.setdefault(phrase, set()).add(name)
         due = []
         for phrase in phrases:
-            fresh = {
-                name
-                for name, info in sources.items()
-                if FetchJob.objects.filter(
-                    source=name,
-                    phrase=phrase,
-                    status=FetchJob.Status.SUCCEEDED,
-                    finished_at__gte=now - info.refresh_after,
-                ).exists()
-            }
-            if fresh != set(sources):
+            if fresh.get(phrase, set()) != set(sources):
                 due.append(phrase)
-        for phrase in due[:MAX_FETCH_PHRASES]:
+                if len(due) == MAX_FETCH_PHRASES:
+                    break
+        for phrase in due:
             enqueue(phrase, "list", now, sources, client_key=client_key)
-        return len(due[:MAX_FETCH_PHRASES])
+        return len(due)
     except Exception as exc:  # best effort; the type name only, never the phrase
         logger.error("list fetch not queued: %s", type(exc).__name__)
         return 0
 
 
 def _live_stores(stores: frozenset[str] | None, now: datetime) -> tuple[str, ...]:
-    codes = available_retailers(now) if stores is None else stores
+    # The live side of the selection: choosing only in-store chains means all live
+    # retailers, so chain-only settings never empty list pricing.
+    live, _chains = split_stores(stores)
+    codes = available_retailers(now) if live is None else live
     # Observed (in-store) chains never enter lists: only live offers are resolved.
     live = {c for c in codes if not is_chain_code(c)}
     return tuple(sorted(live, key=lambda c: (display_name(c), c)))

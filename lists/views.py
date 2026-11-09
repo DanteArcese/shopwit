@@ -6,7 +6,6 @@ belongs to anyone else is a 404 on every route (ids are not capabilities).
 
 from __future__ import annotations
 
-import hashlib
 from dataclasses import dataclass, field, replace
 from decimal import Decimal, InvalidOperation
 
@@ -23,6 +22,7 @@ from catalog.generic import (
     generic_target_to_canonical,
 )
 from catalog.models import Category, Offer, Product
+from catalog.retailers import available_retailers, is_chain_code
 from catalog.units import (
     TARGET_UNITS,
     default_target,
@@ -44,6 +44,7 @@ from .store import store_for
 AMOUNT_ERROR = "Enter an amount greater than 0"
 ITEMS_FULL = f"This list is full ({sp.MAX_ITEMS} items)"
 LISTS_FULL = f"You have the maximum of {sp.MAX_LISTS} lists"
+LIST_GONE = "That list no longer exists"
 SPLIT_CHOICES = {"1": 1, "2": 2, "3": 3, "all": None}
 DEFAULT_SPLIT = "2"
 # Form fields of the add page that are not part of the item's own spec.
@@ -334,7 +335,14 @@ def add(request):
     if selected == "new":
         target = sp.new_list(data.get("list_name", ""), now)
     else:
-        target = _owned(request, selected)
+        target = store.get(selected)
+        if target is None:
+            # A stale form (the list was deleted) or someone else's id: the same
+            # answer for both, so it reveals nothing; ids are never capabilities.
+            selected = "new"
+            response = again(LIST_GONE)
+            response.status_code = 404
+            return response
     item = ItemSpec(
         id=sp.new_id(),
         category=parsed.category.slug if parsed.category else None,
@@ -365,7 +373,15 @@ def _render_detail(
 ):
     prefs = get_prefs(request)
     now = _now()
-    stores = frozenset(s for s in request.GET.getlist("store") if s) or prefs.stores
+    # A ?store= override counts only codes of live retailers with current prices;
+    # nothing left (or no override) means the saved stores.
+    asked = frozenset(request.GET.getlist("store"))
+    override = (
+        asked & {c for c in available_retailers(now) if not is_chain_code(c)}
+        if asked
+        else frozenset()
+    )
+    stores = override or prefs.stores
     split_key = request.GET.get("split", DEFAULT_SPLIT)
     if split_key not in SPLIT_CHOICES:
         split_key = DEFAULT_SPLIT
@@ -374,8 +390,8 @@ def _render_detail(
         and request.method == "GET"
         and not BOT_UA.search(request.headers.get("User-Agent", ""))
     ):
-        key = hashlib.sha256(client_ip(request).encode()).hexdigest()
-        queue_fetches(spec, now, key)
+        # The raw client IP, as search passes it: allow() salts and hashes the key.
+        queue_fetches(spec, now, client_ip(request))
     resolution = resolve_list(spec, stores, now, SPLIT_CHOICES[split_key])
     presented = present_list(resolution, prefs.unit_system)
     context = {
@@ -386,9 +402,7 @@ def _render_detail(
         "split_key": split_key,
         "split_choices": list(SPLIT_CHOICES),
         "max_split": SPLIT_CHOICES[split_key],
-        "store_params": [
-            ("store", s) for s in sorted(request.GET.getlist("store")) if s
-        ],
+        "store_params": [("store", s) for s in sorted(override)],
         "error": error,
         "error_item": error_item,
         "has_outbound": True,
@@ -414,9 +428,14 @@ def rename(request, list_id):
 
 
 @never_cache
-@require_POST
+@require_http_methods(["GET", "POST"])
 def delete(request, list_id):
-    _owned(request, list_id)
+    """GET asks to confirm; only a POST from that page (confirm=yes) deletes."""
+    spec = _owned(request, list_id)
+    if request.method == "GET":
+        return render(request, "lists/delete.html", {"list": spec})
+    if request.POST.get("confirm") != "yes":
+        return redirect("lists:delete", list_id=list_id)
     store_for(request).delete(list_id)
     return redirect("lists:index")
 

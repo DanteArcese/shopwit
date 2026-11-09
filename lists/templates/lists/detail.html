@@ -59,9 +59,6 @@
     <input type="text" id="rename" name="name" maxlength="80" value="{{ list.name }}">
     <button type="submit">Rename</button>
   </form>
-  <form method="post" action="{% url 'lists:delete' list.id %}">
-    {% csrf_token %}
-    <button type="submit" class="danger">Delete list</button>
-  </form>
+  <p><a class="danger" href="{% url 'lists:delete' list.id %}">Delete list</a></p>
 </section>
 {% endblock %}

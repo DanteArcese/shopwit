@@ -228,3 +228,4 @@ a { color: var(--accent); }
 @media (min-width: 48rem) {
   .item-actions { grid-template-columns: repeat(auto-fit, minmax(14rem, max-content)); align-items: start; }
 }
+.list-manage a.danger { display: inline-flex; align-items: center; text-decoration: none; }

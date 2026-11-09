@@ -1,0 +1,12 @@
+{% extends "web/base.html" %}
+{% block title %}Delete {{ list.name }} - UnitPricer{% endblock %}
+{% block main %}
+<h1>Delete &ldquo;{{ list.name }}&rdquo;?</h1>
+<p>This removes the list and its {{ list.items|length }} item{{ list.items|length|pluralize }}. It can&rsquo;t be undone.</p>
+<form method="post" action="{% url 'lists:delete' list.id %}">
+  {% csrf_token %}
+  <input type="hidden" name="confirm" value="yes">
+  <button type="submit" class="danger">Delete list</button>
+</form>
+<p><a href="{% url 'lists:detail' list.id %}">Keep it</a></p>
+{% endblock %}

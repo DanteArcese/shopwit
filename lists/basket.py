@@ -7,6 +7,12 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from decimal import Decimal
 
+# The split search tries every store subset up to the size limit, so it is capped:
+# with more stores than this, only the MAX_SPLIT_STORES stores that cover the most
+# items (cheaper covered cost, then code, on ties) are searched. That keeps the
+# worst case at 2**12 subsets and the choice still depends only on prices and stores.
+MAX_SPLIT_STORES = 12
+
 
 @dataclass(frozen=True)
 class StoreTotal:
@@ -62,6 +68,7 @@ def cheapest_split(
 ) -> Split | None:
     if not costs:
         return None
+    stores = _split_candidates(costs, stores)
     # Lower bound on the total: every item at its overall cheapest allowed store.
     bound = _assign(costs, set(stores))
     if bound is None:
@@ -78,6 +85,18 @@ def cheapest_split(
         if best is not None and best.total == bound.total:
             break  # larger subsets cannot beat this total with fewer stores
     return best
+
+
+def _split_candidates(costs, stores: Sequence[str]) -> list[str]:
+    stores = sorted(set(stores))
+    if len(stores) <= MAX_SPLIT_STORES:
+        return stores
+
+    def key(store):
+        covered = [c[store] for c in costs.values() if store in c]
+        return (-len(covered), sum(covered, Decimal(0)), store)
+
+    return sorted(stores, key=key)[:MAX_SPLIT_STORES]
 
 
 def _rank(s: Split) -> tuple:

@@ -416,7 +416,7 @@ def test_edit_target_pin_unpin_remove_rename_delete(client, milk_offers):
         spec.items[1].id
     ]
 
-    resp = client.post(f"{base}/delete")
+    resp = client.post(f"{base}/delete", {"confirm": "yes"})
     assert resp.status_code == 302 and resp["Location"] == "/lists/"
     assert SessionListStore(client.session).lists() == []
 
@@ -474,6 +474,7 @@ def test_index_lists_and_empty_state(client, db):
 
 ROUTES = [
     ("get", "{b}/"),
+    ("get", "{b}/delete"),
     ("post", "{b}/rename"),
     ("post", "{b}/delete"),
     ("post", "{b}/items/{i}/target"),
@@ -481,7 +482,7 @@ ROUTES = [
     ("post", "{b}/items/{i}/pin"),
     ("post", "{b}/items/{i}/unpin"),
 ]
-BODY = {"name": "x", "amount": "1", "unit": "gal", "product": "1"}
+BODY = {"name": "x", "amount": "1", "unit": "gal", "product": "1", "confirm": "yes"}
 
 
 def user(email):
@@ -608,17 +609,6 @@ def test_list_view_does_not_enqueue_for_htmx_bots_or_post(client, db, sources):
     assert FetchJob.objects.count() == 0
 
 
-def test_list_view_passes_hashed_client_key(client, db, sources, monkeypatch):
-    seen = []
-    monkeypatch.setattr(
-        rs, "enqueue", lambda p, o, n, s, *, client_key: seen.append(client_key) or []
-    )
-    spec = seed(client, generic_item(1))
-    client.get(detail_url(spec), REMOTE_ADDR="203.0.113.9")
-    (key,) = seen
-    assert len(key) == 64 and "203.0.113.9" not in key
-
-
 # ---- query count ---------------------------------------------------------------------------
 
 
@@ -674,3 +664,160 @@ def test_lists_routes_404_on_apex(client, settings, db):
             getattr(client, method)(path, HTTP_HOST="unitpricer.com").status_code == 404
         ), path
     assert client.get("/lists/", HTTP_HOST="beta.unitpricer.com").status_code == 200
+
+
+# ---- final review fixes --------------------------------------------------------------------
+
+
+def test_detail_bogus_store_params_fall_back_to_prefs_fast(client, milk_offers):
+    import time
+
+    spec = two_item_list(client)
+    query = "&".join(f"store=bogus{n}" for n in range(500))
+    started = time.monotonic()
+    resp = client.get(detail_url(spec) + "?" + query)
+    assert time.monotonic() - started < 5
+    html = resp.content.decode()
+    assert resp.status_code == 200
+    # Unknown codes are dropped; nothing left means the saved stores (all of them).
+    assert "at Walmart" in html and "Target" in html
+    assert 'value="bogus' not in html  # not echoed into the split form
+
+
+def test_detail_store_params_intersect_live_retailers(client, milk_offers):
+    spec = two_item_list(client)
+    html = client.get(detail_url(spec) + "?store=target&store=bogus").content.decode()
+    assert "at Target" in html and "at Walmart" not in html
+    assert 'name="store" value="target"' in html and 'value="bogus' not in html
+
+
+def test_cheapest_split_caps_store_count():
+    import time
+
+    from lists.basket import MAX_SPLIT_STORES, cheapest_split
+
+    stores = [f"s{n:02d}" for n in range(40)]
+    costs = {
+        f"i{i}": {s: Decimal(1 + (i * 7 + n * 13) % 17) for n, s in enumerate(stores)}
+        for i in range(30)
+    }
+    started = time.monotonic()
+    split = cheapest_split(costs, stores, None)
+    assert time.monotonic() - started < 5
+    assert split is not None and len(split.stores) <= MAX_SPLIT_STORES
+
+
+def test_chain_only_prefs_still_resolve_live_offers(client, milk_offers):
+    session = client.session
+    session["prefs"] = {"unit_system": "imperial", "stores": ["op-kroger"]}
+    session.save()
+    spec = seed(client, milk_item(1))
+    html = client.get(detail_url(spec)).content.decode()
+    assert "at Walmart" in html
+    assert "No current prices match" not in html
+
+
+def test_resolver_chain_only_stores_mean_all_live(milk_offers):
+    from lists.resolve import resolve_list
+
+    res = resolve_list(make_list(milk_item(1)), frozenset({"op-kroger"}), NOW)
+    assert set(res.stores) == {"walmart", "target"}
+    assert res.items[0].best is not None
+
+
+def test_item_actions_have_per_item_labels(client, milk_offers):
+    imperial(client)
+    spec = seed(client, milk_item(1))
+    html = client.get(detail_url(spec)).content.decode()
+    assert 'aria-label="Pin Milk · fat 2"' in html
+    assert 'aria-label="Change amount for Milk · fat 2"' in html
+    assert 'aria-label="Remove Milk · fat 2"' in html
+
+
+def test_delete_list_needs_confirmation(client, milk_offers):
+    spec = seed(client, milk_item(1))
+    base = f"/lists/{spec.id}"
+    html = client.get(base + "/").content.decode()
+    assert f'href="{base}/delete"' in html
+    page = client.get(f"{base}/delete")
+    assert page.status_code == 200
+    assert "Delete &ldquo;Groceries&rdquo;?" in page.content.decode()
+    unconfirmed = client.post(f"{base}/delete")
+    assert unconfirmed.status_code == 302 and unconfirmed["Location"] == f"{base}/delete"
+    assert SessionListStore(client.session).get(spec.id) is not None
+    done = client.post(f"{base}/delete", {"confirm": "yes"})
+    assert done.status_code == 302 and done["Location"] == "/lists/"
+    assert SessionListStore(client.session).get(spec.id) is None
+
+
+def test_add_to_deleted_list_rerenders_form(client, milk_offers):
+    imperial(client)
+    gone = seed(client, milk_item(1), name="Old")
+    keep = seed(client, milk_item(2), name="Keep")
+    client.post(f"/lists/{gone.id}/delete", {"confirm": "yes"})
+    form = {"category": "dairy/milk", "fat": "2", "amount": "1", "unit": "gal"}
+    resp = client.post("/lists/add", {**form, "list": gone.id})
+    html = resp.content.decode()
+    assert resp.status_code == 404  # same as any unknown id (ids are not capabilities)
+    assert "That list no longer exists" in html
+    assert 'name="amount" inputmode="decimal" value="1"' in html
+    assert '<option value="new" selected>' in html and "Keep" in html
+    assert [len(s.items) for s in SessionListStore(client.session).lists()] == [1]
+    assert SessionListStore(client.session).get(keep.id).items == keep.items
+
+
+def test_add_unknown_and_foreign_ids_look_the_same(client, milk_offers):
+    foreign = owned_by_session(client)
+    form = {"category": "dairy/milk", "amount": "1", "unit": "gal"}
+    other = Client()
+    a = other.post("/lists/add", {**form, "list": foreign.id})
+    b = other.post("/lists/add", {**form, "list": "f" * 32})
+    strip = __import__("re").compile(rb'name="csrfmiddlewaretoken" value="[^"]+"')
+    assert a.status_code == b.status_code == 404
+    assert strip.sub(b"", a.content) == strip.sub(b"", b.content)
+    assert "Groceries" not in a.content.decode()
+    assert len(SessionListStore(client.session).get(foreign.id).items) == 1
+
+
+def test_item_posts_require_csrf(milk_offers):
+    c = Client(enforce_csrf_checks=True)
+    spec = seed(c, milk_item(1))
+    base = f"/lists/{spec.id}/items/{spec.items[0].id}"
+    pid = Product.objects.get(offers__retailer_item_id="b128").pk
+    for path, body in (
+        (f"{base}/target", {"amount": "2", "unit": "gal"}),
+        (f"{base}/pin", {"product": pid}),
+        (f"{base}/unpin", {}),
+    ):
+        assert c.post(path, body).status_code == 403, path
+    assert SessionListStore(c.session).get(spec.id) == spec
+
+
+def test_queue_fetches_one_query_and_stops_at_cap(db, sources, monkeypatch):
+    spec = make_list(*[generic_item(n, f"phrase {n:02d}") for n in range(1, 30)])
+    FetchJob.objects.create(
+        source="src",
+        phrase="phrase 01",
+        origin="search",
+        status=FetchJob.Status.SUCCEEDED,
+        not_before=NOW,
+        finished_at=NOW - timedelta(hours=1),
+    )
+    calls = []
+    monkeypatch.setattr(
+        rs, "enqueue", lambda p, o, n, s, *, client_key: calls.append(p) or []
+    )
+    with CaptureQueriesContext(connection) as ctx:
+        assert rs.queue_fetches(spec, NOW, None) == rs.MAX_FETCH_PHRASES
+    assert len(ctx) == 1, [q["sql"][:120] for q in ctx]
+    assert calls == [f"phrase {n:02d}" for n in range(2, 12)]
+
+
+def test_list_view_passes_raw_client_ip_as_key(client, db, sources, monkeypatch):
+    seen = []
+    monkeypatch.setattr(
+        rs, "enqueue", lambda p, o, n, s, *, client_key: seen.append(client_key) or []
+    )
+    spec = seed(client, generic_item(1))
+    client.get(detail_url(spec), REMOTE_ADDR="203.0.113.9")
+    assert seen == ["203.0.113.9"]  # allow() salts and hashes it, as for search
