@@ -141,9 +141,10 @@ def test_announce_email_footer():
     make(1)
     run()
     m = mail.outbox[0]
-    assert "You're receiving this because you joined the UnitPricer waitlist at unitpricer.com.\n" in m.body
+    assert "You're receiving this because you signed up for UnitPricer store announcements at unitpricer.com.\n" in m.body
     assert "\nUnsubscribe: https://unitpricer.com/waitlist/unsubscribe/" in m.body
     assert m.body.rstrip().endswith("PO Box 1, Boston MA")
     assert "https://unitpricer.com" in m.body and "beta." not in m.body
     assert m.extra_headers["List-Unsubscribe"].startswith("<https://unitpricer.com/waitlist/unsubscribe/")
+    assert "waitlist" not in m.body.replace("/waitlist/", "")
     assert m.extra_headers["List-Unsubscribe-Post"] == "List-Unsubscribe=One-Click"

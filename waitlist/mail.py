@@ -76,7 +76,7 @@ def send_confirmation(sub: Subscriber, now) -> bool:
     confirm_url = f"{_origin()}/waitlist/confirm/{confirm_token(sub)}"
     message = waitlist_message(
         sub,
-        "Confirm your UnitPricer waitlist signup",
+        "Confirm your UnitPricer store announcements signup",
         "waitlist/email/confirm.txt",
         {"confirm_url": confirm_url},
     )

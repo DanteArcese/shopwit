@@ -73,7 +73,9 @@ def test_confirmation_email_content():
     sub.refresh_from_db()
     assert sub.confirm_sent_at == NOW
     (m,) = mail.outbox
-    assert m.subject == "Confirm your UnitPricer waitlist signup"
+    assert m.subject == "Confirm your UnitPricer store announcements signup"
+    assert "asked to get UnitPricer store announcements at this address" in m.body
+    assert "waitlist" not in m.body.replace("/waitlist/", "")
     assert m.from_email == "UnitPricer <hello@unitpricer.com>"
     assert m.to == ["a@example.com"]
     assert "https://unitpricer.com/waitlist/confirm/" in m.body

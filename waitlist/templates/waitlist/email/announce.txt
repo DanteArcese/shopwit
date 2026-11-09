@@ -5,7 +5,7 @@ UnitPricer is open.
 {{ site_url }}
 
 --
-You're receiving this because you joined the UnitPricer waitlist at unitpricer.com.
+You're receiving this because you signed up for UnitPricer store announcements at unitpricer.com.
 Unsubscribe: {{ unsubscribe_url }}
 {{ postal_address }}
 {% endautoescape %}

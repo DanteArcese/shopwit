@@ -209,7 +209,7 @@ def test_confirm_post_confirms_idempotent(client):
     url = f"/waitlist/confirm/{confirm_token(sub)}"
     r = client.post(url, HTTP_HOST=PUBLIC)
     assert r.status_code == 200
-    assert "You're on the list." in r.content.decode()
+    assert "You're signed up for UnitPricer store announcements." in r.content.decode()
     sub.refresh_from_db()
     first = sub.confirmed_at
     assert first is not None
@@ -294,6 +294,20 @@ def test_privacy_on_both_hosts(client, host):
     for needle in ("__Host-sessionid", "__Host-csrftoken", "ZIP code", "dante@unitpricer.com", "no IP addresses"):
         assert needle in html
     assert "Beta app" not in html and "the beta" not in html.lower().replace("staging", "")
+
+
+def test_token_pages_say_store_announcements(client):
+    sub = Subscriber.objects.create(email="p@example.com")
+    pages = [
+        client.get(f"/waitlist/confirm/{confirm_token(sub)}", HTTP_HOST=PUBLIC),
+        client.post(f"/waitlist/confirm/{confirm_token(sub)}", HTTP_HOST=PUBLIC),
+        client.get(f"/waitlist/unsubscribe/{unsubscribe_token(sub)}", HTTP_HOST=PUBLIC),
+    ]
+    for r in pages:
+        assert r.status_code == 200
+        main = r.content.decode().split("<main", 1)[1].split("</main>", 1)[0]
+        assert "UnitPricer store announcements" in main
+        assert "waitlist" not in main.replace("/waitlist/", "").lower()
 
 
 def test_privacy_states_backups_demand_and_breadcrumbs(client):
