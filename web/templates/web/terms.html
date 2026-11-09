@@ -3,25 +3,39 @@
 {% block title %}Terms of use - UnitPricer{% endblock %}
 {% block main %}
 <h1>Terms of use</h1>
-<p role="note"><strong>Draft — pending review by the maintainer and legal counsel. Not yet in effect.</strong></p>
+<p class="note">Effective November 9, 2026.</p>
+<p>These terms cover your use of unitpricer.com ("UnitPricer", "we", "us"), which is run by Dante Arcese, an individual based in Massachusetts. By using the site you agree to them. If you don't agree, please don't use the site.</p>
+
 <h2>What UnitPricer is</h2>
-<p>UnitPricer is a free, open-source price-per-unit comparison for groceries and household goods.</p>
+<p>UnitPricer is a free, open-source price-per-unit comparison for groceries and household goods. We don't sell anything; purchases happen on retailers' own sites and in their stores, under their terms.</p>
+
 <h2>Prices are not offers</h2>
-<p>Prices are shown as of the time displayed and may change or be wrong. Check the retailer before you buy. Prices in the "Seen in stores" section are observations recorded by people in stores, not live prices. We make no warranty about any price, availability or product detail.</p>
+<p>Prices are shown as of the time displayed and may change or be wrong. Check the retailer before you buy. Prices in the "Seen in stores" section are observations recorded by people in stores, not live prices. Sizes, unit prices and product details are worked out from information retailers and open databases provide, and can be incomplete or mistaken. We make no promise that any price, availability or product detail is accurate or current.</p>
+
 <h2>Affiliate links</h2>
-<p>Some links may earn us a commission. See the <a href="{% url 'disclosure' %}">disclosure</a>. Commission never affects ranking.</p>
+<p>Some links may earn us a commission when you buy. See the <a href="{% url 'disclosure' %}">disclosure</a>. Commission never affects which products appear or how they are ranked.</p>
+
 <h2>Acceptable use</h2>
-<p>Do not scrape the site beyond what robots.txt allows, run automated bulk searches, or abuse forms. Requests are rate limited, and we may block clients that exceed the limits.</p>
+<p>Please don't scrape the site beyond what robots.txt allows, run automated bulk searches, abuse or overload forms, try to get around rate limits or access controls, or use the site for anything unlawful. Requests are rate limited, and we may block clients or remove accounts that break these rules.</p>
+
 <h2>Accounts and lists</h2>
-<p>You may create an account with your email address and keep lists. You may delete your account at any time. We may remove accounts that abuse the service.</p>
+<p>You may create an account with your email address to keep lists and settings. You must be at least 13 years old to create an account. You're responsible for keeping your sign-in details private. You may delete your account at any time from your account page; this deletes your lists and saved settings. We may suspend or remove accounts that abuse the service.</p>
+
 <h2>Feedback</h2>
-<p>Nothing you send is published without our review. Reports of a wrong price or size stay private. By sending feedback you allow us to post approved bug reports, ideas and store requests (and other approved general feedback) publicly, as issues on our GitHub repository or as a public request count for a store, without your email address. See the <a href="/privacy">privacy page</a>.</p>
+<p>Nothing you send is published without our review. Reports of a wrong price or size stay private. By sending feedback you allow us to use it to improve UnitPricer and to post approved bug reports, ideas and store requests (and other approved general feedback) publicly, as issues on our GitHub repository or as a public request count for a store, without your email address. See the <a href="/privacy">privacy page</a>.</p>
+
 <h2>Open data and code</h2>
-<p>The code is licensed under the AGPL-3.0 and is available at <a href="https://github.com/DanteArcese/unitpricer">github.com/DanteArcese/unitpricer</a>. Data from Open Prices and Open Food Facts is made available under the Open Database License (ODbL); see the <a href="{% url 'disclosure' %}">disclosure</a>.</p>
-<h2>No warranty and limitation of liability</h2>
-<p>The service is provided "as is", without warranty of any kind. To the extent the law allows, the maintainer is not liable for losses arising from use of the site.</p>
-<h2>Governing law</h2>
-<p>[Governing law and venue: to be filled in by the maintainer.]</p>
+<p>The code is licensed under the AGPL-3.0 and is available at <a href="https://github.com/DanteArcese/unitpricer">github.com/DanteArcese/unitpricer</a>. Data from Open Prices and Open Food Facts is made available under the Open Database License (ODbL); see the <a href="{% url 'disclosure' %}">disclosure</a>. Retailer names and trademarks belong to their owners; their use here identifies where a price comes from and doesn't imply endorsement.</p>
+
+<h2>No warranty</h2>
+<p>The site is provided "as is" and "as available", without warranties of any kind, express or implied, including warranties of accuracy, merchantability, fitness for a particular purpose and non-infringement. We may change, pause or stop any part of the site at any time.</p>
+
+<h2>Limitation of liability</h2>
+<p>To the fullest extent the law allows, UnitPricer and its operator are not liable for any indirect, incidental, special or consequential damages, or for losses from relying on a price or product detail shown here, from purchases you make with retailers, or from the site being unavailable. Our total liability for any claim relating to the site is limited to $50. Some laws don't allow these limits, so they may not all apply to you; nothing here limits rights you have that can't be limited by law.</p>
+
+<h2>Governing law and disputes</h2>
+<p>These terms are governed by the laws of the Commonwealth of Massachusetts, without regard to its conflict-of-laws rules. Any dispute relating to the site will be resolved in the state or federal courts located in Massachusetts, and you and we consent to their jurisdiction. Either of us may instead bring an individual claim in small-claims court where it qualifies.</p>
+
 <h2>Changes and contact</h2>
-<p>We may change these terms and will update this page when we do. Questions: <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a>.</p>
+<p>We may change these terms. When we do, we'll update this page and its effective date; continuing to use the site after a change means you accept the updated terms. Questions: <a href="mailto:hello@unitpricer.com">hello@unitpricer.com</a>.</p>
 {% endblock %}

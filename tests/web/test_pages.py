@@ -5,9 +5,13 @@ from catalog.links import affiliate_programs
 NONE = {"walmart_impact_publisher_id": None, "sovrn_site_key": None, "amazon_associates_tag": None}
 
 
-def test_terms_marked_draft(client):
+def test_terms_final(client):
     body = client.get("/terms").content.decode()
-    assert "Draft — pending review by the maintainer and legal counsel. Not yet in effect." in body
+    assert "Draft" not in body and "[Governing law" not in body
+    assert "Effective November 9, 2026." in body
+    assert "laws of the Commonwealth of Massachusetts" in body
+    assert "small-claims court" in body
+    assert "at least 13 years old" in body
     assert "hello@unitpricer.com" in body
     assert "ODbL" in body and "AGPL" in body
 
