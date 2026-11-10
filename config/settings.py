@@ -216,6 +216,10 @@ AFFILIATE = {
     "sovrn_api_key": env("SOVRN_API_KEY"),
     "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
 }
+# Read-only affiliate audit (`manage.py affiliate_audit`, #104). Blank = not configured.
+SOVRN_SECRET_KEY = env("SOVRN_SECRET_KEY", "")
+CJ_PERSONAL_ACCESS_TOKEN = env("CJ_PERSONAL_ACCESS_TOKEN", "")
+CJ_PUBLISHER_ID = env("CJ_PUBLISHER_ID", "")  # CJ calls this the requestor CID
 # Feedback sync: a fine-grained token limited to issues on this repo. Unset = sync off.
 GITHUB_TOKEN = env("UNITPRICER_GITHUB_TOKEN", "")
 GITHUB_REPO = env("UNITPRICER_GITHUB_REPO", "DanteArcese/unitpricer")
