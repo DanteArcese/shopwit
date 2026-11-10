@@ -185,6 +185,8 @@ SOURCE_BUDGETS = {
     # Capacity 1: no burst, a steady 1 req/s, the etiquette the daily sync always kept.
     "openprices": _budget("openprices", 1, 1.0, None),
     "walmart": _budget("walmart", 5, 1.0, 5000),
+    # CJ's GraphQL rate limit is undocumented: budget conservatively (burst 2, 0.5 req/s, 3000 a day).
+    "cj": _budget("cj", 2, 0.5, 3000),
     # OFF product reads for observed offers' sizes: 1 per 2 seconds, at most 300 a day
     # (1 per second drew 429s on about a third of requests, issue #98).
     "off-product": _budget("off-product", 1, 0.5, 300),
@@ -216,6 +218,8 @@ AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
     "sovrn_api_key": env("SOVRN_API_KEY"),
     "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
+    # The CJ website (property) PID, not the CID.
+    "cj_website_id": env("CJ_WEBSITE_ID"),
 }
 # Read-only affiliate audit (`manage.py affiliate_audit`, #104). Blank = not configured.
 SOVRN_SECRET_KEY = env("SOVRN_SECRET_KEY", "")

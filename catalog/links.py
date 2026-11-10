@@ -7,6 +7,7 @@ time and never stored.
 
 from __future__ import annotations
 
+import unicodedata
 from collections.abc import Mapping
 from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 
@@ -15,6 +16,17 @@ from urllib.parse import parse_qsl, quote, urlencode, urlsplit, urlunsplit
 # going live.
 WALMART_IMPACT_CAMPAIGN = "568844"
 WALMART_IMPACT_AD = "9383"
+
+# CJ deep-link format: /links/<website PID>/type/dlg/<product url, unencoded>, as CJ's
+# Deep Link Automation builds it. Verify against a real joined link before relying on it.
+CJ_DEEP_LINK = "https://www.anrdoezrs.net/links/{website_id}/type/dlg/{url}"
+
+
+def _cj_appendable(url: str) -> bool:
+    """An http(s) URL with no whitespace or control characters, safe to append raw."""
+    if urlsplit(url).scheme.lower() not in ("http", "https"):
+        return False
+    return not any(ch.isspace() or unicodedata.category(ch) == "Cc" for ch in url)
 
 
 def _amazon_tagged(url: str, tag: str) -> str:
@@ -45,6 +57,9 @@ def _route(offer, affiliate: Mapping[str, str | None]) -> str | None:
     tag = affiliate.get("amazon_associates_tag")
     if offer.retailer == "amazon" and tag:
         return _amazon_tagged(url, tag)
+    cj_id = affiliate.get("cj_website_id")
+    if offer.retailer.startswith("cj-") and cj_id and _cj_appendable(url):
+        return CJ_DEEP_LINK.format(website_id=cj_id, url=url)
     key = affiliate.get("sovrn_api_key")
     if key:
         return f"https://sovrn.co?key={key}&u={quote(url, safe='')}"
@@ -74,6 +89,7 @@ _PROGRAMS = (
     ("amazon_associates_tag", "Amazon Associates Program"),
     ("walmart_impact_publisher_id", "Walmart's affiliate program through Impact"),
     ("sovrn_api_key", "Sovrn Commerce"),
+    ("cj_website_id", "CJ Affiliate"),
 )
 
 

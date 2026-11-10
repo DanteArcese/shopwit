@@ -20,7 +20,7 @@ from connectors.base import Connector
 
 from connectors.open_prices import OpenPricesClient
 
-from . import observed, observed_off
+from . import cj_gtin, observed, observed_off
 from .budget import DbBudget, seed_budgets
 from .demand import prune_demand, warm_due, warm_round
 from .fetch import fetch_loop, housekeeping
@@ -132,6 +132,8 @@ def tick(
                 and synced[-1].status == IngestionRun.Status.SUCCEEDED
             ):
                 runs.append(_off_sizes(now, budget))
+                if "cj" in connectors and not budget.stopping:
+                    runs.append(_cj_gtin(now, budget, connectors["cj"]))
     fetch_housekeeping(now)
     demand_housekeeping(now)
     clear_expired_sessions(now)
@@ -280,6 +282,18 @@ def _off_sizes(now: datetime, budget: DbBudget) -> IngestionRun:
     except Exception as exc:  # backfill_sizes never raises; this guards the unexpected
         logger.error("ingest connector=%s failed: %s", observed_off.CONNECTOR, type(exc).__name__)
         return _fail_run(observed_off.CONNECTOR, "all", now, exc)
+    log_run(run)
+    return run
+
+
+def _cj_gtin(now: datetime, budget: DbBudget, connector) -> IngestionRun:
+    try:
+        run, _ = cj_gtin.run_backfill(
+            connector, budget, now, cj_gtin.DEFAULT_LIMIT, stopping=lambda: budget.stopping
+        )
+    except Exception as exc:  # run_backfill never raises; this guards the unexpected
+        logger.error("ingest connector=%s failed: %s", cj_gtin.CONNECTOR, type(exc).__name__)
+        return _fail_run(cj_gtin.CONNECTOR, "all", now, exc)
     log_run(run)
     return run
 

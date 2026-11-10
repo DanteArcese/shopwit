@@ -1,0 +1,359 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, keywords: [\"whey protein powder\"], advertiserCountries: [\"US\"], limit: 8",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 1280167,
+    "count": 8,
+    "resultList": [
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "1LB",
+      "lastUpdated": "2026-11-07T12:17:51.340Z",
+      "price": {
+       "amount": "37.99",
+       "currency": "USD"
+      },
+      "gtin": "850042128152",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 525,
+       "name": "Health & Beauty > Health Care > Fitness & Nutrition > Vitamins & Supplements"
+      },
+      "advertiserName": "Naked Nutrition",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Protein Powder"
+      ],
+      "brand": "Naked Nutrition",
+      "isBundle": "No",
+      "id": "67936152682590",
+      "condition": "New",
+      "link": "https://nakednutrition.com/products/chocolate-whey-protein?variant=67936152682590",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://nakednutrition.com/cdn/shop/files/chocolate-whey-protein-powder-isolate_0731aa0a-024f-4c8f-a285-e3649f60ae7a_2048x2048.jpg?v=1793910178",
+      "targetCountry": "US",
+      "title": "Chocolate Whey Protein Powder | Naked Chocolate Whey",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "7328383"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "2LB",
+      "lastUpdated": "2026-11-07T12:17:51.339Z",
+      "price": {
+       "amount": "62.99",
+       "currency": "USD"
+      },
+      "gtin": "850042128855",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 525,
+       "name": "Health & Beauty > Health Care > Fitness & Nutrition > Vitamins & Supplements"
+      },
+      "advertiserName": "Naked Nutrition",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Protein Powder"
+      ],
+      "brand": "Naked Nutrition",
+      "isBundle": "No",
+      "id": "67936152158302",
+      "condition": "New",
+      "link": "https://nakednutrition.com/products/chocolate-whey-protein?variant=67936152158302",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://nakednutrition.com/cdn/shop/files/chocolate-whey-protein-powder-isolate_21859c8a-6546-40b7-803a-14621c190230_2048x2048.jpg?v=1793910164",
+      "targetCountry": "US",
+      "title": "Chocolate Whey Protein Powder | Naked Chocolate Whey",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "7328383"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "5LB",
+      "lastUpdated": "2026-11-07T12:17:51.338Z",
+      "price": {
+       "amount": "139.99",
+       "currency": "USD"
+      },
+      "gtin": "850042128459",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 525,
+       "name": "Health & Beauty > Health Care > Fitness & Nutrition > Vitamins & Supplements"
+      },
+      "advertiserName": "Naked Nutrition",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Protein Powder"
+      ],
+      "brand": "Naked Nutrition",
+      "isBundle": "No",
+      "id": "67936151634014",
+      "condition": "New",
+      "link": "https://nakednutrition.com/products/chocolate-whey-protein?variant=67936151634014",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://nakednutrition.com/cdn/shop/files/chocolate-whey-protein-powder-isolate_264591b4-cda8-4664-a6cb-299a02078124_2048x2048.jpg?v=1793910150",
+      "targetCountry": "US",
+      "title": "Chocolate Whey Protein Powder | Naked Chocolate Whey",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "7328383"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "2LB",
+      "lastUpdated": "2026-11-07T12:17:51.375Z",
+      "price": {
+       "amount": "62.99",
+       "currency": "USD"
+      },
+      "gtin": "850042128954",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 525,
+       "name": "Health & Beauty > Health Care > Fitness & Nutrition > Vitamins & Supplements"
+      },
+      "advertiserName": "Naked Nutrition",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Protein Powder"
+      ],
+      "brand": "Naked Nutrition",
+      "isBundle": "No",
+      "id": "67942131892318",
+      "condition": "New",
+      "link": "https://nakednutrition.com/products/strawberry-protein-powder?variant=67942131892318",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://nakednutrition.com/cdn/shop/files/strawberry-whey-protein-powder-isolate-strawberry_c5509bd1-8b71-4014-90cb-cef70ecd21f3_2048x2048.jpg?v=1793990133",
+      "targetCountry": "US",
+      "title": "Strawberry Whey Protein Powder | Naked Strawberry Whey",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "7328383"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "Natural Chocolate Flavor 16 oz",
+      "lastUpdated": "2023-02-07T16:28:16.566Z",
+      "price": {
+       "amount": "23.99",
+       "currency": "USD"
+      },
+      "gtin": "033984036727",
+      "availability": "out of stock",
+      "googleProductCategory": null,
+      "advertiserName": "Herbspro.com",
+      "unitPricingMeasure": null,
+      "productType": [],
+      "brand": "Solgar",
+      "isBundle": "No",
+      "id": "36909",
+      "condition": "New",
+      "link": "https://www.herbspro.com/products/whey-to-go-protein-powder",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://cdn.shopify.com/s/files/1/0196/7092/5412/products/36909.jpg?v=1603166756",
+      "targetCountry": "US",
+      "title": "Whey To Go Protein Powder",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "18.00",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "2750761"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "Natural Chocolate Flavor 41 oz",
+      "lastUpdated": "2023-02-07T16:28:25.511Z",
+      "price": {
+       "amount": "54.99",
+       "currency": "USD"
+      },
+      "gtin": "033984036734",
+      "availability": "out of stock",
+      "googleProductCategory": null,
+      "advertiserName": "Herbspro.com",
+      "unitPricingMeasure": null,
+      "productType": [],
+      "brand": "Solgar",
+      "isBundle": "No",
+      "id": "36912",
+      "condition": "New",
+      "link": "https://www.herbspro.com/products/whey-to-go-protein-powder-3",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://cdn.shopify.com/s/files/1/0196/7092/5412/products/36912.jpg?v=1603166754",
+      "targetCountry": "US",
+      "title": "Whey To Go Protein Powder",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "41.25",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "2750761"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "5LB",
+      "lastUpdated": "2026-11-07T12:17:51.373Z",
+      "price": {
+       "amount": "139.99",
+       "currency": "USD"
+      },
+      "gtin": "850042128169",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 525,
+       "name": "Health & Beauty > Health Care > Fitness & Nutrition > Vitamins & Supplements"
+      },
+      "advertiserName": "Naked Nutrition",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Protein Powder"
+      ],
+      "brand": "Naked Nutrition",
+      "isBundle": "No",
+      "id": "67942106759262",
+      "condition": "New",
+      "link": "https://nakednutrition.com/products/strawberry-protein-powder?variant=67942106759262",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://nakednutrition.com/cdn/shop/files/strawberry-whey-protein-powder-isolate_705479fb-733e-4990-83d6-26901c709158_2048x2048.jpg?v=1793990119",
+      "targetCountry": "US",
+      "title": "Strawberry Whey Protein Powder | Naked Strawberry Whey",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "7328383"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-10-26T13:46:35.829Z",
+      "price": {
+       "amount": "44.99",
+       "currency": "USD"
+      },
+      "gtin": "850031022782",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "DICK'S Sporting Goods",
+      "unitPricingMeasure": null,
+      "productType": [
+       "GENACCESS-OUTDREQUIP > SPORTS NUTRITION > PROTEIN POWDER > PROTEIN POWDER"
+      ],
+      "brand": "Podium",
+      "isBundle": "No",
+      "id": "25794326",
+      "condition": "New",
+      "link": "https://www.dickssportinggoods.com/p/podium-whey-protein-powder-22-servings-24podupdmwhy2lbmngen/24podupdmwhy2lbmngen?sku=25794326",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://dks.scene7.com/is/image/dkscdn/24PODUPDMWHY2LBMNGEN_is?$UTPMain$?$DSG_Google_PLA$",
+      "targetCountry": "US",
+      "title": "Podium Whey 2lb Protein Powder",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": "9.99",
+        "currency": "USD"
+       },
+       "country": "US",
+       "service": null
+      },
+      "advertiserId": "7345657"
+     }
+    ]
+   }
+  }
+ }
+}

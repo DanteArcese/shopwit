@@ -317,3 +317,14 @@ class CurateNext(SearchDemand):
         proxy = True
         verbose_name = "curate-next phrase"
         verbose_name_plural = "curate next"
+
+
+class CjGtinCheck(models.Model):
+    """When a barcode was last looked up at CJ (#111), so it is not asked again for a week."""
+
+    upc = models.CharField(max_length=14, primary_key=True)
+    checked_at = models.DateTimeField(db_index=True)
+    found = models.IntegerField(default=0)  # offers the lookup returned
+
+    def __str__(self):
+        return self.upc

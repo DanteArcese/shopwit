@@ -12,6 +12,9 @@ from connectors import registry
 
 from .models import Offer
 
+# Retailer-code prefixes whose offers come from one connector (e.g. "cj-iherb" from "cj").
+CONNECTOR_PREFIXES = {"cj-": "cj"}
+
 
 def max_cache_age(connector_name: str) -> timedelta | None:
     """The registered connector class's max_cache_age, without constructing it."""
@@ -35,8 +38,12 @@ def fresh_offers(now: datetime) -> QuerySet[Offer]:
     query = Q(pk__in=[])  # matches nothing; OR-ed with the branches below
     for name in registered:
         query |= Q(retailer=name, last_seen_at__gte=cutoff_for(name, now))
+    unowned = ~Q(retailer__in=registered)
+    for prefix, name in CONNECTOR_PREFIXES.items():
+        query |= Q(retailer__startswith=prefix, last_seen_at__gte=cutoff_for(name, now))
+        unowned &= ~Q(retailer__startswith=prefix)
     # Retailers without a registered connector fall back to the setting.
-    query |= ~Q(retailer__in=registered) & Q(last_seen_at__gte=now - settings.FRESHNESS_CUTOFF)
+    query |= unowned & Q(last_seen_at__gte=now - settings.FRESHNESS_CUTOFF)
     return Offer.objects.filter(query, kind=Offer.Kind.LIVE, currency=settings.SITE_CURRENCY)
 
 

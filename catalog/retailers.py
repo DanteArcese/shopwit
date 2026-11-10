@@ -18,6 +18,18 @@ RETAILERS: dict[str, str] = {
     "stopandshop": "Stop & Shop",
 }
 
+CJ_RETAILERS: dict[str, str] = {
+    "cj-walgreens": "Walgreens",
+    "cj-iherb": "iHerb",
+    "cj-thrive-market": "Thrive Market",
+    "cj-bj-s-wholesale-club": "BJ's Wholesale Club",
+    "cj-vitacost-com": "Vitacost",
+}
+
+
+def is_cj_code(code: str) -> bool:
+    return code.startswith("cj-")
+
 
 def is_chain_code(code: str) -> bool:
     return code.startswith("op-")
@@ -49,6 +61,8 @@ def display_name(code: str, chains: dict[str, str] | None = None) -> str:
             chains = chain_names([code])
         chain = chains.get(code)
         return f"{chain} (in-store prices)" if chain else code
+    if is_cj_code(code):
+        return CJ_RETAILERS.get(code) or code[3:].replace("-", " ").title() or code
     return RETAILERS.get(code, code.title())
 
 
@@ -63,6 +77,6 @@ def available_retailers(now: datetime, category=None) -> list[str]:
     chains = chain_names(observed)
 
     def ordered(codes) -> list[str]:
-        return sorted(codes, key=lambda c: (display_name(c, chains), c))
+        return sorted(codes, key=lambda c: (display_name(c, chains).casefold(), c))
 
     return ordered(live) + ordered(observed)

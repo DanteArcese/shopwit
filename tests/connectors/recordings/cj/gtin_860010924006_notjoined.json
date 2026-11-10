@@ -1,0 +1,227 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, gtin: \"860010924006\", advertiserCountries: [\"US\"], limit: 10",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 5,
+    "count": 5,
+    "resultList": [
+     {
+      "unitPricingBaseMeasure": "1",
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "fl oz",
+      "lastUpdated": "2026-09-21T11:00:44.114Z",
+      "price": {
+       "amount": "19.99",
+       "currency": "USD"
+      },
+      "gtin": "860010924006",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "Thrive Market",
+      "unitPricingMeasure": "1",
+      "productType": [
+       "Pantry > Ghee",
+       "Oils & Vinegars > Oils > Specialty Oil"
+      ],
+      "brand": "Algae Cooking Club",
+      "isBundle": "No",
+      "id": "860010924006",
+      "condition": "New",
+      "link": "https://thrivemarket.com/p/algae-cooking-club-cooking-oil",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://img.thrivemarket.com/store/full/a/l/algae-cooking-club-algae-cooking-oil-860010924006-front-of-pack_3.jpg",
+      "targetCountry": "US",
+      "title": "Algae Cooking Club Algae Cooking Oil 16 fl oz bottle",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "17.99",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "4593116"
+     },
+     {
+      "unitPricingBaseMeasure": "100 ml",
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-10-16T11:05:33.230Z",
+      "price": {
+       "amount": "25.29",
+       "currency": "EUR"
+      },
+      "gtin": "860010924006",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "iHerb",
+      "unitPricingMeasure": "473 ml",
+      "productType": [],
+      "brand": "Algae Cooking Club",
+      "isBundle": "No",
+      "id": "AGC92400",
+      "condition": "New",
+      "link": "https://es.iherb.com/pr/algae-cooking-club-algae-cooking-oil-16-fl-oz-473-ml/148726?ccode=ES&currcode=EUR&langcode=es-MX&fld=1",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://s3.images-iherb.com/agc/agc92400/d/8.jpg",
+      "targetCountry": "ES",
+      "title": "Algae Cooking Club, Aceite de algas para cocinar, 473 ml (16 oz. l\u00edq.)",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "25.29",
+       "currency": "EUR"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "6453453"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-08-07T11:32:09.904Z",
+      "price": {
+       "amount": "18.99",
+       "currency": "USD"
+      },
+      "gtin": "860010924006",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "iHerb",
+      "unitPricingMeasure": null,
+      "productType": [],
+      "brand": "Algae Cooking Club",
+      "isBundle": "No",
+      "id": "AGC92400",
+      "condition": "New",
+      "link": "https://www.iherb.com/pr/algae-cooking-club-algae-cooking-oil-16-fl-oz-473-ml/148726?ccode=US&currcode=USD&langcode=en-US&fld=1",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://s3.images-iherb.com/agc/agc92400/d/8.jpg",
+      "targetCountry": "US",
+      "title": "Algae Cooking Club, Algae Cooking Oil, 16 fl oz (473 ml)",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "18.99",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": "5.00",
+        "currency": "USD"
+       },
+       "country": "US",
+       "service": null
+      },
+      "advertiserId": "6453453"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-11-01T10:07:47.405Z",
+      "price": {
+       "amount": "32.76",
+       "currency": "CAD"
+      },
+      "gtin": "860010924006",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "iHerb",
+      "unitPricingMeasure": null,
+      "productType": [],
+      "brand": "Algae Cooking Club",
+      "isBundle": "No",
+      "id": "AGC92400",
+      "condition": "New",
+      "link": "https://ca.iherb.com/pr/algae-cooking-club-algae-cooking-oil-16-fl-oz-473-ml/148726?ccode=CA&currcode=CAD&langcode=en-US&fld=1",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://s3.images-iherb.com/agc/agc92400/d/8.jpg",
+      "targetCountry": "CA",
+      "title": "Algae Cooking Club, Algae Cooking Oil, 16 fl oz (473 ml)",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "32.76",
+       "currency": "CAD"
+      },
+      "shipping": {
+       "price": {
+        "amount": "5.00",
+        "currency": "CAD"
+       },
+       "country": "CA",
+       "service": null
+      },
+      "advertiserId": "6453453"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-11-10T11:29:12Z",
+      "price": {
+       "amount": "35.83",
+       "currency": "AUD"
+      },
+      "gtin": "860010924006",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "iHerb",
+      "unitPricingMeasure": null,
+      "productType": [],
+      "brand": "Algae Cooking Club",
+      "isBundle": "No",
+      "id": "AGC92400",
+      "condition": "New",
+      "link": "https://au.iherb.com/pr/algae-cooking-club-algae-cooking-oil-16-fl-oz-473-ml/148726?ccode=AU&currcode=AUD&langcode=en-US&fld=1",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://s3.images-iherb.com/agc/agc92400/d/8.jpg",
+      "targetCountry": "AU",
+      "title": "Algae Cooking Club, Algae Cooking Oil, 16 fl oz (473 ml)",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "35.83",
+       "currency": "AUD"
+      },
+      "shipping": {
+       "price": {
+        "amount": "15.00",
+        "currency": "AUD"
+       },
+       "country": "AU",
+       "service": null
+      },
+      "advertiserId": "6453453"
+     }
+    ]
+   }
+  }
+ }
+}

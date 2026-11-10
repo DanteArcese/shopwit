@@ -1,0 +1,13 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, gtin: \"000000000017\", advertiserCountries: [\"US\"], limit: 10",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 0,
+    "count": 0,
+    "resultList": []
+   }
+  }
+ }
+}
