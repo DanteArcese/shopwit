@@ -54,6 +54,8 @@ Plan: `docs/superpowers/plans/2026-11-08-limited-public-launch.md` (issue #77). 
 2. [ ] Impact: Target Partners and the Walmart affiliate (publisher ID to `WALMART_IMPACT_PUBLISHER_ID`; retry the walmart.io key upload alongside). `purge_sample_data` must already have run before the real Walmart key is enabled.
 3. [ ] CJ (Costco and other grocery or household advertisers).
 4. [ ] Sovrn Commerce: register `unitpricer.com`; Commerce API key (Site Settings) to `SOVRN_API_KEY`; run the merchant audit (roadmap Checkpoint B.5).
+
+   **Merchant audit.** `uv run --env-file .env python manage.py affiliate_audit` is a read-only report (it never writes to the database or prints credentials) of which merchants in `catalog/data/merchants.yaml` already pay through Sovrn (approved, US, matching domain), which are joined on CJ, and which to apply to, next to our offer and click counts. It also lists Open Prices chains the YAML does not cover. Needs `SOVRN_SECRET_KEY`, and `CJ_PERSONAL_ACCESS_TOKEN` plus `CJ_PUBLISHER_ID` (CJ's requestor CID); a network without credentials shows "not configured". Sovrn allows one query per 3 seconds and CJ 25 per minute, so a full run takes a few minutes. Flags: `--json`, `--only <domain>` (repeatable), `--no-cj`, `--no-sovrn`. If CJ answers that the token may not act for the CID, the command prints one `CJ unavailable` line and skips CJ.
 5. [ ] Amazon Associates last: the 180-day window for 3 qualifying sales starts at signup, so apply once there is traffic. Tag to `AMAZON_ASSOCIATES_TAG` (turns on the disclosure sentence); request written approval for unit-price comparison (spec section 10).
 
 After each approval, re-read that program's terms against spec section 10 and the disclosure page before adding links.

@@ -1,0 +1,51 @@
+# Merchants checked by `manage.py affiliate_audit` (#104).
+# `retailers`: our Offer.retailer codes for this merchant (Open Prices chains are `op-<chain>`).
+# `domain`: the merchant's US shopping site, checked against Sovrn and CJ. Omit when unknown;
+# the audit then reports "no domain" instead of guessing.
+# Chains seen in Open Prices but missing here are reported as unmapped.
+merchants:
+  # In-store chains we already show (Open Prices)
+  - {name: Safeway, retailers: [op-safeway], domain: safeway.com}
+  - {name: Draeger's, retailers: [op-draegers], domain: draegers.com}
+  - {name: Whole Foods Market, retailers: [op-whole-foods-market], domain: wholefoodsmarket.com}
+  - {name: Sprouts Farmers Market, retailers: [op-sprouts-farmers-market], domain: sprouts.com}
+  - {name: Smart & Final, retailers: [op-smart-and-final], domain: smartandfinal.com}
+  - {name: Target, retailers: [op-target, target], domain: target.com}
+  - {name: Morton Williams, retailers: [op-morton-williams], domain: mortonwilliams.com}
+  - {name: Fairway Market, retailers: [op-fairway-market], domain: fairwaymarket.com}
+  - {name: Food Bazaar, retailers: [op-food-bazaar], domain: foodbazaar.com}
+  - {name: Costco, retailers: [op-costco, costco], domain: costco.com}
+  - {name: Trader Joe's, retailers: [op-trader-joes], domain: traderjoes.com}
+  - {name: Aldi, retailers: [op-aldi], domain: aldi.us}
+  - {name: ShopRite, retailers: [op-shoprite], domain: shoprite.com}
+  - {name: Walmart, retailers: [op-walmart, walmart], domain: walmart.com}
+  - {name: Grocery Outlet, retailers: [op-grocery-outlet], domain: groceryoutlet.com}
+  - {name: Meijer, retailers: [op-meijer], domain: meijer.com}
+  - {name: Lidl, retailers: [op-lidl], domain: lidl.com}
+  # Online grocery/household merchants we could add
+  - {name: Amazon, retailers: [amazon], domain: amazon.com}
+  - {name: Sam's Club, retailers: [], domain: samsclub.com}
+  - {name: BJ's Wholesale Club, retailers: [], domain: bjs.com}
+  - {name: Kroger, retailers: [], domain: kroger.com}
+  - {name: Albertsons, retailers: [], domain: albertsons.com}
+  - {name: Instacart, retailers: [], domain: instacart.com}
+  - {name: Thrive Market, retailers: [], domain: thrivemarket.com}
+  - {name: Boxed, retailers: [], domain: boxed.com}
+  - {name: Chewy, retailers: [], domain: chewy.com}
+  - {name: Walgreens, retailers: [], domain: walgreens.com}
+  - {name: CVS, retailers: [], domain: cvs.com}
+  - {name: Dollar General, retailers: [], domain: dollargeneral.com}
+  - {name: iHerb, retailers: [], domain: iherb.com}
+  - {name: Vitacost, retailers: [], domain: vitacost.com}
+  - {name: FreshDirect, retailers: [], domain: freshdirect.com}
+  - {name: Gopuff, retailers: [], domain: gopuff.com}
+  - {name: H-E-B, retailers: [], domain: heb.com}
+  - {name: Hy-Vee, retailers: [], domain: hy-vee.com}
+  - {name: Publix, retailers: [], domain: publix.com}
+  - {name: Wegmans, retailers: [], domain: wegmans.com}
+  - {name: Misfits Market, retailers: [], domain: misfitsmarket.com}
+  - {name: Weee!, retailers: [], domain: sayweee.com}
+  - {name: H Mart, retailers: [], domain: hmart.com}
+  - {name: Staples, retailers: [], domain: staples.com}
+  - {name: WebstaurantStore, retailers: [], domain: webstaurantstore.com}
+  - {name: eBay, retailers: [ebay], domain: ebay.com}
