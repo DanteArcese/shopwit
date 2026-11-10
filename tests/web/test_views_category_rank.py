@@ -156,9 +156,11 @@ def test_add_link_never_carries_rank(client, ranked_milk):
 
 
 def test_rank_adds_no_queries(client, ranked_milk):
-    client.get("/c/dairy/milk/")  # warm any caches
+    # A filtered page (size_min=0 filters nothing out) also loads the unfiltered rows for its
+    # meta description, so both requests here pay for that; ranking must add nothing on top.
+    client.get("/c/dairy/milk/?size_min=0")  # warm any caches
     with CaptureQueriesContext(connection) as plain:
-        client.get("/c/dairy/milk/")
+        client.get("/c/dairy/milk/?size_min=0")
     with CaptureQueriesContext(connection) as ranked:
-        client.get("/c/dairy/milk/?rank=protein")
+        client.get("/c/dairy/milk/?size_min=0&rank=protein")
     assert len(ranked) == len(plain)

@@ -52,7 +52,19 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
-from .seo import breadcrumb_jsonld, category_description, category_has_prices, jsonld, public_origin, website_jsonld
+from .seo import (
+    PriceFact,
+    breadcrumb_jsonld,
+    category_description,
+    category_has_prices,
+    category_prices_description,
+    category_title,
+    jsonld,
+    option_label,
+    public_origin,
+    summarize_prices,
+    website_jsonld,
+)
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -158,7 +170,7 @@ def _controls(category: Category, params) -> list[dict]:
             "current": params.get(attr.name, ""),
         }
         if attr.type in ("enum", "int"):
-            control["options"] = [str(v) for v in attr.values or []]
+            control["options"] = [{"value": str(v), "label": option_label(v)} for v in attr.values or []]
         controls.append(control)
     return controls
 
@@ -245,6 +257,40 @@ def _location(prefs: Prefs) -> tuple[dict, Near | None]:
     return {**info, "state": "known"}, Near(*point, radius_km(prefs.radius, prefs.unit_system))
 
 
+def _price_facts(live_rows, observed_rows, comparison: str, unit_system: str) -> list[PriceFact]:
+    """One fact per shown product: its unit price (display units), store and day seen."""
+    facts = []
+    for rows, is_observed in ((live_rows, False), (observed_rows, True)):
+        for row in rows:
+            offer = row.offer
+            price = None
+            if row.unit_price is not None:
+                price = display_unit_price(row.unit_price, comparison, unit_system)[0]
+            if is_observed:
+                store = offer.store.display if offer.store else "a store"
+                seen = offer.observed_on or offer.last_seen_at.date()
+            else:
+                store = display_name(offer.retailer)
+                seen = offer.last_seen_at.date()
+            facts.append(PriceFact(price, offer.currency, store, seen))
+    return facts
+
+
+def _summary_context(summary, unit_label: str) -> dict:
+    """The numbers for the category summary paragraph (the template holds the wording)."""
+    unit = f"/{unit_label}" if unit_label else ""
+    out = {"count": summary.count, "stores": summary.stores, "latest": summary.latest}
+    if summary.lowest is not None:
+        low = summary.lowest
+        out.update(
+            lowest=f"{format_money(low.price, low.currency)}{unit}", lowest_store=low.store,
+            lowest_seen=low.seen,
+        )
+        if summary.median is not None:
+            out["median"] = f"{format_money(summary.median, low.currency)}{unit}"
+    return out
+
+
 def _status_text(live: int, observed: int) -> str:
     if not observed:
         return f"{live} result{'' if live == 1 else 's'}"
@@ -281,6 +327,31 @@ def category(request, slug):
     has_prices = category_has_prices(cat, when)
     ranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension, rank) for r in result.ranked]
     unranked = [_present(r, result.comparison, prefs.unit_system, cat.dimension, rank) for r in result.unranked]
+    filters_active = bool(
+        spec.attributes or spec.brand_tier or live_stores
+        or spec.size_min is not None or spec.size_max is not None
+    )
+    unit_label = DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0]
+    # The same figures for every visitor: no filters, the category's default comparison, price
+    # ranking, every store and no distance limit. The page's own results are reused when they
+    # are exactly that and complete (browse() cuts each list at 50 rows).
+    canonical = (
+        not filters_active and result.comparison == cat.comparison_default and rank == "unit"
+        and stores is None and near is None
+    )
+    complete = all(
+        len(r.ranked) + len(r.unranked) == r.total_products for r in (result, obs)
+    )
+    if canonical and complete:
+        base_live, base_obs = result, obs
+    else:
+        base_spec = parse_filters(cat, {})
+        base_live = browse(cat, base_spec, None, None, when, limit=10**6)
+        base_obs = browse(cat, base_spec, None, None, when, observed=True, limit=10**6)
+    summary = summarize_prices(_price_facts(
+        [*base_live.ranked, *base_live.unranked], [*base_obs.ranked, *base_obs.unranked],
+        cat.comparison_default, prefs.unit_system,
+    ))
     context = {
         # The banner stays on the full page even when a filter empties the list,
         # since HTMX swaps can bring links in later.
@@ -307,12 +378,18 @@ def category(request, slug):
         "ranks": [{"value": v, "label": label} for v, label in RANKS.items()] if can_rank else [],
         "rank_label": RANKS[rank].lower(),
         "stores": _store_options(prefs, available),
-        "meta_description": category_description(
-            cat.name,
-            DISPLAY.get((cat.comparison_default, prefs.unit_system), ("", None))[0],
-            [display_name(c) for c in available if not is_chain_code(c)],
-            has_prices,
+        "page_title": category_title(cat.name, unit_label),
+        "meta_description": (
+            category_prices_description(unit_label, summary)
+            if has_prices and summary is not None
+            else category_description(
+                cat.name,
+                unit_label,
+                [display_name(c) for c in available if not is_chain_code(c)],
+                has_prices,
+            )
         ),
+        "summary": _summary_context(summary, unit_label) if canonical and summary else None,
         # Search engines skip a category page while it has no prices to show.
         "noindex": not has_prices,
         "selected_stores": selected_stores or set(prefs.stores or ()),
@@ -320,10 +397,7 @@ def category(request, slug):
         "unranked_total": result.unranked_total,
         "status_total": result.total_products,
         "status_text": _status_text(result.total_products, obs.total_products),
-        "filters_active": bool(
-            spec.attributes or spec.brand_tier or live_stores
-            or spec.size_min is not None or spec.size_max is not None
-        ),
+        "filters_active": filters_active,
         "observed_filtered_empty": (
             chain_stores is not None
             and obs.total_products == 0

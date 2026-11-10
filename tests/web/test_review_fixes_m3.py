@@ -159,7 +159,7 @@ def test_unranked_cap_note(client, milk, frozen_now, monkeypatch):
     import web.views as views
 
     orig = views.browse
-    monkeypatch.setattr(views, "browse", lambda *a, **k: orig(*a, limit=2, **k))
+    monkeypatch.setattr(views, "browse", lambda *a, **k: orig(*a, **{"limit": 2, **k}))
     for i in range(4):
         p = Product.objects.create(identity=f"u{i}", title=f"Unsized {i}", category=milk)
         Offer.objects.create(

@@ -51,17 +51,23 @@ def radius_choices(unit_system: UnitSystem) -> list[tuple[int, str]]:
 
 
 def default_unit_system(accept_language: str) -> UnitSystem:
-    """Imperial iff the first tag's region (2 letters or 3 digits) is US, LR or MM."""
+    """The unit system for a visitor with no saved choice.
+
+    A first tag with a region (2 letters or 3 digits) is imperial for US, LR and MM and
+    metric for any other region ("en-GB", "fr-CA"). A header that is empty, "*", or whose
+    first tag has no region ("en", "fr") is imperial: crawlers and bare-language browsers
+    send these, and the site is US-focused.
+    """
     first = accept_language.split(",", 1)[0].split(";", 1)[0].strip()
     language, *subtags = first.replace("_", "-").split("-")
     if not language or language == "*":
-        return "metric"
+        return "imperial"
     for tag in subtags:
         if (len(tag) == 2 and tag.isascii() and tag.isalpha()) or (
             len(tag) == 3 and tag.isascii() and tag.isdigit()
         ):
             return "imperial" if tag.upper() in IMPERIAL_REGIONS else "metric"
-    return "metric"
+    return "imperial"
 
 
 def clean_comparisons(raw) -> dict[str, str]:
