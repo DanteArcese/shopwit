@@ -328,3 +328,31 @@ def test_store_filter_lists_one_chain_for_case_variants(db, stores):
     codes = available_retailers(NOW)
     assert codes == ["op-aldi"]
     assert display_name("op-aldi") == "ALDI (in-store prices)"  # most common spelling
+
+
+def test_observed_row_links_to_add_a_price_with_barcode(client, milk_rows, observe):
+    # #117: shoppers can add a price they saw; the Open Prices form reads `code`.
+    offer = observe()
+    offer.product.upc = "0076808280739"
+    offer.product.save()
+    html = get(client).content.decode()
+    assert (
+        '<a class="add-price-link" href="https://prices.openfoodfacts.org/prices/add/single?code=0076808280739"'
+        ' rel="noopener noreferrer">Add a price</a>'
+    ) in html
+
+
+def test_add_a_price_without_a_barcode_uses_the_general_form(client, milk_rows, observe):
+    observe()  # the fixture's product has no UPC
+    html = get(client).content.decode()
+    assert 'class="add-price-link" href="https://prices.openfoodfacts.org/prices/add"' in html
+    assert "single?code=" not in html
+
+
+def test_attribution_invites_contributions(client, milk_rows, observe):
+    observe()
+    html = get(client).content.decode()
+    assert (
+        'Seen a price in a store? <a href="https://prices.openfoodfacts.org/prices/add"'
+        ' rel="noopener noreferrer">Add it to Open Prices</a>.'
+    ) in html

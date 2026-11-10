@@ -202,8 +202,19 @@ def _present_observed(row, comparison: str, unit_system: str, dimension: str, ra
         observed_on=offer.observed_on,
         is_sale=offer.is_sale,
         source_url=offer.url,
+        add_price_url=add_price_url(row.product.upc),
     )
     return out
+
+
+OPEN_PRICES_ADD = "https://prices.openfoodfacts.org/prices/add"
+
+
+def add_price_url(upc: str | None) -> str:
+    """Open Prices' add-a-price form, prefilled with the barcode when we have a real one (#117)."""
+    if upc and upc.isascii() and upc.isdigit() and 8 <= len(upc) <= 14:
+        return f"{OPEN_PRICES_ADD}/single?code={upc}"
+    return OPEN_PRICES_ADD
 
 
 def _location(prefs: Prefs) -> tuple[dict, Near | None]:
