@@ -92,10 +92,10 @@ def test_pages_have_meta_description(client, db, milk):
         assert '<meta name="description" content="' in client.get(path).content.decode()
 
 
-def test_category_description_names_unit_and_sources(client, db, milk_rows):
+def test_category_description_counts_prices_and_names_unit(client, db, milk_rows):
     body = client.get("/c/dairy/milk/").content.decode()
-    assert '<meta name="description" content="Cheapest ' in body
-    assert "by price per" in body
+    assert '<meta name="description" content="4 prices from 1 store. Lowest seen: $0.0296/fl oz at Fake (Nov 7, 2026).' in body
+    assert "Compared by price per fluid ounce." in body
 
 
 @pytest.mark.parametrize(
@@ -179,7 +179,7 @@ def test_category_with_observed_prices_is_indexable(client, db, milk, frozen_now
     _observed(milk, frozen_now)
     body = client.get("/c/dairy/milk/").content.decode()
     assert 'name="robots"' not in body
-    assert '<meta name="description" content="Cheapest Milk' in body
+    assert '<meta name="description" content="1 price from 1 store.' in body
 
 
 def test_category_with_only_stale_offers_is_noindex(client, db, milk_rows, frozen_now, monkeypatch):

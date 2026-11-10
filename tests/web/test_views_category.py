@@ -131,7 +131,7 @@ def test_cap_notice(client, milk_rows, monkeypatch):
     import catalog.browse as b
 
     real = b.browse
-    monkeypatch.setattr("web.views.browse", lambda *a, **k: real(*a, limit=2))
+    monkeypatch.setattr("web.views.browse", lambda *a, **k: real(*a, **{"limit": 2, **k}))
     html = client.get("/c/dairy/milk/").content.decode()
     assert "Showing the top 2 of 3" in html
 
