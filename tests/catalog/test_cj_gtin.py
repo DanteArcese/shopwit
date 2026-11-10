@@ -79,9 +79,20 @@ class FakeBudget:
 class FakeConnector:
     """Records the barcodes asked; answers from a dict (an exception instance is raised)."""
 
-    def __init__(self, answers=None):
+    def __init__(self, answers=None, joined=True):
         self.answers = answers or {}
         self.asked = []
+        self.joined = joined
+        self.joined_checks = 0
+
+    def has_joined_advertisers(self, budget=None):
+        self.joined_checks += 1
+        if budget is not None:
+            budget.acquire("cj")
+            budget.report("cj", 200, None)
+        if isinstance(self.joined, Exception):
+            raise self.joined
+        return self.joined
 
     def lookup_gtin(self, gtin, budget=None):
         from connectors.base import SearchResult
@@ -119,12 +130,28 @@ def test_candidate_order_curated_first_then_newest():
     assert candidates(NOW, 2) == ["0000000000024", GTIN]
 
 
-def test_checked_within_seven_days_is_excluded():
+def test_recheck_intervals_are_named():
+    assert cj_gtin.FOUND_RECHECK_AFTER == timedelta(hours=20)
+    assert cj_gtin.EMPTY_RECHECK_AFTER == timedelta(days=7)
+
+
+def test_empty_check_waits_seven_days():
     observe((GTIN, "Whole milk 1 gal", 1), ("0000000000024", "Whole milk 1 gal", 2))
     CjGtinCheck.objects.create(upc=GTIN, checked_at=NOW - timedelta(days=6, hours=23), found=0)
     assert candidates(NOW, 10) == ["0000000000024"]
     CjGtinCheck.objects.filter(pk=GTIN).update(checked_at=NOW - timedelta(days=7, minutes=1))
-    assert candidates(NOW, 10) == ["0000000000024", GTIN] or set(candidates(NOW, 10)) == {GTIN, "0000000000024"}
+    assert set(candidates(NOW, 10)) == {GTIN, "0000000000024"}
+
+
+def test_found_check_is_due_after_twenty_hours():
+    observe((GTIN, "Whole milk 1 gal", 1), ("0000000000024", "Whole milk 1 gal", 2))
+    CjGtinCheck.objects.create(upc=GTIN, checked_at=NOW - timedelta(hours=19, minutes=59), found=2)
+    assert candidates(NOW, 10) == ["0000000000024"]
+    CjGtinCheck.objects.filter(pk=GTIN).update(checked_at=NOW - timedelta(hours=20, minutes=1))
+    assert set(candidates(NOW, 10)) == {GTIN, "0000000000024"}
+    # the next daily run picks a found barcode up again
+    CjGtinCheck.objects.filter(pk=GTIN).update(checked_at=NOW - timedelta(days=1))
+    assert GTIN in candidates(NOW, 10)
 
 
 def test_stale_observed_offers_are_not_candidates(settings):
@@ -181,6 +208,114 @@ def test_connector_error_stops_run_and_does_not_mark_checked():
     assert fake.asked == ["0000000000024"]  # stopped at the first failure
     assert CjGtinCheck.objects.count() == 0
     assert stats.errors == 1 and stats.stopped == "ConnectorError"
+
+
+def test_input_specific_error_marks_checked_and_continues():
+    from connectors.cj import CjRequestError
+
+    observe(("0000000000024", "Whole milk 1 gal", 1), (GTIN, "Whole milk 1 gal", 2))
+    fake = FakeConnector({"0000000000024": CjRequestError("CJ search failed with HTTP 400", retryable=False)})
+    stats = backfill(fake, FakeBudget(), NOW, 10)
+    assert fake.asked == ["0000000000024", GTIN]
+    check = CjGtinCheck.objects.get(pk="0000000000024")
+    assert (check.found, check.checked_at) == (0, NOW)
+    assert CjGtinCheck.objects.filter(pk=GTIN).exists()
+    assert stats.errors == 1 and stats.stopped == ""
+
+
+@pytest.mark.parametrize(
+    "resp",
+    [httpx.Response(400, text=TOKEN), httpx.Response(200, json={"errors": [{"message": CID}], "data": None})],
+)
+def test_http_400_or_graphql_errors_do_not_stall_the_queue(resp, caplog):
+    observe(("0000000000024", "Whole milk 1 gal", 1), (GTIN, "Whole milk 1 gal", 2))
+    c = connector(lambda r: resp)
+    caplog.set_level(logging.DEBUG)
+    stats = backfill(c, FakeBudget(), NOW, 10)
+    assert set(CjGtinCheck.objects.values_list("pk", "found")) == {("0000000000024", 0), (GTIN, 0)}
+    assert stats.errors == 2 and stats.stopped == "" and stats.looked_up == 0
+    assert TOKEN not in caplog.text and CID not in caplog.text
+
+
+@pytest.mark.parametrize("status", [429, 500, 503])
+def test_retryable_http_errors_stop_without_marking(status):
+    observe(("0000000000024", "Whole milk 1 gal", 1), (GTIN, "Whole milk 1 gal", 2))
+    c = connector(lambda r: httpx.Response(status))
+    stats = backfill(c, FakeBudget(), NOW, 10)
+    assert CjGtinCheck.objects.count() == 0 and stats.errors == 1
+    assert stats.stopped == "CjRequestError" and len(c.seen) == 1
+
+
+def test_transport_error_stops_without_marking():
+    observe(("0000000000024", "Whole milk 1 gal", 1), (GTIN, "Whole milk 1 gal", 2))
+
+    def boom(request):
+        raise httpx.ConnectError(TOKEN)
+
+    stats = backfill(connector(boom), FakeBudget(), NOW, 10)
+    assert CjGtinCheck.objects.count() == 0 and stats.errors == 1 and stats.stopped
+
+
+def test_time_cap_ends_run_cleanly():
+    observe(("0000000000024", "Whole milk 1 gal", 1), (GTIN, "Whole milk 1 gal", 2), ("0000000000031", "Whole milk 1 gal", 3))
+    assert cj_gtin.CJ_GTIN_MAX_SECONDS == 600
+    ticks = iter([0.0, 0.0, 599.9, 600.0, 10_000.0])
+    fake = FakeConnector()
+    stats = backfill(fake, FakeBudget(), NOW, 10, clock=lambda: next(ticks))
+    assert len(fake.asked) == 2 and stats.stopped == "time cap"
+    assert CjGtinCheck.objects.count() == 2
+
+
+def test_run_backfill_time_cap_is_succeeded():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    ticks = iter([0.0, 700.0, 700.0])
+    run, stats = run_backfill(FakeConnector(), FakeBudget(), NOW, 10, clock=lambda: next(ticks))
+    assert run.status == "succeeded" and run.error == "time cap" and stats.looked_up == 0
+
+
+def test_run_backfill_skips_without_joined_advertisers():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    fake = FakeConnector(joined=False)
+    budget = FakeBudget()
+    run, _ = run_backfill(fake, budget, NOW, 10)
+    assert fake.joined_checks == 1 and fake.asked == []
+    assert budget.waits == ["cj"]  # the one check request is budgeted
+    assert (run.connector, run.status, run.fetched, run.error) == (CONNECTOR, "succeeded", 0, "no joined advertisers")
+    assert CjGtinCheck.objects.count() == 0
+
+
+def test_run_backfill_checks_joined_then_looks_up():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    fake = FakeConnector()
+    run, _ = run_backfill(fake, FakeBudget(), NOW, 10)
+    assert fake.joined_checks == 1 and fake.asked == [GTIN] and run.fetched == 1
+
+
+def test_has_joined_check_uses_real_connector_request():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    c = connector()
+    run, _ = run_backfill(c, FakeBudget(), NOW, 10)
+    first = json.loads(c.seen[0].content)["variables"]
+    assert first["limit"] == 1 and first.get("gtin") is None
+    assert run.status == "succeeded" and run.fetched == 1
+
+
+def test_run_backfill_joined_check_error_is_failed():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    fake = FakeConnector(joined=ConnectorError(f"x {TOKEN}"))
+    run, _ = run_backfill(fake, FakeBudget(), NOW, 10)
+    assert run.status == "failed" and run.error == "ConnectorError" and fake.asked == []
+
+
+def test_run_backfill_joined_check_budget_exhausted_is_succeeded():
+    observe((GTIN, "Whole milk 1 gal", 1))
+    fake = FakeConnector()
+    run, _ = run_backfill(fake, FakeBudget(tokens=0), NOW, 10)
+    assert run.status == "succeeded" and run.error == "budget exhausted" and fake.asked == []
+
+
+def test_default_limit_is_200():
+    assert cj_gtin.DEFAULT_LIMIT == 200
 
 
 def test_http_error_response_marks_nothing(caplog):
@@ -309,7 +444,7 @@ def test_scheduler_runs_cj_gtin_only_when_cj_available(settings, monkeypatch, ca
     caplog.set_level(logging.INFO)
     runs = scheduler.tick(NOW, {"cj": marker}, budget=budget)
     assert [r.connector for r in runs] == ["openprices", "off-product", "cj-gtin"]
-    assert calls == [(marker, 300)]
+    assert calls == [(marker, 200)]
     assert "ingest connector=cj-gtin category=all status=succeeded" in caplog.text
 
 

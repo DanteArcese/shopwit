@@ -17,7 +17,7 @@ class Command(BaseCommand):
     help = "Look up CJ offers by barcode for fresh observed offers (joined advertisers only)."
 
     def add_arguments(self, parser):
-        parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help="Most barcodes to look up (default 300)")
+        parser.add_argument("--limit", type=int, default=DEFAULT_LIMIT, help=f"Most barcodes to look up (default {DEFAULT_LIMIT})")
 
     def handle(self, *args, **options):
         connectors = registry.available()

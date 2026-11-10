@@ -105,3 +105,16 @@ def test_category_store_list_ignores_generic_offers_on_a_curated_product():
         )
     assert available_retailers(NOW, milk) == ["op-curated"]
     assert set(available_retailers(NOW)) == {"op-curated", "op-generic"}
+
+
+@pytest.mark.django_db
+def test_cj_offers_use_cj_connector_max_cache_age():
+    from connectors.cj import CjConnector
+
+    assert CjConnector.max_cache_age == timedelta(hours=24)
+    with override_settings(FRESHNESS_CUTOFF=timedelta(hours=72)):
+        make_offer("cj-iherb", "cj-fresh", 23)
+        make_offer("cj-iherb", "cj-stale", 25)  # CJ's 24h wins over the 72h setting
+        make_offer("other", "other-ok", 25)
+        ids = set(fresh_offers(NOW).values_list("retailer_item_id", flat=True))
+    assert ids == {"cj-fresh", "other-ok"}

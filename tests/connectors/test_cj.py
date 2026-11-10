@@ -295,9 +295,32 @@ def test_gtin_variants_deduplicated_in_order():
     c, _ = _connector(respond)
     budget = SpyBudget()
     c.lookup_gtin("12345678", budget)
-    assert asked == ["12345678", "000012345678", "0000012345678", "00000012345678"]
-    assert budget.calls.count(("acquire", "cj")) == 4
-    assert budget.calls.count(("report", "cj", 200, None)) == 4
+    assert asked == ["12345678", "0000012345678", "00000012345678"]
+    assert budget.calls.count(("acquire", "cj")) == 3
+    assert budget.calls.count(("report", "cj", 200, None)) == 3
+
+
+def test_gtin_13_digit_leading_zero_tries_upc_a_first():
+    respond, asked = _gtin_responder(hits=set())
+    c, _ = _connector(respond)
+    c.lookup_gtin("0860010924006")
+    assert asked == ["860010924006", "0860010924006", "00860010924006"]
+
+
+def test_gtin_13_digit_hit_on_upc_a_costs_one_request():
+    respond, asked = _gtin_responder(hits={"860010924006"})
+    c, _ = _connector(respond)
+    budget = SpyBudget()
+    assert len(c.lookup_gtin("0860010924006", budget).offers) == 1
+    assert asked == ["860010924006"]
+    assert budget.calls.count(("acquire", "cj")) == 1
+
+
+def test_gtin_13_digit_without_leading_zero_starts_with_input():
+    respond, asked = _gtin_responder(hits=set())
+    c, _ = _connector(respond)
+    c.lookup_gtin("5012345678900")
+    assert asked == ["5012345678900", "05012345678900"]
 
 
 def test_gtin_strips_then_pads():
@@ -448,3 +471,112 @@ def test_registry_spec_and_build_from_env():
 def test_budget_configured(settings):
     b = settings.SOURCE_BUDGETS["cj"]
     assert b["capacity"] == 2 and b["refill_per_second"] == 0.5 and b["daily_limit"] == 3000
+
+
+# has_joined_advertisers (#111 F2b)
+
+
+def test_has_joined_advertisers_one_budgeted_request():
+    c, seen = _connector(lambda r: _wrap(_product()))
+    budget = SpyBudget()
+    assert c.has_joined_advertisers(budget) is True
+    assert budget.calls == [("acquire", "cj"), ("report", "cj", 200, None)]
+    (request,) = seen
+    sent = json.loads(request.content)
+    assert "partnerStatus: JOINED" in sent["query"] and 'advertiserCountries: ["US"]' in sent["query"]
+    assert sent["variables"]["limit"] == 1
+    assert sent["variables"].get("gtin") is None and sent["variables"].get("keywords") is None
+
+
+def test_has_joined_advertisers_false_on_zero_total():
+    c, _ = _connector(lambda r: _body("joined_paper_towels"))
+    assert c.has_joined_advertisers() is False
+
+
+def test_has_joined_advertisers_error_reports_and_raises():
+    c, _ = _connector(lambda r: httpx.Response(503))
+    budget = SpyBudget()
+    with pytest.raises(ConnectorError):
+        c.has_joined_advertisers(budget)
+    assert budget.calls == [("acquire", "cj"), ("report", "cj", 503, None)]
+
+
+# error classes (#111 F5)
+
+
+@pytest.mark.parametrize(
+    "resp, retryable",
+    [
+        (httpx.Response(400, text=f"bad {TOKEN}"), False),
+        (httpx.Response(200, json={"errors": [{"message": CID}], "data": None}), False),
+        (httpx.Response(429), True),
+        (httpx.Response(500), True),
+        (httpx.Response(503), True),
+    ],
+)
+def test_request_error_retryable_flag(resp, retryable):
+    from connectors.cj import CjRequestError
+
+    c, _ = _connector(lambda r: resp)
+    with pytest.raises(CjRequestError) as exc:
+        c.lookup_gtin("860010924006")
+    assert exc.value.retryable is retryable
+    _assert_clean(exc)
+
+
+def test_transport_error_is_retryable():
+    def boom(request):
+        raise httpx.ConnectError(f"{TOKEN}")
+
+    c, _ = _connector(boom)
+    with pytest.raises(ConnectorError) as exc:
+        c.lookup_gtin("860010924006")
+    assert getattr(exc.value, "retryable", True) is True
+
+
+# 14-digit GTIN (#111 F6)
+
+
+def test_14_digit_gtin_with_leading_zero_maps_to_13():
+    item = _product()
+    item["gtin"] = "00860010924006"
+    (o,) = _one(item).offers
+    assert o.upc == "0860010924006"
+
+
+def test_14_digit_gtin_links_to_padded_12_digit_identity():
+    from catalog.identity import product_identity
+
+    a, b = _product(), _product()
+    a["gtin"], b["gtin"] = "00860010924006", "860010924006"
+    (oa,), (ob,) = _one(a).offers, _one(b).offers
+    assert product_identity(oa) == product_identity(ob) == "upc:0860010924006"
+
+
+def test_14_digit_gtin_without_leading_zero_kept():
+    item = _product()
+    item["gtin"] = "10860010924003"
+    (o,) = _one(item).offers
+    assert o.upc == "10860010924003"
+
+
+# date-only sale end (#111 F7)
+
+
+@pytest.mark.parametrize(
+    "now, end, expected",
+    [
+        (datetime(2026, 11, 30, 23, 59, 59, 999000, tzinfo=UTC), "2026-11-30", "10.00"),
+        (datetime(2026, 11, 30, 12, 0, tzinfo=UTC), "2026-11-30", "10.00"),
+        (datetime(2026, 12, 1, 0, 0, tzinfo=UTC), "2026-11-30", "19.99"),
+        (datetime(2026, 11, 30, 12, 0, tzinfo=UTC), "2026-11-30T00:00:00Z", "19.99"),  # datetime as given
+        (datetime(2026, 11, 29, 23, 0, tzinfo=UTC), "2026-11-30T00:00:00Z", "10.00"),
+    ],
+)
+def test_date_only_sale_end_is_inclusive(now, end, expected):
+    item = _product()
+    _sale(item, start="2026-11-01", end=end)
+    client = httpx.Client(transport=httpx.MockTransport(lambda r: httpx.Response(200, json=_wrap(item))))
+    c = CjConnector(TOKEN, CID, client=client, clock=lambda: now)
+    (o,) = c.search("x").offers
+    assert o.price == Decimal(expected)

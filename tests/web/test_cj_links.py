@@ -1,5 +1,4 @@
 from types import SimpleNamespace
-from urllib.parse import quote
 
 import pytest
 
@@ -16,7 +15,7 @@ def offer(retailer="cj-walgreens", url=URL):
 
 def test_cj_deep_link_route():
     got = outbound_url(offer(), {"cj_website_id": "WEB1"})
-    assert got == f"https://www.anrdoezrs.net/links/WEB1/type/dlg/{quote(URL, safe='')}"
+    assert got == f"https://www.anrdoezrs.net/links/WEB1/type/dlg/{URL}"  # unencoded, as CJ's DLA does
     attrs = link_attrs(offer(), {"cj_website_id": "WEB1"})
     assert attrs["sponsored"] is True and attrs["href"] == got
 
@@ -79,3 +78,27 @@ def test_retailer_filter_lists_cj_with_display_name():
     codes = available_retailers(NOW)
     assert codes == ["cj-iherb", "walmart"]  # ordered by display name (case-insensitive)
     assert [display_name(c) for c in codes] == ["iHerb", "Walmart"]
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "javascript:alert(1)",
+        "ftp://example.com/x",
+        "https://example.com/a b",
+        "https://example.com/a\tb",
+        "https://example.com/a\nb",
+        "https://example.com/a\x00b",
+        "https://example.com/a\x7fb",
+        "https://example.com/a\x85b",
+        "//example.com/x",
+    ],
+)
+def test_cj_route_needs_clean_http_url(url):
+    assert not outbound_url(offer(url=url), {"cj_website_id": "WEB1"}).startswith("https://www.anrdoezrs.net")
+    assert link_attrs(offer(url=url), {"cj_website_id": "WEB1"})["sponsored"] is False
+
+
+def test_cj_route_http_scheme_case_insensitive():
+    got = outbound_url(offer(url="HTTP://example.com/p?q=1"), {"cj_website_id": "W"})
+    assert got == "https://www.anrdoezrs.net/links/W/type/dlg/HTTP://example.com/p?q=1"

@@ -42,6 +42,18 @@ query Products($companyId: ID!, $keywords: [String!], $gtin: String, $limit: Int
 """
 
 _MAX_RETAILER = 50
+_DATE_ONLY = re.compile(r"\d{4}-\d{2}-\d{2}")
+
+
+class CjRequestError(ConnectorError):
+    """A failed CJ request. ``retryable`` is False when the failure is specific to the input
+    (HTTP 400, or GraphQL ``errors``): asking again with the same input will fail again.
+    Everything else (other HTTP statuses, including 401/403/429/5xx) is retryable: the
+    caller should stop and try later. Messages are fixed strings, never response text."""
+
+    def __init__(self, message: str, *, retryable: bool) -> None:
+        super().__init__(message)
+        self.retryable = retryable
 
 
 def slug(name: str) -> str:
@@ -64,25 +76,30 @@ def _decimal(money: object) -> tuple[Decimal, str] | None:
     return value, currency.upper()
 
 
-def _when(value: object) -> datetime | None:
+def _when(value: object, end: bool = False) -> datetime | None:
+    """Parse a CJ date or datetime. A date-only ``end`` covers that whole UTC day
+    (through 23:59:59.999); a datetime is used as given."""
     if not isinstance(value, str) or not value.strip():
         return None
+    text = value.strip()
     try:
-        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
     except ValueError:
         return None
+    if end and _DATE_ONLY.fullmatch(text):
+        parsed = parsed.replace(hour=23, minute=59, second=59, microsecond=999000)
     return parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)
 
 
 def _sale_valid_now(item: dict, now: datetime) -> bool:
-    for key, ok in (
-        ("salePriceEffectiveDateStart", lambda t: t <= now),
-        ("salePriceEffectiveDateEnd", lambda t: now <= t),
+    for key, end, ok in (
+        ("salePriceEffectiveDateStart", False, lambda t: t <= now),
+        ("salePriceEffectiveDateEnd", True, lambda t: now <= t),
     ):
         raw = item.get(key)
         if raw is None or (isinstance(raw, str) and not raw.strip()):
             continue
-        parsed = _when(raw)
+        parsed = _when(raw, end)
         if parsed is None or not ok(parsed):
             return False
     return True
@@ -141,9 +158,13 @@ class CjConnector:
     def _variables(self, limit: int, **extra: object) -> dict:
         return {"companyId": self._company_id, "limit": limit, **extra}
 
-    def _parse(self, resp: httpx.Response) -> SearchResult:
+    def _products(self, resp: httpx.Response) -> dict:
+        """The ``shoppingProducts`` object of a response, or a credential-free error."""
         if resp.status_code != 200:
-            raise ConnectorError(f"CJ search failed with HTTP {resp.status_code}")
+            raise CjRequestError(
+                f"CJ search failed with HTTP {resp.status_code}",
+                retryable=resp.status_code != 400,
+            )
         try:
             body = resp.json()
         except ValueError:
@@ -152,10 +173,19 @@ class CjConnector:
             raise ConnectorError("CJ search returned an unexpected response shape")
         if body.get("errors"):
             # No message text: it could echo the company ID.
-            raise ConnectorError("CJ search returned GraphQL errors")
+            raise CjRequestError("CJ search returned GraphQL errors", retryable=False)
         try:
-            items = body["data"]["shoppingProducts"]["resultList"]
+            products = body["data"]["shoppingProducts"]
         except (KeyError, TypeError):
+            raise ConnectorError("CJ search returned an unexpected response shape") from None
+        if not isinstance(products, dict):
+            raise ConnectorError("CJ search returned an unexpected response shape")
+        return products
+
+    def _parse(self, resp: httpx.Response) -> SearchResult:
+        try:
+            items = self._products(resp)["resultList"]
+        except KeyError:
             raise ConnectorError("CJ search returned an unexpected response shape") from None
         if items is None:
             items = []
@@ -177,22 +207,44 @@ class CjConnector:
 
     def live_search(self, phrase: str, limit: int, budget: Budget) -> LiveSearchResult:
         """One budgeted request; the client's 15 s timeout bounds the job."""
-        budget.acquire("cj")
-        try:
-            resp = self._request(self._variables(limit, keywords=[phrase]))
-        except ConnectorError:
-            budget.report("cj", None, None)
-            raise
-        budget.report("cj", resp.status_code, retry_after(resp))
-        result = self._parse(resp)
+        result = self._parse(self._budgeted(self._variables(limit, keywords=[phrase]), budget))
         return LiveSearchResult(offers=result.offers, skipped=result.skipped)
+
+    def has_joined_advertisers(self, budget: Budget | None = None) -> bool:
+        """Whether any joined US advertiser has products: one budgeted ``limit: 1`` request."""
+        resp = self._budgeted(self._variables(1), budget)
+        total = self._products(resp).get("totalCount")
+        if isinstance(total, bool) or not isinstance(total, int):
+            raise ConnectorError("CJ search returned an unexpected response shape")
+        return total > 0
+
+    def _budgeted(self, variables: dict, budget: Budget | None) -> httpx.Response:
+        if budget is not None:
+            budget.acquire("cj")
+        try:
+            resp = self._request(variables)
+        except ConnectorError:
+            if budget is not None:
+                budget.report("cj", None, None)
+            raise
+        if budget is not None:
+            budget.report("cj", resp.status_code, retry_after(resp))
+        return resp
 
     @staticmethod
     def _gtin_variants(gtin: str) -> list[str]:
+        """The 12-digit UPC-A spelling first (CJ's GTINs are usually 12 digits), then the
+        input as given, then stripped of leading zeros, then zero-padded to 13 and 14."""
+        variants: list[str] = []
+        if len(gtin) == 13 and gtin.startswith("0"):
+            variants.append(gtin[1:])
+        elif len(gtin) == 12:
+            variants.append(gtin)
+        variants.append(gtin)
         stripped = gtin.lstrip("0")
-        variants = [gtin, stripped]
+        variants.append(stripped)
         if stripped:
-            variants += [stripped.zfill(n) for n in (12, 13, 14)]
+            variants += [stripped.zfill(n) for n in (13, 14)]
         seen: list[str] = []
         for v in variants:
             if v and v not in seen:
@@ -203,17 +255,7 @@ class CjConnector:
         """First GTIN spelling that returns results; each try costs one budget token."""
         last = SearchResult([], 0)
         for variant in self._gtin_variants(gtin):
-            if budget is not None:
-                budget.acquire("cj")
-            try:
-                resp = self._request(self._variables(10, gtin=variant))
-            except ConnectorError:
-                if budget is not None:
-                    budget.report("cj", None, None)
-                raise
-            if budget is not None:
-                budget.report("cj", resp.status_code, retry_after(resp))
-            last = self._parse(resp)
+            last = self._parse(self._budgeted(self._variables(10, gtin=variant), budget))
             if last.offers or last.skipped:
                 return last
         return last
@@ -265,6 +307,8 @@ class CjConnector:
 
         gtin = _text(item.get("gtin"))
         upc = gtin if gtin and gtin.isascii() and gtin.isdigit() else None
+        if upc and len(upc) == 14 and upc.startswith("0"):
+            upc = upc[1:]  # GTIN-14 "0" + GTIN-13: the 13-digit form links to our products
         category = None
         gpc = item.get("googleProductCategory")
         if isinstance(gpc, dict):
