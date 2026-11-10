@@ -103,6 +103,19 @@ docker compose run --rm -T web python manage.py off_observed_sizes --limit 50 </
 
 It prints `status=succeeded requests=… stored=… not_found=… rejected=… failed=… renormalized=… matched=…`. A manual run counts toward the day's 300; once the cap is reached it stops with `note=budget exhausted` and the rest waits for the next day. Offers whose barcode OFF has no size for stay unresolved; nothing is guessed.
 
+### CJ Affiliate (online offers)
+
+Off unless `CJ_PERSONAL_ACCESS_TOKEN` and `CJ_PUBLISHER_ID` are both set in `/srv/unitpricer/app.env`; then `docker compose up -d web worker`. Only advertisers you have joined (CJ `joinedStatus`) ever become offers, and only new, in-stock US products with a valid price; sale prices count only while valid. Offers appear as `cj-<advertiser>` retailers with CJ deep links, and an offer whose size is unknown stays unranked. Requests draw from the `cj` budget (burst 2, 0.5 per second, 3,000 a day; `UNITPRICER_BUDGET_CJ_*` or the admin). Credentials, publisher ID and website ID are never logged.
+
+Once a day, after a successful Open Prices sync (so it needs `UNITPRICER_OPEN_PRICES=1`) and the OFF size lookups, the worker looks up the barcodes of fresh observed offers at CJ (curated categories first, then newest), at most 300 a run, and writes any offers found onto the existing product. A barcode with an answer, even an empty one, is not asked again for 7 days (`CjGtinCheck`); a failed request marks nothing and stops the run. Look for `ingest connector=cj-gtin category=all status=succeeded` in the worker log. To run it by hand:
+
+```bash
+docker compose run --rm -T web python manage.py cj_gtin_lookup </dev/null
+docker compose run --rm -T web python manage.py cj_gtin_lookup --limit 50 </dev/null
+```
+
+It prints `status=succeeded looked_up=… found=… offers=… errors=…`; once the budget is spent it stops with `note=budget exhausted`.
+
 ### Purge sample data
 
 Run before enabling a real Walmart key, and on any database that ever held recorded data (dry run first, then `--apply`):
