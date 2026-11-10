@@ -36,6 +36,10 @@ SPECS: dict[str, Spec] = {
         },
         {"publisher_id": "WALMART_IMPACT_PUBLISHER_ID"},
     ),
+    "cj": Spec(
+        "connectors.cj:CjConnector",
+        {"token": "CJ_PERSONAL_ACCESS_TOKEN", "company_id": "CJ_PUBLISHER_ID"},
+    ),
 }
 
 
