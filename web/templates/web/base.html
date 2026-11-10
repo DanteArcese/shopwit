@@ -7,8 +7,15 @@
   <meta name='impact-site-verification' value='c0cd4ae8-db8e-4896-a0b2-3f4ee8a96eb7'>
   <title>{% block title %}UnitPricer{% endblock %}</title>
   <meta name="description" content="{% block description %}Compare groceries and household goods by price per unit, ranked only by unit price. Free and open source.{% endblock %}">
-  {% block canonical %}<link rel="canonical" href="{{ public_origin }}{% block canonical_path %}{{ request.path }}{% endblock %}">{% endblock %}
+  {% block canonical %}<link rel="canonical" href="{{ public_origin }}{% block canonical_path %}{{ request.path }}{% endblock %}">
+  <meta property="og:url" content="{{ public_origin }}{% block og_path %}{{ request.path }}{% endblock %}">{% endblock %}
   {% block robots %}{% endblock %}
+  <meta property="og:site_name" content="UnitPricer">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{% block og_title %}UnitPricer{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}Compare groceries and household goods by price per unit, ranked only by unit price. Free and open source.{% endblock %}">
+  <meta name="twitter:card" content="summary">
+  {% if jsonld %}<script type="application/ld+json">{{ jsonld|safe }}</script>{% endif %}
   <link rel="icon" href="{% static 'web/favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
   <script src="{% static 'web/htmx.min.js' %}" defer></script>

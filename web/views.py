@@ -52,7 +52,7 @@ from .prefs import (
     save_prefs,
     split_stores,
 )
-from .seo import category_description, category_has_prices
+from .seo import breadcrumb_jsonld, category_description, category_has_prices, public_origin, website_jsonld
 
 MAX_QUERY_LENGTH = 200
 # dimension -> unit system -> (URL code written by the form, display label)
@@ -93,6 +93,7 @@ def home(request):
         "web/home.html",
         {
             "coverage": stores_we_cover(when),
+            "jsonld": website_jsonld(public_origin(request)),
             "coming_soon": settings.COMING_SOON,
             "location": location,
             "nearby": nearby,
@@ -267,6 +268,7 @@ def category(request, slug):
         "add_url": reverse("lists:add") + "?" + urlencode({"category": cat.slug, **spec_params(spec)}),
         "category": cat,
         "category_url": url,
+        "jsonld": breadcrumb_jsonld(public_origin(request), cat.name, url),
         "coming_soon": settings.COMING_SOON,
         "controls": _controls(cat, params),
         "brand_tiers": BRAND_TIERS,
