@@ -6,6 +6,7 @@
   <div class="result-meta">
     {% if row.size %}<span>{{ row.size }}</span>{% endif %}
     <span class="result-price"><span class="visually-hidden">{{ row.price_label }}</span><span aria-hidden="true">{{ row.price }}</span>{% if row.unit_price %} <span class="unit-price" aria-hidden="true">{{ row.unit_price }}</span>{% endif %}</span>
+    {% if row.shipping_text %}<span class="shipping">{{ row.shipping_text }}</span>{% endif %}
     {% if row.nutrition_cost %}<span class="nutrition-cost">{{ row.nutrition_cost }}</span>{% endif %}
     <span>{{ row.retailer }}</span>
     {% if row.reason %}<span class="unknown">{{ row.reason }}</span>{% endif %}

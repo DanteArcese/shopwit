@@ -580,3 +580,54 @@ def test_date_only_sale_end_is_inclusive(now, end, expected):
     c = CjConnector(TOKEN, CID, client=client, clock=lambda: now)
     (o,) = c.search("x").offers
     assert o.price == Decimal(expected)
+
+
+def _with_shipping(shipping):
+    item = _product()
+    item["shipping"] = shipping
+    return _one(item).offers[0]
+
+
+def _ship(amount, currency="USD", country="US"):
+    return {"price": {"amount": amount, "currency": currency}, "country": country, "service": "Ground"}
+
+
+def test_query_requests_shipping_subfields():
+    from connectors.cj import QUERY
+
+    assert "shipping { price { amount currency } country service }" in QUERY
+
+
+@pytest.mark.parametrize(
+    "options, expected",
+    [
+        ([_ship("5.99")], "5.99"),
+        ([_ship("9.99"), _ship("4.50"), _ship("7")], "4.50"),
+        ([_ship("0")], "0"),
+        ([_ship("0.00"), _ship("3")], "0.00"),
+        ([_ship("3.00", country="")], "3.00"),
+        ([_ship("1.00", country="CA"), _ship("6.00")], "6.00"),
+        ([_ship("2.00", currency="CAD"), _ship("8.00")], "8.00"),
+    ],
+)
+def test_shipping_lowest_us_usd_option(options, expected):
+    assert _with_shipping(options).fields["shipping"] == expected
+
+
+@pytest.mark.parametrize(
+    "options",
+    [
+        None,
+        [],
+        "free",
+        [_ship("1.00", country="CA")],
+        [_ship("2.00", currency="CAD")],
+        [_ship("abc")],
+        [_ship("NaN")],
+        [_ship("-3")],
+        [{"country": "US"}],
+        ["x", 5],
+    ],
+)
+def test_shipping_unknown_has_no_key(options):
+    assert "shipping" not in _with_shipping(options).fields
