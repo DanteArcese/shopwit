@@ -69,7 +69,7 @@ def test_history_restore_returns_full_page(client, milk_rows):
 
 # 3. affiliate marker
 def test_affiliate_marker_with_route(client, milk_rows, settings):
-    settings.AFFILIATE = {"sovrn_site_key": "K"}
+    settings.AFFILIATE = {"sovrn_api_key": "K"}
     html = client.get("/c/dairy/milk/").content.decode()
     assert "(affiliate link)" in html
 
@@ -206,7 +206,7 @@ def test_link_attrs_scheme():
     o.url = "https://example.com/x"
     attrs = link_attrs(o, {})
     assert attrs["href"] == o.url and attrs["sponsored"] is False
-    assert link_attrs(o, {"sovrn_site_key": "K"})["sponsored"] is True
+    assert link_attrs(o, {"sovrn_api_key": "K"})["sponsored"] is True
 
 
 # 13. live status

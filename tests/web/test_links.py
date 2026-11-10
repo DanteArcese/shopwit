@@ -20,14 +20,14 @@ def test_walmart_impact_url_encodes_canonical():
 
 
 def test_sovrn_fallback():
-    url = outbound_url(offer("target", "https://target.com/p/1?x=y"), {"sovrn_site_key": "K"})
+    url = outbound_url(offer("target", "https://target.com/p/1?x=y"), {"sovrn_api_key": "K"})
     assert url == f"https://sovrn.co?key=K&u={quote('https://target.com/p/1?x=y', safe='')}"
     # walmart without an impact id also falls through to sovrn
-    assert outbound_url(offer(), {"sovrn_site_key": "K"}).startswith("https://sovrn.co?key=K&u=")
+    assert outbound_url(offer(), {"sovrn_api_key": "K"}).startswith("https://sovrn.co?key=K&u=")
 
 
 def test_amazon_tag_added_or_replaced():
-    aff = {"amazon_associates_tag": "me-20", "sovrn_site_key": "K"}
+    aff = {"amazon_associates_tag": "me-20", "sovrn_api_key": "K"}
     added = outbound_url(offer("amazon", "https://www.amazon.com/dp/B0?th=1#frag"), aff)
     assert added == "https://www.amazon.com/dp/B0?th=1&tag=me-20#frag"
     replaced = outbound_url(offer("amazon", "https://www.amazon.com/dp/B0?tag=old-20&th=1"), aff)
@@ -37,14 +37,14 @@ def test_amazon_tag_added_or_replaced():
 
 
 def test_no_config_returns_canonical():
-    for aff in ({}, {"walmart_impact_publisher_id": None, "sovrn_site_key": None, "amazon_associates_tag": None}):
+    for aff in ({}, {"walmart_impact_publisher_id": None, "sovrn_api_key": None, "amazon_associates_tag": None}):
         assert outbound_url(offer(), aff) == CANON
 
 
 def test_sponsored_rel_only_when_affiliate():
     plain = link_attrs(offer(), {})
     assert plain == {"href": CANON, "sponsored": False, "rel": "noopener noreferrer", "target": "_blank", "ping": "/click?o=7"}
-    spons = link_attrs(offer(), {"sovrn_site_key": "K"})
+    spons = link_attrs(offer(), {"sovrn_api_key": "K"})
     assert spons["rel"] == "sponsored noopener noreferrer"
     assert spons["href"].startswith("https://sovrn.co")
     # amazon with only a walmart id configured: no route, not sponsored
@@ -91,7 +91,7 @@ def test_no_amazon_disclaimer_without_amazon_offer(client, milk_rows):
 
 @pytest.mark.django_db
 def test_rendered_link_uses_affiliate_and_ping(client, milk_rows, settings):
-    settings.AFFILIATE = {"sovrn_site_key": "K"}
+    settings.AFFILIATE = {"sovrn_api_key": "K"}
     html = client.get("/c/dairy/milk/").content.decode()
     assert 'href="https://sovrn.co?key=K&amp;u=' in html
     assert 'rel="sponsored noopener noreferrer"' in html
