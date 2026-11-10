@@ -1,0 +1,228 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, keywords: [\"paper towels\"], advertiserCountries: [\"US\"], limit: 5",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 4747083,
+    "count": 5,
+    "resultList": [
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": "https://www.zoro.com/c/i/G122704043/",
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-08-12T02:28:16.806Z",
+      "price": {
+       "amount": "87.15",
+       "currency": "USD"
+      },
+      "gtin": "",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "Zoro",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Paper Products & Dispensers",
+       "Paper Towels"
+      ],
+      "brand": "KIMBERLY-CLARK",
+      "isBundle": "No",
+      "id": "G122704043",
+      "condition": "New",
+      "link": "https://www.zoro.com/c/i/G122704043/",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://www.zoro.com/static/cms/product/full/376ec36a-99b9-4a55-9912-6ae604b78f36.jpeg",
+      "targetCountry": "US",
+      "title": "Paper Towels, Essential Low Wet Strength Towels, Towels, Low Wet-Strength, Paper Towels",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": "0.00",
+        "currency": "USD"
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "4683856"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "Multi-size",
+      "lastUpdated": "2026-03-31T17:26:47.570Z",
+      "price": {
+       "amount": "8.00",
+       "currency": "USD"
+      },
+      "gtin": "",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "CJDemo",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Home & Living"
+      ],
+      "brand": "SHEIN",
+      "isBundle": "No",
+      "id": "sh2409210417841071",
+      "condition": "New",
+      "link": "https://app.shein.com/0/goods-p-my?cat_id=4918&goods_id=43622425&feed_tp=LMTT",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": null,
+      "targetCountry": "US",
+      "title": "1 Pack /4 Packs, Thickened High-Grade Pattern Paper Towels, Napkins, Cocktail Paper Towels, Durable Absorbent Paper Towels, Car Paper Towels, Outdoor",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "7.52",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "1113122"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": "https://www.zoro.com/c/i/G107187137/",
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-10-04T02:39:50.489Z",
+      "price": {
+       "amount": "73.15",
+       "currency": "USD"
+      },
+      "gtin": "751759320306",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "Zoro",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Paper Products & Dispensers",
+       "Paper Towels"
+      ],
+      "brand": "PROTECTIONPRO",
+      "isBundle": "No",
+      "id": "G107187137",
+      "condition": "New",
+      "link": "https://www.zoro.com/c/i/G107187137/",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://www.zoro.com/static/cms/product/full/Unbeatablesale Inc_WLLCH12286xx1200xxe3b829.jpeg",
+      "targetCountry": "US",
+      "title": "Multifold Paper Towels, Brown",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": "5.00",
+        "currency": "USD"
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "4683856"
+     },
+     {
+      "unitPricingBaseMeasure": "12 ct",
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-11-04T11:19:36.743Z",
+      "price": {
+       "amount": "12.54",
+       "currency": "GBP"
+      },
+      "gtin": "770009000607",
+      "availability": "in stock",
+      "googleProductCategory": null,
+      "advertiserName": "iHerb",
+      "unitPricingMeasure": "1 ct",
+      "productType": [],
+      "brand": "If You Care",
+      "isBundle": "No",
+      "id": "IYC00060",
+      "condition": "New",
+      "link": "https://uk.iherb.com/pr/if-you-care-reusable-paper-towels-12-towels/154559?ccode=GB&currcode=GBP&langcode=en-US&fld=1",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://s3.images-iherb.com/iyc/iyc00060/d/18.jpg",
+      "targetCountry": "GB",
+      "title": "If You Care, Reusable Paper Towels, 12 Towels",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "12.54",
+       "currency": "GBP"
+      },
+      "shipping": {
+       "price": {
+        "amount": "3.99",
+        "currency": "GBP"
+       },
+       "country": "GB",
+       "service": null
+      },
+      "advertiserId": "6453453"
+     },
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "14.5'' H X 6.5'' W X 6.5'' D",
+      "lastUpdated": "2026-07-29T17:07:17.250Z",
+      "price": {
+       "amount": "31.99",
+       "currency": "USD"
+      },
+      "gtin": "196963907316",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 3072,
+       "name": "Home & Garden > Kitchen & Dining > Kitchen Tools & Utensils > Kitchen Organizers > Napkin Holders & Dispensers"
+      },
+      "advertiserName": "Wayfair North America",
+      "unitPricingMeasure": null,
+      "productType": [
+       "[GLOBAL] Storage and Org - [Kitchen Storage] Napkin Holders & Paper Towel Holders"
+      ],
+      "brand": "Red Barrel Studio\u00ae",
+      "isBundle": "No",
+      "id": "W009321214",
+      "condition": "New",
+      "link": "https://www.wayfair.com/Red-Barrel-Studio%C2%AE--Freestanding-Paper-Towels-Holder-X110432325-L1291-K~W009321214.html",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://assets.wfcdn.com/im/35850569/resize-h400-w400%5Ecompr-r85/2125/212549821/.jpg",
+      "targetCountry": "US",
+      "title": "Freestanding Paper Towels Holder",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": null,
+      "shipping": {
+       "price": {
+        "amount": "6.99",
+        "currency": "USD"
+       },
+       "country": "US",
+       "service": null
+      },
+      "advertiserId": "5206455"
+     }
+    ]
+   }
+  }
+ }
+}

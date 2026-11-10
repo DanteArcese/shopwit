@@ -1,0 +1,58 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, gtin: \"850017346062\", advertiserCountries: [\"US\"], limit: 10",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 1,
+    "count": 1,
+    "resultList": [
+     {
+      "unitPricingBaseMeasure": "1",
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": "can",
+      "lastUpdated": "2026-08-11T11:19:08.036Z",
+      "price": {
+       "amount": "8.99",
+       "currency": "USD"
+      },
+      "gtin": "850017346062",
+      "availability": "out of stock",
+      "googleProductCategory": null,
+      "advertiserName": "Thrive Market",
+      "unitPricingMeasure": "1",
+      "productType": [
+       "Beverages > Sodas & Sparkling Juices > Sparkling Juices"
+      ],
+      "brand": "Culture Pop",
+      "isBundle": "No",
+      "id": "850017346062",
+      "condition": "New",
+      "link": "https://thrivemarket.com/p/culture-pop-probiotic-soda-orange-mango",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "https://img.thrivemarket.com/store/full/c/u/culture-pop-probiotic-soda-orange-mango-850017346062-front-of-pack_3.jpg",
+      "targetCountry": "US",
+      "title": "Culture Pop Probiotic Soda, Orange Mango 4 cans (12 fl oz each)",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "8.29",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": null,
+        "currency": null
+       },
+       "country": null,
+       "service": null
+      },
+      "advertiserId": "4593116"
+     }
+    ]
+   }
+  }
+ }
+}

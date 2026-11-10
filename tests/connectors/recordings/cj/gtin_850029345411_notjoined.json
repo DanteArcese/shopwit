@@ -1,0 +1,61 @@
+{
+ "status": 200,
+ "query_args": "partnerStatus: NOT_JOINED, gtin: \"850029345411\", advertiserCountries: [\"US\"], limit: 10",
+ "body": {
+  "data": {
+   "shoppingProducts": {
+    "totalCount": 1,
+    "count": 1,
+    "resultList": [
+     {
+      "unitPricingBaseMeasure": null,
+      "multipack": null,
+      "joinedStatus": false,
+      "mobileLink": null,
+      "advertiserCountry": "US",
+      "size": null,
+      "lastUpdated": "2026-11-09T07:57:36.289Z",
+      "price": {
+       "amount": "58.45",
+       "currency": "USD"
+      },
+      "gtin": "850029345411",
+      "availability": "in stock",
+      "googleProductCategory": {
+       "id": 422,
+       "name": "Food, Beverages & Tobacco > Food Items"
+      },
+      "advertiserName": "UnbeatableSale.com",
+      "unitPricingMeasure": null,
+      "productType": [
+       "Gourmet>Grocery>Misc Groceries"
+      ],
+      "brand": "Just About Foods",
+      "isBundle": "No",
+      "id": "KEHE54383",
+      "condition": "New",
+      "link": "http://www.gourmet-foodshop.com/kehe54383.html",
+      "salePriceEffectiveDateEnd": null,
+      "imageLink": "http://site.unbeatablesale.com/KEHE54383.JPG",
+      "targetCountry": "US",
+      "title": "2316406 16 oz Organic Creamy Peanut Butter",
+      "salePriceEffectiveDateStart": null,
+      "salePrice": {
+       "amount": "44.96",
+       "currency": "USD"
+      },
+      "shipping": {
+       "price": {
+        "amount": "13.49",
+        "currency": "USD"
+       },
+       "country": "US",
+       "service": null
+      },
+      "advertiserId": "1567450"
+     }
+    ]
+   }
+  }
+ }
+}
