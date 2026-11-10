@@ -1,5 +1,6 @@
 """SEO helpers: the sitemap, the canonical origin and page descriptions."""
 
+import json
 from datetime import date
 
 from django.conf import settings
@@ -82,3 +83,34 @@ def sitemap_xml(request):
         entries.append((f"{origin}{reverse('category', args=[cat.slug])}", newest[cat.pk].isoformat()))
     body = render_to_string("web/sitemap.xml", {"entries": entries})
     return HttpResponse(body, content_type="application/xml")
+
+
+def jsonld(data) -> str:
+    """JSON for a <script type="application/ld+json"> block; "<" is escaped so no value can
+    close the script element."""
+    return json.dumps(data, ensure_ascii=False).replace("<", "\\u003c")
+
+
+def website_jsonld(origin: str) -> str:
+    return jsonld({
+        "@context": "https://schema.org",
+        "@type": "WebSite",
+        "name": "UnitPricer",
+        "url": f"{origin}/",
+        "potentialAction": {
+            "@type": "SearchAction",
+            "target": {"@type": "EntryPoint", "urlTemplate": f"{origin}/search?q={{search_term_string}}"},
+            "query-input": "required name=search_term_string",
+        },
+    })
+
+
+def breadcrumb_jsonld(origin: str, name: str, path: str) -> str:
+    return jsonld({
+        "@context": "https://schema.org",
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+            {"@type": "ListItem", "position": 1, "name": "UnitPricer", "item": f"{origin}/"},
+            {"@type": "ListItem", "position": 2, "name": name, "item": f"{origin}{path}"},
+        ],
+    })
