@@ -309,7 +309,7 @@ def test_command_runs_offline_with_recordings(settings):
 def test_off_product_budget_default(settings):
     assert settings.SOURCE_BUDGETS[CONNECTOR] == {
         "capacity": 1.0,
-        "refill_per_second": 0.5,
+        "refill_per_second": 0.25,
         "daily_limit": 300,
     }
 
@@ -502,16 +502,16 @@ def test_nutrition_candidates_skip_checked_opf_and_placeholders():
     assert nutrition_candidates(0, set()) == []
 
 
-def test_sizes_first_then_nutrition_within_limit():
+def test_nutrition_first_then_sizes_within_limit():
+    # #113: nutrition candidates are asked before size candidates.
     observe((FAIRLIFE, "Whole ultra-filtered milk", "fairlife"), (EGGS, "EGGS", "E"))
     for i in range(1, 6):
         stamp(f"00000000000{i:02d}")
     seen = []
     _, stats = backfill_sizes(NOW, FakeBudget(), limit=4, client=bad_recorded(seen))
     asked = [r.url.path.rsplit("/", 1)[-1] for r in seen]
-    assert asked[:2] == sorted([FAIRLIFE, EGGS], key=asked.index)
-    assert set(asked[:2]) == {FAIRLIFE, EGGS}
-    assert asked[2:] == ["0000000000001", "0000000000002"]
+    assert asked[:2] == ["0000000000001", "0000000000002"]
+    assert set(asked[2:]) == {FAIRLIFE, EGGS}
     assert stats.nutrition == 2 and stats.requests == 4
 
 
@@ -750,3 +750,33 @@ def test_nutrition_candidates_get_a_reserved_share(
     monkeypatch, n_sizes, n_nutrition, limit, expected
 ):
     assert _split(monkeypatch, n_sizes, n_nutrition, limit) == expected
+
+
+def test_nutrition_candidates_are_asked_first(monkeypatch):
+    # #113: the reserved nutrition share goes first, so a time cap or a stop cannot skip it.
+    sizes = [(f"1{i:012d}", "off") for i in range(10)]
+    nutr = [(f"2{i:012d}", "off") for i in range(10)]
+    monkeypatch.setattr(observed_off, "candidates", lambda now, lim: sizes[:lim])
+    monkeypatch.setattr(
+        observed_off,
+        "nutrition_candidates",
+        lambda lim, exclude: [c for c in nutr if c[0] not in exclude][: max(0, lim)],
+    )
+    seen = []
+    backfill_sizes(NOW, FakeBudget(), limit=8, client=bad_recorded(seen))
+    asked = [r.url.path.rsplit("/", 1)[-1][0] for r in seen]
+    assert asked == ["2", "2", "1", "1", "1", "1", "1", "1"]
+
+
+def test_run_stops_cleanly_at_the_time_cap(monkeypatch):
+    sizes = [(f"1{i:012d}", "off") for i in range(10)]
+    monkeypatch.setattr(observed_off, "candidates", lambda now, lim: sizes[:lim])
+    monkeypatch.setattr(observed_off, "nutrition_candidates", lambda lim, exclude: [])
+    ticks = iter([0.0, 10.0, 20.0, observed_off.MAX_RUN_SECONDS + 1] + [10**6] * 20)
+    seen = []
+    run, stats = backfill_sizes(
+        NOW, FakeBudget(), limit=10, client=bad_recorded(seen), clock=lambda: next(ticks)
+    )
+    assert len(seen) == 2
+    assert stats.stopped == "time cap"
+    assert (run.status, run.error) == ("succeeded", "time cap")

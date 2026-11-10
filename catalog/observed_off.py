@@ -18,6 +18,7 @@ normalizes every observed offer again anyway, with whatever ``OffEntry`` rows ex
 from __future__ import annotations
 
 import logging
+import time
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
@@ -320,6 +321,11 @@ def renormalize(
                 )
 
 
+# One run at OFF's real pace (~15/min) must not hold the scheduler tick for hours (#113).
+MAX_RUN_SECONDS = 45 * 60
+TIME_CAP = "time cap"
+
+
 def backfill_sizes(
     now: datetime,
     budget,
@@ -327,6 +333,7 @@ def backfill_sizes(
     limit: int | None = None,
     client: httpx.Client | None = None,
     stopping: Callable[[], bool] | None = None,
+    clock: Callable[[], float] = time.monotonic,
 ) -> tuple[IngestionRun, Stats]:
     """Look up OFF data for observed barcodes and normalize their offers again.
 
@@ -351,11 +358,16 @@ def backfill_sizes(
             sizes = sizes[: limit - reserved]
             nutrition = nutrition[: limit - len(sizes)]
             stats.nutrition = len(nutrition)
-            wanted = sizes + nutrition
+            # Nutrition first: the reserved share must not be the part a time cap cuts off.
+            wanted = nutrition + sizes
             run.fetched = len(wanted)
+            started = clock()
             for upc, source in wanted:
                 if stopping is not None and stopping():
                     raise Stopping()
+                if clock() - started > MAX_RUN_SECONDS:
+                    stats.stopped = TIME_CAP
+                    break
                 result = _lookup(client, budget, source, upc, stats)
                 if result is None:
                     stats.failed += 1
@@ -386,7 +398,7 @@ def backfill_sizes(
     run.fully_parsed = stats.fully_parsed
     run.unresolved = stats.unresolved
     run.skipped = stats.failed + stats.errors
-    failed = stats.stopped not in ("", "budget exhausted")
+    failed = stats.stopped not in ("", "budget exhausted", TIME_CAP)
     run.status = IngestionRun.Status.FAILED if failed else IngestionRun.Status.SUCCEEDED
     run.error = stats.stopped[:500]
     run.finished_at = timezone.now()
