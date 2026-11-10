@@ -22,18 +22,30 @@ merchants:
   - {name: Grocery Outlet, retailers: [op-grocery-outlet], domain: groceryoutlet.com}
   - {name: Meijer, retailers: [op-meijer], domain: meijer.com}
   - {name: Lidl, retailers: [op-lidl], domain: lidl.com}
+  - {name: Vons, retailers: [op-vons], domain: vons.com}
+  - {name: Fred Meyer, retailers: [op-fred-meyer], domain: fredmeyer.com}
+  - {name: Stop & Shop, retailers: [op-stop-and-shop], domain: stopandshop.com}
+  - {name: Food Lion, retailers: [op-food-lion], domain: foodlion.com}
+  - {name: WinCo Foods, retailers: [op-winco-foods], domain: wincofoods.com}
+  - {name: Dollar Tree, retailers: [op-dollar-tree], domain: dollartree.com}
+  - {name: Five Below, retailers: [op-five-below], domain: fivebelow.com}
+  # Independent stores in Open Prices with no shopping site we know of (reported, not looked up)
+  - {name: Dumbo Market, retailers: [op-dumbo-market]}
+  - {name: Metro Acres Market, retailers: [op-metro-acres-market]}
+  - {name: City Acres Market, retailers: [op-city-acres-market]}
+  - {name: Apna Bazar, retailers: [op-apna-bazar]}
   # Online grocery/household merchants we could add
   - {name: Amazon, retailers: [amazon], domain: amazon.com}
   - {name: Sam's Club, retailers: [], domain: samsclub.com}
-  - {name: BJ's Wholesale Club, retailers: [], domain: bjs.com}
-  - {name: Kroger, retailers: [], domain: kroger.com}
-  - {name: Albertsons, retailers: [], domain: albertsons.com}
+  - {name: BJ's Wholesale Club, retailers: [op-bjs-wholesale-club], domain: bjs.com}
+  - {name: Kroger, retailers: [op-kroger], domain: kroger.com}
+  - {name: Albertsons, retailers: [op-albertsons], domain: albertsons.com}
   - {name: Instacart, retailers: [], domain: instacart.com}
   - {name: Thrive Market, retailers: [], domain: thrivemarket.com}
   - {name: Boxed, retailers: [], domain: boxed.com}
   - {name: Chewy, retailers: [], domain: chewy.com}
   - {name: Walgreens, retailers: [], domain: walgreens.com}
-  - {name: CVS, retailers: [], domain: cvs.com}
+  - {name: CVS, retailers: [op-cvs-pharmacy], domain: cvs.com}
   - {name: Dollar General, retailers: [], domain: dollargeneral.com}
   - {name: iHerb, retailers: [], domain: iherb.com}
   - {name: Vitacost, retailers: [], domain: vitacost.com}
@@ -41,8 +53,8 @@ merchants:
   - {name: Gopuff, retailers: [], domain: gopuff.com}
   - {name: H-E-B, retailers: [], domain: heb.com}
   - {name: Hy-Vee, retailers: [], domain: hy-vee.com}
-  - {name: Publix, retailers: [], domain: publix.com}
-  - {name: Wegmans, retailers: [], domain: wegmans.com}
+  - {name: Publix, retailers: [op-publix], domain: publix.com}
+  - {name: Wegmans, retailers: [op-wegmans], domain: wegmans.com}
   - {name: Misfits Market, retailers: [], domain: misfitsmarket.com}
   - {name: Weee!, retailers: [], domain: sayweee.com}
   - {name: H Mart, retailers: [], domain: hmart.com}
