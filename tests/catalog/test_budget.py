@@ -6,7 +6,7 @@ import pytest
 from django.conf import settings
 
 from catalog import budget as budget_module
-from catalog.budget import Bucket, DbBudget, backoff, seed_budgets, take
+from catalog.budget import Bucket, DbBudget, backoff, refund, seed_budgets, take
 from catalog.models import SourceBudget
 from connectors.live import BudgetExhausted
 
@@ -46,8 +46,8 @@ def test_rate_limiter():
     b503 = backoff(bucket(consecutive_failures=3), T0, 503, None)
     assert b503.blocked_until == T0 + timedelta(seconds=40)
     assert b503.consecutive_failures == 4
-    ok = backoff(b503, T0, 200, None)
-    assert ok.blocked_until is None and ok.consecutive_failures == 0
+    ok = backoff(replace_bucket(b503, blocked_until=T0), T0, 200, None)
+    assert ok.blocked_until is None and ok.consecutive_failures == 3
     assert backoff(bucket(), T0, 404, None) == bucket()
     capped = backoff(bucket(consecutive_failures=12), T0, None, None)
     assert capped.blocked_until == T0 + timedelta(seconds=900)
@@ -177,7 +177,11 @@ def test_report_and_blocked():
         budget.acquire("walmart")
     assert exc.value.wait == pytest.approx(30.0)
     budget.report("walmart", 200)
-    assert not budget.blocked("walmart", now)
+    assert budget.blocked("walmart", now)  # a block still in force is kept
+    later = DbBudget(now=lambda: now + timedelta(seconds=31))
+    later.report("walmart", 200)
+    row = SourceBudget.objects.get(pk="walmart")
+    assert row.blocked_until is None and row.consecutive_failures == 0
     SourceBudget.objects.filter(pk="walmart").update(
         daily_limit=3, daily_used=3, day=T0.date()
     )
@@ -310,3 +314,57 @@ def test_boost_end_to_end_through_db_budget(settings):
         later.acquire("off-product")
     with pytest.raises(BudgetExhausted):
         later.acquire("off-product")
+
+
+def replace_bucket(b, **kw):
+    from dataclasses import replace
+
+    return replace(b, **kw)
+
+
+def test_success_decrements_failures_and_clears_only_a_passed_block():
+    b = bucket(consecutive_failures=2, blocked_until=T0 + timedelta(seconds=30))
+    still = backoff(b, T0, 200, None)
+    assert still.blocked_until == T0 + timedelta(seconds=30)
+    assert still.consecutive_failures == 1
+    passed = backoff(b, T0 + timedelta(seconds=31), 200, None)
+    assert passed.blocked_until is None and passed.consecutive_failures == 1
+    assert backoff(bucket(), T0, 200, None).consecutive_failures == 0
+
+
+def test_a_200_between_429s_does_not_reset_the_escalation():
+    # Two 429s per 200 (the shape of the first boosted run): the delay keeps climbing,
+    # where the old full reset bounced 5 s, 10 s, 5 s, 10 s.
+    b = bucket()
+    now = T0
+    delays = []
+    for _ in range(3):
+        for _ in range(2):
+            b = backoff(b, now, 429, None)
+            delays.append((b.blocked_until - now).total_seconds())
+            now = b.blocked_until + timedelta(seconds=1)
+        b = backoff(b, now, 200, None)
+    assert delays == [5.0, 10.0, 10.0, 20.0, 20.0, 40.0]
+
+
+def test_refund_returns_a_count_for_failed_requests_only():
+    b = bucket(daily_limit=10, daily_used=5)
+    for status in (None, 429, 500, 502, 503, 599):
+        assert refund(b, status).daily_used == 4
+    for status in (200, 204, 301, 400, 403, 404):
+        assert refund(b, status).daily_used == 5
+    assert refund(bucket(daily_limit=10, daily_used=0), 429).daily_used == 0
+
+
+@pytest.mark.django_db
+def test_report_refunds_the_daily_count_on_failure():
+    make_row("off-product", daily_limit=300, daily_used=10, day=T0.date())
+    budget = DbBudget(now=lambda: T0)
+    budget.report("off-product", 429)
+    row = SourceBudget.objects.get(pk="off-product")
+    assert row.daily_used == 9 and row.consecutive_failures == 1
+    budget.report("off-product", 404)
+    assert SourceBudget.objects.get(pk="off-product").daily_used == 9
+    SourceBudget.objects.filter(pk="off-product").update(daily_used=0)
+    budget.report("off-product", None)
+    assert SourceBudget.objects.get(pk="off-product").daily_used == 0

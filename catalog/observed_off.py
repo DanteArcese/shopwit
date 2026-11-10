@@ -344,7 +344,12 @@ def backfill_sizes(
         try:
             limit = run_limit(now) if limit is None else max(0, limit)
             sizes = candidates(now, limit)
-            nutrition = nutrition_candidates(limit - len(sizes), {u for u, _ in sizes})
+            nutrition = nutrition_candidates(limit, {u for u, _ in sizes})
+            # A quarter of the limit is reserved for nutrition-only candidates so a large
+            # size backlog cannot starve them; unused room flows to the other list.
+            reserved = min(len(nutrition), limit // 4)
+            sizes = sizes[: limit - reserved]
+            nutrition = nutrition[: limit - len(sizes)]
             stats.nutrition = len(nutrition)
             wanted = sizes + nutrition
             run.fetched = len(wanted)

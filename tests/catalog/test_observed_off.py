@@ -309,7 +309,7 @@ def test_command_runs_offline_with_recordings(settings):
 def test_off_product_budget_default(settings):
     assert settings.SOURCE_BUDGETS[CONNECTOR] == {
         "capacity": 1.0,
-        "refill_per_second": 1.0,
+        "refill_per_second": 0.5,
         "daily_limit": 300,
     }
 
@@ -712,3 +712,41 @@ def test_backfill_with_tiny_values_and_bad_packs_does_not_fail():
     assert tiny.nutrition["protein_reason"] == "nutrition values look wrong"
     assert nan_pack.nutrition["protein_reason"] == "pack size unknown"
     assert observed_off.refresh_nutrition([NO_SIZE]) == 0
+
+
+def _split(monkeypatch, n_sizes, n_nutrition, limit):
+    sizes = [(f"1{i:012d}", "off") for i in range(n_sizes)]
+    nutr = [(f"2{i:012d}", "off") for i in range(n_nutrition)]
+    monkeypatch.setattr(observed_off, "candidates", lambda now, lim: sizes[:lim])
+    monkeypatch.setattr(
+        observed_off,
+        "nutrition_candidates",
+        lambda lim, exclude: [c for c in nutr if c[0] not in exclude][: max(0, lim)],
+    )
+    seen = []
+    backfill_sizes(NOW, FakeBudget(), limit=limit, client=bad_recorded(seen))
+    asked = [r.url.path.rsplit("/", 1)[-1] for r in seen]
+    return (
+        len([a for a in asked if a.startswith("1")]),
+        len([a for a in asked if a.startswith("2")]),
+    )
+
+
+@pytest.mark.parametrize(
+    "n_sizes,n_nutrition,limit,expected",
+    [
+        (50, 50, 20, (15, 5)),  # both backlogs larger than the limit: a quarter reserved
+        (50, 0, 20, (20, 0)),  # no nutrition: sizes take everything
+        (0, 50, 20, (0, 20)),  # no sizes: nutrition takes everything
+        (0, 0, 20, (0, 0)),
+        (50, 50, 1, (1, 0)),  # limit // 4 == 0
+        (50, 50, 3, (3, 0)),
+        (50, 50, 4, (3, 1)),
+        (2, 50, 20, (2, 18)),  # few sizes: the rest goes back to nutrition
+        (50, 2, 20, (18, 2)),  # few nutrition: sizes get the rest
+    ],
+)
+def test_nutrition_candidates_get_a_reserved_share(
+    monkeypatch, n_sizes, n_nutrition, limit, expected
+):
+    assert _split(monkeypatch, n_sizes, n_nutrition, limit) == expected

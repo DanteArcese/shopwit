@@ -1,6 +1,6 @@
 """DB-backed token buckets (``SourceBudget``) shared by every process that calls a source.
 
-``take`` and ``backoff`` are pure; ``DbBudget`` applies them to a row locked with
+``take``, ``backoff`` and ``refund`` are pure; ``DbBudget`` applies them to a row locked with
 ``SELECT ... FOR UPDATE`` inside one transaction, so two processes or threads can
 never spend the same token.
 """
@@ -111,7 +111,25 @@ def backoff(
             consecutive_failures=min(b.consecutive_failures + 1, MAX_FAILURES),
         )
     if 200 <= status < 300:
-        return replace(b, blocked_until=None, consecutive_failures=0)
+        # One success eases the backoff by one step instead of forgetting it, so a run that
+        # alternates 429s and 200s keeps slowing down. A block still in force is kept.
+        blocked = b.blocked_until
+        if blocked is not None and blocked <= now:
+            blocked = None
+        return replace(
+            b, blocked_until=blocked, consecutive_failures=max(0, b.consecutive_failures - 1)
+        )
+    return b
+
+
+def refund(b: Bucket, status: int | None) -> Bucket:
+    """Give back the daily count of a request that failed (transport error, 429 or 5xx).
+
+    Such a request answered nothing useful, so it should not use up the day's cap. Clamped
+    at 0, so a refund for a request granted on an earlier UTC day never goes negative.
+    """
+    if status is None or status == 429 or 500 <= status < 600:
+        return replace(b, daily_used=max(0, b.daily_used - 1))
     return b
 
 
@@ -180,7 +198,10 @@ class DbBudget:
         self, key: str, status: int | None, retry_after: float | None = None
     ) -> None:
         now = self._now()
-        self._apply(key, lambda b: (backoff(b, now, status, retry_after), None))
+        self._apply(
+            key,
+            lambda b: (refund(backoff(b, now, status, retry_after), status), None),
+        )
 
     def wait(
         self,
