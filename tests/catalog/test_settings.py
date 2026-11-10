@@ -187,3 +187,20 @@ def test_boost_until_unset_blank_or_malformed_means_no_boost(raw):
 def test_boost_daily_defaults_and_ignores_bad_values(raw, expected):
     value = {} if raw is None else {"UNITPRICER_OFF_PRODUCT_BOOST_DAILY": raw}
     assert _setting("OFF_PRODUCT_BOOST_DAILY", value) == expected
+
+
+def test_sovrn_links_use_the_commerce_api_key():
+    # Sovrn: `key` is "Your Commerce API key, found in your Site Settings" (#102).
+    import os
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    env = {**os.environ, "DJANGO_DEBUG": "1", "SOVRN_API_KEY": "api-123"}
+    code = "import config.settings as s; print(s.AFFILIATE['sovrn_api_key'])"
+    root = Path(__file__).resolve().parents[2]
+    out = subprocess.run(
+        [sys.executable, "-c", code], env=env, cwd=root, capture_output=True, text=True
+    )
+    assert out.returncode == 0, out.stderr
+    assert out.stdout.strip() == "api-123"

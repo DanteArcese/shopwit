@@ -213,7 +213,7 @@ OFF_PRODUCT_BOOST_DAILY = _boost_daily(os.environ.get("UNITPRICER_OFF_PRODUCT_BO
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
-    "sovrn_site_key": env("SOVRN_SITE_KEY"),
+    "sovrn_api_key": env("SOVRN_API_KEY"),
     "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
 }
 # Feedback sync: a fine-grained token limited to issues on this repo. Unset = sync off.

@@ -2,7 +2,7 @@ import pytest
 
 from catalog.links import affiliate_programs
 
-NONE = {"walmart_impact_publisher_id": None, "sovrn_site_key": None, "amazon_associates_tag": None}
+NONE = {"walmart_impact_publisher_id": None, "sovrn_api_key": None, "amazon_associates_tag": None}
 
 
 def test_terms_final(client):
@@ -55,7 +55,7 @@ def test_disclosure_lists_no_programs_when_none_configured(client, settings):
 
 def test_affiliate_programs_order():
     assert affiliate_programs(
-        {"walmart_impact_publisher_id": "1", "sovrn_site_key": "k", "amazon_associates_tag": "t"}
+        {"walmart_impact_publisher_id": "1", "sovrn_api_key": "k", "amazon_associates_tag": "t"}
     ) == [
         "Amazon Associates Program",
         "Walmart's affiliate program through Impact",

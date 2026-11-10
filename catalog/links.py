@@ -45,7 +45,7 @@ def _route(offer, affiliate: Mapping[str, str | None]) -> str | None:
     tag = affiliate.get("amazon_associates_tag")
     if offer.retailer == "amazon" and tag:
         return _amazon_tagged(url, tag)
-    key = affiliate.get("sovrn_site_key")
+    key = affiliate.get("sovrn_api_key")
     if key:
         return f"https://sovrn.co?key={key}&u={quote(url, safe='')}"
     return None
@@ -73,7 +73,7 @@ def link_attrs(offer, affiliate: Mapping[str, str | None]) -> dict:
 _PROGRAMS = (
     ("amazon_associates_tag", "Amazon Associates Program"),
     ("walmart_impact_publisher_id", "Walmart's affiliate program through Impact"),
-    ("sovrn_site_key", "Sovrn Commerce"),
+    ("sovrn_api_key", "Sovrn Commerce"),
 )
 
 

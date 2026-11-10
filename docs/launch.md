@@ -53,7 +53,7 @@ Plan: `docs/superpowers/plans/2026-11-08-limited-public-launch.md` (issue #77). 
 1. [ ] eBay Developers Program account and eBay Partner Network (EPN).
 2. [ ] Impact: Target Partners and the Walmart affiliate (publisher ID to `WALMART_IMPACT_PUBLISHER_ID`; retry the walmart.io key upload alongside). `purge_sample_data` must already have run before the real Walmart key is enabled.
 3. [ ] CJ (Costco and other grocery or household advertisers).
-4. [ ] Sovrn Commerce: register `unitpricer.com`; site key to `SOVRN_SITE_KEY`; run the merchant audit (roadmap Checkpoint B.5).
+4. [ ] Sovrn Commerce: register `unitpricer.com`; Commerce API key (Site Settings) to `SOVRN_API_KEY`; run the merchant audit (roadmap Checkpoint B.5).
 5. [ ] Amazon Associates last: the 180-day window for 3 qualifying sales starts at signup, so apply once there is traffic. Tag to `AMAZON_ASSOCIATES_TAG` (turns on the disclosure sentence); request written approval for unit-price comparison (spec section 10).
 
 After each approval, re-read that program's terms against spec section 10 and the disclosure page before adding links.
