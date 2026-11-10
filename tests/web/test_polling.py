@@ -364,6 +364,70 @@ def test_poller_carries_rank_through_the_facets_form(client):
     resp = client.get("/search", {"q": "oat milk", "rank": "protein"})
     body = resp.content.decode()
     poller = re.search(r'<div id="poller"[^>]*>', body).group(0)
-    assert 'hx-include="#facets"' in poller and "rank" not in poller  # rank comes from the form
+    assert 'hx-include="#facets"' in poller
+    assert "rank=protein" in poller  # #99: the requested rank rides the poller URL too
     facets = body[body.index('id="facets"'):]
     assert '<option value="protein" selected>Protein per $</option>' in facets
+
+
+# ---- #99: a rank asked for on a cold search survives until costed offers arrive -----------
+
+
+def _poller_href(body):
+    return unescape(re.search(r'<div id="poller" hx-get="([^"]*)"', body).group(1))
+
+
+def _cold_poll(client, href, *select):
+    """Replay a poller request as HTMX does: URL params first, then hx-include (#facets) values."""
+    from urllib.parse import urlencode
+
+    extra = urlencode(select)
+    return client.get(href + ("&" + extra if extra else ""), HTTP_HX_REQUEST="true")
+
+
+def _arrive_costed():
+    from tests.catalog.test_generic_match import nutrify_offer
+
+    nutrify_offer(make_generic_offer("Oat Milk Acme", "4", dim="mass", amount=500), protein=20.0, kcal=100.0)
+    make_generic_offer("Oat Milk Bare", "1", dim="mass", amount=500)
+    finish(count=2)
+
+
+@pytest.mark.parametrize("rank", ["protein", "kcal"])
+def test_cold_rank_is_carried_on_poller_and_applies_when_costs_arrive(client, rank):
+    first = client.get("/search", {"q": "oat milk", "rank": rank}).content.decode()
+    assert "per 100 g protein" not in first and "per 1,000 kcal" not in first
+    assert 'name="rank"' not in first  # nothing to rank yet
+    href = _poller_href(first)
+    assert parse_qs(urlparse(href).query)["rank"] == [rank]
+    _arrive_costed()
+    body = _cold_poll(client, href).content.decode()
+    label = {"protein": "per 100 g protein", "kcal": "per 1,000 kcal"}[rank]
+    assert label in body and "<h3>Can't rank (1)</h3>" in body
+    assert body.index("Oat Milk Acme") < body.index("Oat Milk Bare")
+    facets = body[body.index('id="facets"'):]
+    assert f'<option value="{rank}" selected>' in facets
+
+
+@pytest.mark.parametrize("raw", ["<script>", "protein<script>", "PROTEIN", "unit", ""])
+def test_invalid_cold_rank_never_reaches_poller_url(client, raw):
+    body = client.get("/search", {"q": "oat milk", "rank": raw}).content.decode()
+    href = _poller_href(body)
+    assert "rank" not in parse_qs(urlparse(href).query)
+    assert "<script>" not in body and "script" not in href
+    idle = client.get(
+        "/search", {"q": "oat milk", "poll": START, "seen": START, "rank": raw}, HTTP_HX_REQUEST="true"
+    ).content.decode()
+    assert "rank" not in parse_qs(urlparse(_poller_href(idle)).query) and "&lt;script" not in idle
+
+
+def test_select_choice_after_cold_rank_wins(client):
+    href = _poller_href(client.get("/search", {"q": "oat milk", "rank": "kcal"}).content.decode())
+    _arrive_costed()
+    # HTMX appends the included select after the URL params; QueryDict.get takes the last.
+    body = _cold_poll(client, href, ("rank", "protein")).content.decode()
+    assert "per 100 g protein" in body and "per 1,000 kcal" not in body
+    assert '<option value="protein" selected>' in body[body.index('id="facets"'):]
+    unit = _cold_poll(client, href, ("rank", "unit")).content.decode()
+    assert "per 100 g protein" not in unit and "per 1,000 kcal" not in unit
+    assert '<option value="unit" selected>' in unit[unit.index('id="facets"'):]

@@ -192,11 +192,16 @@ def _stamp(value: str | None, now: float) -> int | None:
     return stamp
 
 
-def _poller_url(q: str, start: int, seen: int) -> str:
+def _poller_url(q: str, start: int, seen: int, rank: str = "unit") -> str:
     """The poll URL: ``q`` is URL-encoded, so it can never add a parameter. Facet values are
     read from the live form at poll time (``hx-include="#facets"``), so a filter change
-    mid-poll is honored."""
-    return f"{reverse('search')}?{urlencode([('q', q), ('poll', start), ('seen', seen)])}"
+    mid-poll is honored. ``rank`` is the validated rank the request asked for (never raw input),
+    carried so a rank ignored for lack of costed offers still applies once they arrive. HTMX
+    appends the included select after these URL params, so a rank chosen there wins."""
+    pairs = [("q", q), ("poll", start), ("seen", seen)]
+    if rank != "unit":
+        pairs.append(("rank", rank))
+    return f"{reverse('search')}?{urlencode(pairs)}"
 
 
 def poll_results(request, q: str) -> HttpResponse:
@@ -211,7 +216,7 @@ def poll_results(request, q: str) -> HttpResponse:
     states = _load_states(normalize_phrase(q), since)
     polling = valid and should_poll(states, start, now)
     if polling and not any(s.finished_at and s.finished_at.timestamp() > seen for s in states):
-        url = _poller_url(q, start, seen)
+        url = _poller_url(q, start, seen, parse_rank(request.GET.get("rank")))
         response = render(request, "web/_poller.html", {"poller_url": url})
     else:
         response = generic_results(
@@ -408,7 +413,8 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
     # Nutrition ranking is offered only when a matched offer has a protein or kcal cost;
     # otherwise ``rank`` is ignored, so a household search never ranks by nutrition.
     can_rank = any(has_cost(o) for o in matched)
-    rank = parse_rank(request.GET.get("rank")) if can_rank else "unit"
+    requested_rank = parse_rank(request.GET.get("rank"))
+    rank = requested_rank if can_rank else "unit"
     get = _with_rank(request.GET, rank)  # URLs built from here carry only the rank in use
     filters = parse_generic_filters(request.GET, prefs.unit_system, allowlist)
     facet_list = facets(matched, filters, store_brands, allowlist, prefs.unit_system)
@@ -452,7 +458,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
     states: Sequence[JobState] = poll.states if poll else []
     polling = poll.polling if poll else False
     refused = False
-    poller_url = _poller_url(q, poll.start, poll.seen) if poll and poll.polling else None
+    poller_url = _poller_url(q, poll.start, poll.seen, requested_rank) if poll and poll.polling else None
     if poll is not None:
         # A source refused on the first render (blocked, queue full, throttled) has no job to
         # report, so the busy note must be worked out again or it would vanish on the first poll.
@@ -479,7 +485,7 @@ def generic_results(request, q: str, *, definitions=None, poll: PollInfo | None 
             if any(j.status in FetchJob.ACTIVE for j in jobs):
                 polling = True
                 start = int(when.timestamp())
-                poller_url = _poller_url(q, start, start)
+                poller_url = _poller_url(q, start, start, requested_rank)
     parts = live_parts(states, polling, refused)
     live_text = " \u00b7 ".join(parts) or None
     fuzzy, capped = live.fuzzy or seen.fuzzy, live.capped or seen.capped
