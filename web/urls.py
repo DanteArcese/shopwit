@@ -10,5 +10,6 @@ urlpatterns = [
     path("disclosure", views.disclosure, name="disclosure"),
     path("terms", views.terms, name="terms"),
     path("about", views.about, name="about"),
+    path("guides/unit-prices", views.guide_unit_prices, name="guide_unit_prices"),
     path("settings", views.settings_page, name="settings"),
 ]
