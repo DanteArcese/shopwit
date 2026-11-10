@@ -36,6 +36,7 @@ query Products($companyId: ID!, $keywords: [String!], $gtin: String, $limit: Int
       availability condition unitPricingMeasure size
       googleProductCategory { name }
       productType
+      shipping { price { amount currency } country service }
     }
   }
 }
@@ -74,6 +75,37 @@ def _decimal(money: object) -> tuple[Decimal, str] | None:
     if not value.is_finite() or value <= 0:
         return None
     return value, currency.upper()
+
+
+def _shipping(options: object) -> str | None:
+    """Lowest US (or country-less) USD shipping price as a plain decimal string; zero is
+    free shipping. None when no option is usable: unknown, never guessed."""
+    if not isinstance(options, list):
+        return None
+    best: Decimal | None = None
+    for option in options:
+        if not isinstance(option, dict):
+            continue
+        country = option.get("country")
+        if country not in (None, "") and (
+            not isinstance(country, str) or country.strip().upper() != "US"
+        ):
+            continue
+        money = option.get("price")
+        if not isinstance(money, dict):
+            continue
+        amount, currency = money.get("amount"), money.get("currency")
+        if amount is None or not isinstance(currency, str) or currency.upper() != "USD":
+            continue
+        try:
+            value = Decimal(str(amount))
+        except InvalidOperation:
+            continue
+        if not value.is_finite() or value < 0:
+            continue
+        if best is None or value < best:
+            best = value
+    return None if best is None else format(best, "f")
 
 
 def _when(value: object, end: bool = False) -> datetime | None:
@@ -320,6 +352,9 @@ class CjConnector:
         if category:
             fields["category_path"] = category
         fields["retailer_name"] = advertiser
+        shipping = _shipping(item.get("shipping"))
+        if shipping is not None:
+            fields["shipping"] = shipping
 
         return RawOffer(
             retailer=code,

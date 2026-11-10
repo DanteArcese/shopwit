@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Mapping
 from datetime import datetime
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING
 
 from django.conf import settings
@@ -31,6 +32,17 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 INTERRUPTED = "interrupted"  # IngestionRun.error for a run cut short by a worker shutdown
+
+
+def _shipping(text: str | None) -> Decimal | None:
+    """The stored shipping, or None (also clears a stale value) when absent or unusable."""
+    if text is None:
+        return None
+    try:
+        value = Decimal(text)
+    except InvalidOperation:
+        return None
+    return value.quantize(Decimal("0.01")) if value.is_finite() and 0 <= value < 10**6 else None
 
 
 def _upsert(
@@ -88,6 +100,7 @@ def _upsert(
             "product": product,
             "price": raw.price,
             "currency": raw.currency,
+            "shipping": _shipping(raw.fields.get("shipping")),
             "unit_prices": unit_prices,
             "url": raw.url,
             "last_seen_at": now,

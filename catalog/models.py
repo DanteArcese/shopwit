@@ -93,6 +93,8 @@ class Offer(TimestampedModel):
     retailer_item_id = models.CharField(max_length=100)
     price = models.DecimalField(max_digits=10, decimal_places=2)
     currency = models.CharField(max_length=3)
+    # Display-only: lowest known shipping for online offers (0 = free), never in unit prices.
+    shipping = models.DecimalField(max_digits=8, decimal_places=2, null=True, blank=True)
     unit_prices = models.JSONField(default=dict)
     url = models.URLField(max_length=2000)
     category = models.ForeignKey(Category, null=True, blank=True, on_delete=models.SET_NULL)

@@ -163,6 +163,14 @@ def _controls(category: Category, params) -> list[dict]:
     return controls
 
 
+def _shipping_text(offer) -> str:
+    if offer.shipping is None:
+        return ""
+    if offer.shipping == 0:
+        return "Free shipping"
+    return f"+ {format_money(offer.shipping, offer.currency)} shipping"
+
+
 def _present(row, comparison: str, unit_system: str, dimension: str, rank: str = "unit") -> dict:
     offer = row.offer
     unit_text = None
@@ -179,6 +187,8 @@ def _present(row, comparison: str, unit_system: str, dimension: str, rank: str =
         "size": display_size(offer.measures, dimension, unit_system),
         "price": format_money(offer.price, offer.currency),
         "unit_price": unit_text,
+        "shipping": offer.shipping,
+        "shipping_text": _shipping_text(offer),
         "retailer": "" if offer.kind == Offer.Kind.OBSERVED else display_name(offer.retailer),
         "offer": offer,
         "unknown": [f"{n.replace('_', ' ')} unknown" for n in row.unknown],

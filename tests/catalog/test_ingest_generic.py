@@ -181,3 +181,19 @@ def test_curated_offer_reingested_as_unmatched_keeps_product_category(milk):
     assert Offer.objects.get(retailer="a").category is None
     assert Product.objects.get().category == milk
     assert not ReviewItem.objects.filter(detail="category").exists()
+
+
+def _with_shipping(value):
+    import dataclasses
+
+    base = raw()
+    return dataclasses.replace(base, fields={"shipping": value} if value is not None else {})
+
+
+def test_ingest_sets_and_clears_shipping(milk):
+    run_ingest(milk, [_with_shipping("5.99")])
+    assert Offer.objects.get(retailer_item_id="A1").shipping == Decimal("5.99")
+    run_ingest(milk, [_with_shipping("0")])
+    assert Offer.objects.get(retailer_item_id="A1").shipping == Decimal("0")
+    run_ingest(milk, [_with_shipping(None)])
+    assert Offer.objects.get(retailer_item_id="A1").shipping is None
