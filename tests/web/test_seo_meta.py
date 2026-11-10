@@ -46,9 +46,9 @@ def test_home_has_website_search_action(client, db):
 
 def test_category_social_tags_and_breadcrumb(client, db, milk_rows):
     body = client.get("/c/dairy/milk/?fat=2").content.decode()
-    assert _meta(body, "og:title") == "Milk - UnitPricer"
+    assert _meta(body, "og:title") == "Milk price per fluid ounce: compare stores | UnitPricer"
     assert _meta(body, "og:url") == "https://unitpricer.com/c/dairy/milk/"
-    assert _meta(body, "og:description").startswith("Cheapest Milk")
+    assert _meta(body, "og:description").startswith("4 prices from 1 store.")
     (crumbs,) = _jsonld(body)
     assert crumbs["@type"] == "BreadcrumbList"
     assert [(i["position"], i["name"], i["item"]) for i in crumbs["itemListElement"]] == [

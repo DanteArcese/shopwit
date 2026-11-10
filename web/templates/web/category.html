@@ -2,12 +2,13 @@
 {% block description %}{{ meta_description }}{% endblock %}
 {% block robots %}{% if noindex %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
 {% block canonical_path %}{{ category_url }}{% endblock %}
-{% block title %}{{ category.name }} - UnitPricer{% endblock %}
-{% block og_title %}{{ category.name }} - UnitPricer{% endblock %}
+{% block title %}{{ page_title }}{% endblock %}
+{% block og_title %}{{ page_title }}{% endblock %}
 {% block og_description %}{{ meta_description }}{% endblock %}
 {% block og_path %}{{ category_url }}{% endblock %}
 {% block main %}
 <h1>{{ category.name }}</h1>
+{% if summary %}<p class="category-summary">{{ summary.count }} price{{ summary.count|pluralize }} from {{ summary.stores }} store{{ summary.stores|pluralize }}.{% if summary.lowest %} Lowest seen: {{ summary.lowest }} at {{ summary.lowest_store }} ({{ summary.lowest_seen|date:"M j, Y" }}).{% endif %}{% if summary.median %} Typical: {{ summary.median }}.{% endif %} Latest price seen {{ summary.latest|date:"M j, Y" }}.</p>{% endif %}
 {% include "web/_q_rest.html" %}
 <details class="filters-drawer" open>
 <summary>Filters</summary>
@@ -19,7 +20,7 @@
     <label>{{ c.label }}
       <select name="{{ c.name }}">
         <option value="any">Any</option>
-        {% for o in c.options %}<option value="{{ o }}"{% if o == c.current %} selected{% endif %}>{{ o }}</option>{% endfor %}
+        {% for o in c.options %}<option value="{{ o.value }}"{% if o.value == c.current %} selected{% endif %}>{{ o.label }}</option>{% endfor %}
       </select>
     </label>
     {% endif %}
