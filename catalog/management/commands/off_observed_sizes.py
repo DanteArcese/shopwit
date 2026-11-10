@@ -1,7 +1,7 @@
 """Look up Open Food Facts data for observed offers' barcodes now (#88).
 
 The worker runs the same step after each successful Open Prices sync. Requests draw
-from the shared "off-product" budget (1 per second, a daily cap), so a manual run
+from the shared "off-product" budget (1 per 2 seconds, a daily cap), so a manual run
 counts toward the day's cap.
 """
 

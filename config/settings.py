@@ -185,8 +185,9 @@ SOURCE_BUDGETS = {
     # Capacity 1: no burst, a steady 1 req/s, the etiquette the daily sync always kept.
     "openprices": _budget("openprices", 1, 1.0, None),
     "walmart": _budget("walmart", 5, 1.0, 5000),
-    # OFF product reads for observed offers' sizes: 1 per second, at most 300 a day.
-    "off-product": _budget("off-product", 1, 1.0, 300),
+    # OFF product reads for observed offers' sizes: 1 per 2 seconds, at most 300 a day
+    # (1 per second drew 429s on about a third of requests, issue #98).
+    "off-product": _budget("off-product", 1, 0.5, 300),
 }
 
 
