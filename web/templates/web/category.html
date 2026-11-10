@@ -3,7 +3,7 @@
 {% block robots %}{% if noindex %}<meta name="robots" content="noindex">{% endif %}{% endblock %}
 {% block canonical_path %}{{ category_url }}{% endblock %}
 {% block title %}{{ page_title }}{% endblock %}
-{% block og_title %}{{ category.name }} - UnitPricer{% endblock %}
+{% block og_title %}{{ page_title }}{% endblock %}
 {% block og_description %}{{ meta_description }}{% endblock %}
 {% block og_path %}{{ category_url }}{% endblock %}
 {% block main %}
