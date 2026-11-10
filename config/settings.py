@@ -218,6 +218,8 @@ AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
     "sovrn_api_key": env("SOVRN_API_KEY"),
     "amazon_associates_tag": env("AMAZON_ASSOCIATES_TAG"),
+    # The CJ website (property) PID, not the CID.
+    "cj_website_id": env("CJ_WEBSITE_ID"),
 }
 # Read-only affiliate audit (`manage.py affiliate_audit`, #104). Blank = not configured.
 SOVRN_SECRET_KEY = env("SOVRN_SECRET_KEY", "")
