@@ -19,12 +19,18 @@ DEBUG = env("DJANGO_DEBUG", "0") == "1"
 SECRET_KEY = env("DJANGO_SECRET_KEY")
 if not SECRET_KEY:
     if not DEBUG:
-        raise ImproperlyConfigured("DJANGO_SECRET_KEY is required unless DJANGO_DEBUG=1")
+        raise ImproperlyConfigured(
+            "DJANGO_SECRET_KEY is required unless DJANGO_DEBUG=1"
+        )
     SECRET_KEY = "insecure-dev-key-not-for-production"
 
-SECRET_KEY_FALLBACKS = [k.strip() for k in env("DJANGO_SECRET_KEY_FALLBACKS", "").split(",") if k.strip()]
+SECRET_KEY_FALLBACKS = [
+    k.strip() for k in env("DJANGO_SECRET_KEY_FALLBACKS", "").split(",") if k.strip()
+]
 
-ALLOWED_HOSTS = [h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()]
+ALLOWED_HOSTS = [
+    h.strip() for h in env("DJANGO_ALLOWED_HOSTS", "").split(",") if h.strip()
+]
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -80,7 +86,9 @@ _database_url = env("DATABASE_URL")
 DATABASES = {"default": dj_database_url.parse(_database_url) if _database_url else {}}
 
 AUTH_PASSWORD_VALIDATORS = [
-    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {
+        "NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"
+    },
     {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
     {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
     {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
@@ -187,9 +195,9 @@ SOURCE_BUDGETS = {
     "walmart": _budget("walmart", 5, 1.0, 5000),
     # CJ's GraphQL rate limit is undocumented: budget conservatively (burst 2, 0.5 req/s, 3000 a day).
     "cj": _budget("cj", 2, 0.5, 3000),
-    # OFF product reads for observed offers' sizes: 1 per 2 seconds, at most 300 a day
-    # (1 per second drew 429s on about a third of requests, issue #98).
-    "off-product": _budget("off-product", 1, 0.5, 300),
+    # OFF product reads for observed offers' sizes: 1 per 4 seconds, at most 300 a day.
+    # OFF let ~15/min through; 1/s drew 429s on a third of requests (#98), 0.5/s on a quarter (#113).
+    "off-product": _budget("off-product", 1, 0.25, 300),
 }
 
 
@@ -211,8 +219,12 @@ def _boost_daily(raw):
 
 # First-week nutrition backfill (#95): while today (UTC) is on or before this date the
 # off-product daily cap is OFF_PRODUCT_BOOST_DAILY instead of the stored cap.
-OFF_PRODUCT_BOOST_UNTIL = _boost_until(os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_UNTIL"))
-OFF_PRODUCT_BOOST_DAILY = _boost_daily(os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_DAILY"))
+OFF_PRODUCT_BOOST_UNTIL = _boost_until(
+    os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_UNTIL")
+)
+OFF_PRODUCT_BOOST_DAILY = _boost_daily(
+    os.environ.get("UNITPRICER_OFF_PRODUCT_BOOST_DAILY")
+)
 OPEN_PRICES_INCLUDE_ASSISTED = env("UNITPRICER_OPEN_PRICES_ASSISTED", "1") != "0"
 AFFILIATE = {
     "walmart_impact_publisher_id": env("WALMART_IMPACT_PUBLISHER_ID"),
@@ -286,7 +298,9 @@ EMAIL_HOST_USER = env("DJANGO_EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = env("DJANGO_EMAIL_HOST_PASSWORD") or env("RESEND_API_KEY", "")
 EMAIL_USE_TLS = env("DJANGO_EMAIL_USE_TLS", "1") == "1"
 EMAIL_TIMEOUT = 20
-DEFAULT_FROM_EMAIL = env("DJANGO_DEFAULT_FROM_EMAIL", "UnitPricer <hello@unitpricer.com>")
+DEFAULT_FROM_EMAIL = env(
+    "DJANGO_DEFAULT_FROM_EMAIL", "UnitPricer <hello@unitpricer.com>"
+)
 SERVER_EMAIL = DEFAULT_FROM_EMAIL
 # Send budget: rolling 24 h cap across all kinds (Resend free tier); announcements
 # leave WAITLIST_CONFIRM_RESERVE of it for confirmations.
@@ -311,7 +325,9 @@ CACHES = {
 LOGGING = {
     "version": 1,
     "disable_existing_loggers": False,
-    "formatters": {"plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}},
+    "formatters": {
+        "plain": {"format": "%(asctime)s %(levelname)s %(name)s %(message)s"}
+    },
     # Token paths (waitlist, magic links) are redacted from every record.
     "filters": {"redact": {"()": "web.glogging.RedactFilter"}},
     "handlers": {
