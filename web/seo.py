@@ -23,7 +23,7 @@ def now():
     return timezone.now()
 
 
-STATIC_PAGES = ("home", "about", "privacy", "terms", "disclosure")
+STATIC_PAGES = ("home", "about", "privacy", "terms", "disclosure", "guide_unit_prices")
 
 
 def public_origin(request) -> str:

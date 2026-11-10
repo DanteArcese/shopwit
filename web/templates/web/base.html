@@ -16,6 +16,7 @@
   <meta property="og:description" content="{% block og_description %}Compare groceries and household goods by price per unit, ranked only by unit price. Free and open source.{% endblock %}">
   <meta name="twitter:card" content="summary">
   {% if jsonld %}<script type="application/ld+json">{{ jsonld|safe }}</script>{% endif %}
+  {% if breadcrumb_jsonld %}<script type="application/ld+json">{{ breadcrumb_jsonld|safe }}</script>{% endif %}
   <link rel="icon" href="{% static 'web/favicon.svg' %}" type="image/svg+xml">
   <link rel="stylesheet" href="{% static 'web/app.css' %}">
   <script src="{% static 'web/htmx.min.js' %}" defer></script>
@@ -43,6 +44,7 @@
     <a href="{% url 'terms' %}">Terms</a>
     <a href="{% url 'privacy' %}">Privacy</a>
     <a href="{% url 'disclosure' %}">Disclosure</a>
+    <a href="{% url 'guide_unit_prices' %}">Unit price guide</a>
     <a href="{% url 'feedback' %}">Feedback</a>
     <a href="https://github.com/DanteArcese/unitpricer">Source code</a>
     <a id="settings-link" href="{% url 'settings' %}?next={% if settings_next %}{{ settings_next|urlencode }}{% else %}{{ request.get_full_path|urlencode }}{% endif %}">Settings</a>

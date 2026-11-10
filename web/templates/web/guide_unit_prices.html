@@ -1,0 +1,52 @@
+{% extends "web/base.html" %}
+{% block description %}How to read grocery unit price tags, why they can mislead, and quick ways to compare packages and stop overpaying.{% endblock %}
+{% block title %}How to read unit price tags - UnitPricer{% endblock %}
+{% block og_title %}How to read unit price tags{% endblock %}
+{% block og_description %}How to read grocery unit price tags, why they can mislead, and quick ways to compare packages.{% endblock %}
+{% block main %}
+<h1>How to read unit price tags</h1>
+<p class="note">Last updated November 10, 2026.</p>
+<p>The big number on a shelf tag is the price of the package. The small number is the one that lets you compare. This guide explains how to read it, where it can trip you up, and how to use it to stop overpaying.</p>
+
+<h2>What a unit price is</h2>
+<p>A unit price is the price of one standard unit of a product: one ounce, one pound, one fluid ounce, one count. Divide the package price by the amount inside and you get the unit price. On most shelf tags it is printed near the package price, often in smaller type, as something like "12.5&cent;/oz".</p>
+<p>Here is a worked example. A 32 oz jar costs $3.99 and a 48 oz jar costs $5.49.</p>
+<ul>
+  <li>32 oz at $3.99: $3.99 &divide; 32 = about 12.5 cents per ounce.</li>
+  <li>48 oz at $5.49: $5.49 &divide; 48 = about 11.4 cents per ounce.</li>
+</ul>
+<p>The bigger jar is cheaper per ounce, by about a cent. At the smaller jar's rate, 48 oz would cost about $5.99, so the bigger jar saves roughly 50 cents. It is not always the bigger package that wins, which is why you check.</p>
+
+<h2>Why tags can mislead</h2>
+<p><strong>Different units in the same aisle.</strong> One brand may be priced per ounce and its neighbor per pound. A tag reading $2.40/lb and another reading 14&cent;/oz look unrelated, but 16 oz is a pound, so the first is 15&cent;/oz and the second is the better deal. Convert both to the same unit before you compare.</p>
+<p><strong>Per count versus per weight.</strong> A tag that says price per count tells you nothing about size. Ten small items and ten large ones can have the same count. If a weight is printed on the package, compare per ounce.</p>
+<p><strong>Sale tags.</strong> A sale or club-card tag may show the sale price without a unit price, or sit on top of a shelf label whose unit price is from before the sale. If the price changed, work out the unit price yourself.</p>
+<p><strong>Multi-buy deals.</strong> "2 for $5" means $2.50 each. Check what the sign says about whether you need to buy both, then compare $2.50 with the regular unit price of the alternatives.</p>
+<p><strong>"Family size" is not always cheaper.</strong> Two sizes can have nearly the same unit price, and sometimes the larger one costs more per unit.</p>
+<p><strong>Paper goods.</strong> Rolls are not a measure. Names like "double roll" do not tell you how many sheets you get, and ply and sheet size differ by brand. Compare the price per sheet, or per square foot if the package gives the area. (NIST's guide says terms like sheets and rolls are not units of measure and should only supplement unit pricing.)</p>
+<p><strong>Concentrated detergent.</strong> Price per ounce can favor the weaker product. As an invented example, a 50 oz bottle at $11.99 is about 24&cent;/oz and a 100 oz bottle at $19.99 is about 20&cent;/oz, so the big one looks cheaper. But if the 50 oz bottle is concentrated and washes 33 loads while the 100 oz one washes 50, the 50 oz bottle costs about 36&cent; a load ($11.99 &divide; 33) against about 40&cent; ($19.99 &divide; 50). When products differ in strength, price per load is the fair comparison.</p>
+
+<h2>Who requires unit prices</h2>
+<p>In the United States, unit pricing is set by state and local law, not federal law. NIST's <a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/1181e2025/NIST.SP.1181e2025.html">Unit Pricing Guide (SP 1181, 2025 edition)</a> says that there is no federal mandate that requires unit pricing, and that unit pricing is voluntary unless state laws or regulations require it. It also says that sixteen states and three territories (listed there as the District of Columbia, Puerto Rico, and the Virgin Islands) have unit pricing laws or regulations in effect. That means most states have none, and where they exist the details vary.</p>
+<p>The model for those laws is the Uniform Unit Pricing Regulation in <a href="https://www.nist.gov/document/2026-hb-130-section-iv-c">NIST Handbook 130 (2026 edition)</a>. It is a model that jurisdictions may choose to adopt. It says that when a store gives unit prices for a product, they must be expressed uniformly and consistently across all package sizes of that product, and that a soft drink sold in 2 L bottles and 12 fl oz cans should be priced consistently. It also exempts some items, such as packages under 1 oz or 1 fl oz, items with a total price of 50 cents or less, and products where only one brand in one size is sold. Your state may differ, so for your own state's rules ask its weights and measures office.</p>
+
+<h2>Quick tips</h2>
+<ul>
+  <li>Compare unit prices, not package prices.</li>
+  <li>Make sure both tags use the same unit. If they do not, convert.</li>
+  <li>Check the date on sale tags, and do the division yourself when the unit price is missing.</li>
+  <li>For multi-buy deals, divide the deal price by the number of items.</li>
+  <li>Compare per load, per sheet, or per serving when products differ in strength or size.</li>
+  <li>Cheaper per unit only helps if you will use it all. Food you throw away costs more than a small package.</li>
+</ul>
+
+<h2>How UnitPricer helps</h2>
+<p>UnitPricer does this comparison for you. It converts products to one unit, so a per-pound price and a per-ounce price can be compared side by side. Every price shows when it was last seen, and we only show recently seen prices. Results are ranked by unit price only, never by commission. For some foods you can also rank by the cost of protein or calories per dollar, when the nutrition data is available.</p>
+<p>Start from a category on the <a href="{% url 'home' %}">home page</a>, or read <a href="{% url 'about' %}">about UnitPricer</a> and our <a href="{% url 'disclosure' %}">disclosure</a> to see where prices come from.</p>
+
+<h2>Sources</h2>
+<ul>
+  <li><a href="https://www.nist.gov/document/2026-hb-130-section-iv-c">NIST Handbook 130 (2026), Section IV.C, Uniform Unit Pricing Regulation</a></li>
+  <li><a href="https://nvlpubs.nist.gov/nistpubs/SpecialPublications/1181e2025/NIST.SP.1181e2025.html">NIST Special Publication 1181 (2025), Unit Pricing Guide: A Best Practice Approach to Unit Pricing</a></li>
+</ul>
+{% endblock %}

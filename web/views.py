@@ -59,6 +59,7 @@ from .seo import (
     category_has_prices,
     category_prices_description,
     category_title,
+    jsonld,
     option_label,
     public_origin,
     summarize_prices,
@@ -511,6 +512,26 @@ def terms(request):
 
 def about(request):
     return render(request, "web/about.html")
+
+
+def guide_unit_prices(request):
+    origin = public_origin(request)
+    path = reverse("guide_unit_prices")
+    title = "How to read unit price tags"
+    article = {
+        "@context": "https://schema.org",
+        "@type": "Article",
+        "headline": title,
+        "datePublished": "2026-11-10",
+        "dateModified": "2026-11-10",
+        "author": {"@type": "Person", "name": "Dante Arcese"},
+        "publisher": {"@type": "Organization", "name": "UnitPricer", "url": f"{origin}/"},
+        "mainEntityOfPage": f"{origin}{path}",
+    }
+    return render(request, "web/guide_unit_prices.html", {
+        "jsonld": jsonld(article),
+        "breadcrumb_jsonld": breadcrumb_jsonld(origin, title, path),
+    })
 
 
 @csrf_exempt
