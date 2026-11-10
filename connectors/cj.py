@@ -92,6 +92,15 @@ def _text(value: object) -> str | None:
     return value.strip() if isinstance(value, str) and value.strip() else None
 
 
+def _size_text(*candidates: object) -> str | None:
+    """First candidate with both a digit and a letter; never joins fragments (that would guess)."""
+    for value in candidates:
+        text = _text(value)
+        if text and any(ch.isdigit() for ch in text) and any(ch.isalpha() for ch in text):
+            return text
+    return None
+
+
 class CjConnector:
     """Plain class (not a dataclass) so repr never exposes credentials."""
 
@@ -278,6 +287,6 @@ class CjConnector:
             fetched_at=now,
             upc=upc,
             brand=_text(item.get("brand")),
-            size_text=_text(item.get("unitPricingMeasure")) or _text(item.get("size")),
+            size_text=_size_text(item.get("unitPricingMeasure"), item.get("size")),
             fields=fields,
         )

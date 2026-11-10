@@ -113,7 +113,7 @@ def test_joined_product_maps_fields():
     assert o.url == "https://thrivemarket.com/p/algae-cooking-club-cooking-oil"
     assert o.upc == "860010924006"
     assert o.brand == "Algae Cooking Club"
-    assert o.size_text == "1"  # unitPricingMeasure wins over size, per spec
+    assert o.size_text is None  # "1" and "fl oz" are each incomplete; never joined
     assert o.fields == {
         "category_path": "Pantry > Ghee > Oils & Vinegars > Oils > Specialty Oil",
         "retailer_name": "Thrive Market",
@@ -126,13 +126,30 @@ def test_size_falls_back_and_category_prefers_google():
     item["unitPricingMeasure"] = None
     item["googleProductCategory"] = {"name": "Food > Oils"}
     (o,) = _one(item).offers
-    assert o.size_text == "fl oz"
+    assert o.size_text is None  # unit-only "fl oz" has no number
     assert o.fields["category_path"] == "Food > Oils"
     item["size"] = None
     item["productType"] = []
     item["googleProductCategory"] = None
     (o,) = _one(item).offers
     assert o.size_text is None and "category_path" not in o.fields
+
+
+@pytest.mark.parametrize(
+    "measure, size, expected",
+    [
+        ("1", "fl oz", None),
+        (None, "1LB", "1LB"),
+        ("16 oz", "2LB", "16 oz"),
+        ("1", "2LB", "2LB"),
+        (" 16 oz ", None, "16 oz"),
+        ("oz", "fl oz", None),
+        (None, None, None),
+    ],
+)
+def test_size_text_needs_digit_and_letter(measure, size, expected):
+    (o,) = _one(_mutate(unitPricingMeasure=measure, size=size)).offers
+    assert o.size_text == expected
 
 
 def test_non_numeric_gtin_gives_no_upc():
