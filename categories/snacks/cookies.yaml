@@ -1,0 +1,16 @@
+name: Cookies
+dimension: mass
+match:
+  include: [cookies, cookie, biscotti, vanilla wafers, oreo, breakfast biscuits, digestive biscuits, sweetmeal biscuits]
+  exclude: [
+    # Cookie-flavored ice cream, dough, spreads and bars (#125).
+    dough, dought, cookie dough, cookie butter, ice cream, gelato, frozen, protein, pints, culture cup, ben & jerry's, ben & jerry, afters,
+    cookies & cream, cookies and cream, cookies 'n cream, cookies n cream, cookies 'n' creme, cookies 'n creme, cookies + cream, cookies in cream,
+    granola, bar, bars, bark, crumble, crunch, shake, lunchables, cracker stackers,
+    # Chocolate bars with cookie pieces.
+    chocolove, chocolonely, in milk chocolate]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [cookies, chocolate chip cookies]
+food: true

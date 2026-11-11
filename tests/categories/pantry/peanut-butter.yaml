@@ -7,5 +7,4 @@
 - {title: '365 by Whole Foods Market Organic Creamy Peanut Butter, 16 oz', brand: 365 by Whole Foods Market, expect: {category: pantry/peanut-butter, attributes: {texture: creamy, organic: true, brand_tier: store_brand}}}
 - {title: 'Reese''s Peanut Butter Cups, Milk Chocolate, 1.5 oz', expect: {category: null}}
 - {title: 'PB2 Powdered Peanut Butter, 6.5 oz', expect: {category: null}}
-- {title: 'Ritz Peanut Butter Cracker Sandwiches, 8 ct', expect: {category: null}}
 - {title: 'Peanut butter', expect: {category: pantry/peanut-butter}}

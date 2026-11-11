@@ -1,0 +1,11 @@
+- {title: Classic Lightly Salted Potato Chips, brand: Lay's, price: '4.99', off_quantity: 219.7 g, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 219.7}, unit_prices: {per_mass: '0.022713'}, unresolved: []}}
+- {title: Original Potato Crisps, brand: Pringles, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Original Vegetable Chips, brand: 'Terra, Terra Chips', expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Sea Salt Potato Chips, brand: Siete, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Wavy Potato Chips, brand: Clancy's, off_quantity: 10 oz, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 283.5}, unresolved: []}}
+- {title: Shrimp chips, brand: Naive, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: ORIGINAL RESTAURANT STYLE, brand: Tostitos, expect: {category: snacks/chips, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Mini Chips, brand: Enjoy Life, expect: {category: null}}
+- {title: chips, brand: GRILLO'S PICKLES, expect: {category: null}}
+- {title: Carob chips, brand: null, expect: {category: null}}
+- {title: 'Vlasic Bread & Butter Pickle Chips, 24 fl oz', expect: {category: null}}

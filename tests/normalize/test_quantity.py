@@ -559,3 +559,15 @@ def test_laundry_explicit_pack_wording_multiplies():
     assert parse_measures(["Tide 92 fl oz, 2 pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
     assert parse_measures(["Tide 92 fl oz, Twin Pack"], "laundry")["volume_ml"] == _r(2 * 2720.76)
     assert parse_measures(["Tide 92 fl oz, Pack of 3"], "laundry")["volume_ml"] == _r(3 * 2720.76)
+
+
+@pytest.mark.parametrize(
+    "text,n",
+    [
+        ("Organic Awake english breakfast tea 16 tea bags", 16),
+        ("Original PG Tips 160 tea bags", 160),
+        ("Lean green supergreen tea tea bags", None),
+    ],
+)
+def test_tea_bags_count(text, n):
+    assert parse_measures([text], "count") == ({} if n is None else {"count": n})

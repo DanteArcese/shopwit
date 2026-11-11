@@ -34,6 +34,7 @@ def test_sheets_and_rolls_same_in_both_systems():
     for system in ("imperial", "metric"):
         assert shown("0.7", "per_100_sheets", system) == ("$0.70", "100 sheets")
         assert shown("1.5", "per_roll", system) == ("$1.50", "roll")
+        assert shown("0.25", "per_bag", system) == ("$0.25", "bag")
 
 
 def test_unknown_combination_falls_back_to_canonical():

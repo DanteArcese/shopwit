@@ -1,0 +1,10 @@
+- {title: Cashews, brand: '365 Everyday Value,  Whole Foods Market  Inc.', price: '8.99', off_quantity: 453 g, expect: {category: snacks/nuts, attributes: {type: cashews, organic: false}, measures: {mass_g: 453.0}, unit_prices: {per_mass: '0.019845'}, unresolved: []}}
+- {title: Aurora roasted salted mixed nuts, brand: Aurora, expect: {category: snacks/nuts, attributes: {type: mixed, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: 'Roasted & salted almonds, brazil nuts, cashews, hazelnuts, pecans deluxe mixed nuts, roasted & salted', brand: '365 Everyday Value, Whole Foods Market  Inc.', expect: {category: snacks/nuts, attributes: {type: mixed, organic: false}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Dry Roasted Salted Peanuts, brand: Planters, off_quantity: 16 oz, expect: {category: snacks/nuts, attributes: {type: peanuts, organic: false, brand_tier: name_brand}, measures: {mass_g: 453.59}, unresolved: []}}
+- {title: Organic Walnuts, brand: Aurora, expect: {category: snacks/nuts, attributes: {type: walnuts, organic: true, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Smokehouse, brand: Blue Diamond Almonds, expect: {category: snacks/nuts, attributes: {type: almonds, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Dry Roasted Macadamias Garlic Onion, brand: Mauna Loa, expect: {category: snacks/nuts, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:type', quantity, 'unit_price:per_mass']}}
+- {title: Honey Roasted Peanuts, brand: Planters, expect: {category: snacks/nuts, attributes: {type: peanuts, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Organic Raw Pecan Butter With Cashews, brand: Artisana, expect: {category: null}}
+- {title: Walnut Oil, brand: Spectrum, expect: {category: null}}

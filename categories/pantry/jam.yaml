@@ -1,0 +1,12 @@
+name: Jam and Preserves
+dimension: mass
+match:
+  include: [jam, preserves, preserve, fruit spread, spreadable fruit, marmalade, jelly, conserve, confiture]
+  exclude: [
+    # Savory "jams", look-alike words and sweets (#125).
+    bacon, garlic, onion, chili, pepper jelly, jalapeno, habanero, mint, jam-packed, jelly drink, drink, jellybeans, jelly beans, le conserve, ice cream, jeni's, biscuits, peanut butter]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [strawberry jam, grape jelly, preserves]
+food: true

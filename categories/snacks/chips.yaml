@@ -1,0 +1,14 @@
+name: Chips
+dimension: mass
+match:
+  include: [chips, potato chips, potato crisps, tortilla chips, vegetable chips, sun chips, terra chips, pringles, lay's, tostitos, poppables]
+  exclude: [
+    # Chocolate and baking chips, chip-flavored ice cream (#125).
+    chocolate, baking, carob, mini chips, enjoy life, ice cream, gelato, cookie, cookies,
+    # Pickle chips, dips and salsas.
+    grillo's, pickles, pickle chips, dip, salsa, chili crisp, chili crisps]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [potato chips, tortilla chips]
+food: true

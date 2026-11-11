@@ -1,0 +1,11 @@
+- {title: Chocolate Chip Cookies, brand: Tate's Bake Shop, price: '5.99', off_quantity: 7 oz, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 198.45}, unit_prices: {per_mass: '0.030184'}, unresolved: []}}
+- {title: Maria Cookies, brand: Goya, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Butter Cookie, brand: St Michel, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: LIMONE BISCOTTI, brand: NONNI'S BAKERY, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Chocolate Sandwich Cookies, brand: Oreo, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Vanilla Wafers, brand: BENTON'S, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Maple Sandwich Creme Cookies, brand: 'Dare, Dare Foods', expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Extra Dark Chocolate Cookies, brand: Guittard, expect: {category: snacks/cookies, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Biscoff Cookie Butter, brand: Lotus, expect: {category: null}}
+- {title: Ghost Shape Sugar Cookie Dough, brand: Pillsbury, expect: {category: null}}
+- {title: Cookies 'N Creme ZBAR, brand: Clif, expect: {category: null}}

@@ -61,6 +61,7 @@ from .seo import (
     category_title,
     jsonld,
     option_label,
+    priced_categories,
     public_origin,
     summarize_prices,
     website_jsonld,
@@ -109,6 +110,10 @@ def home(request):
             "coming_soon": settings.COMING_SOON,
             "location": location,
             "nearby": nearby,
+            # Like the sitemap: a category with no fresh prices is not linked (its page is noindex).
+            "browse_categories": Category.objects.filter(
+                active=True, pk__in=list(priced_categories(when))
+            ).order_by("name"),
         },
     )
     patch_vary_headers(response, ["Accept-Language"])

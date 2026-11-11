@@ -1,0 +1,15 @@
+name: Tea
+dimension: count
+match:
+  include: [tea, tea bags, black tea, green tea, herbal tea, chai, rooibos, earl grey, republic of tea]
+  exclude: [
+    # Ready-to-drink and brewed teas are drinks, not bags (#125).
+    iced, iced tea, ice tea, sweet tea, brewed, real brewed, lemonade, sparkling, fizz, drink, kombucha, active culture, fermented, hard, twisted tea, arizona, snapple, pure leaf, gold peak, bubble, milk tea, evolution, celsius, just ice tea,
+    latte, instant, concentrate, chai con, premix, beverage, mud water, mud/wtr, chai spice, spices, powder, matcha powder, k-cup, k-cups, kcup, pods,
+    ice cream, cookies, chocolate, honey for tea, cooking oil, oil]
+attributes:
+  type: {type: enum, values: [black, green, herbal], synonyms: {black: [black tea], green: [green tea], herbal: [herbal tea, herbal]}}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_bag}
+search: [tea, green tea, black tea, herbal tea]
+food: true

@@ -1,0 +1,12 @@
+- {title: Frosted Flakes of Corn, brand: Kellogg's, price: '9.98', off_quantity: 1700 g, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 1700.0}, unit_prices: {per_mass: '0.005871'}, unresolved: []}}
+- {title: Bran Flakes, brand: Bowl & Basket, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Reese's Puffs, brand: Reese's, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Cinnamon pebbles, brand: Post, off_quantity: 11 oz, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 311.84}, unresolved: []}}
+- {title: Honey comb, brand: Post, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Frosted Flakes Sweetened Flakes of Corn Cereal, brand: Trader Joe's, expect: {category: pantry/breakfast-cereal, attributes: {organic: false}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Corn Pops, brand: Kellogg's, expect: {category: pantry/breakfast-cereal, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Old Fashioned Rolled Oats, brand: Bob's Red Mill, expect: {category: null}}
+- {title: ORIGINAL ANCIENT GRAIN GRANOLA, brand: purely elizabeth., expect: {category: null}}
+- {title: OLD COUNTRY STYLE MUESLI WHOLE GRAIN HOT OR COLD CEREAL, brand: Bob's Red Mill, expect: {category: null}}
+- {title: Creamy Brown Rice Cereal, brand: Bob's Red Mill, expect: {category: null}}
+- {title: 'Kellogg''s Rice Krispies Breakfast Cereal, 12 oz', expect: {category: pantry/breakfast-cereal, measures: {mass_g: 340.19}}}

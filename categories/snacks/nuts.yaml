@@ -1,0 +1,19 @@
+name: Nuts
+dimension: mass
+match:
+  include: [nuts, almonds, cashews, peanuts, walnuts, pecans, pistachios, macadamias, hazelnuts, mixed nuts]
+  exclude: [
+    # Nut butters, milks, flours and oils (#125).
+    butter, nut butter, milk, almondmilk, almond breeze, milked, malk, flour, meal, oil,
+    # Sweets and other foods made with nuts.
+    chocolate, ritter sport, milka, toffee, candy, caramel, nougat, cookies, cookie, bar, bars, granola, oatmeal, ice cream, gelato, yogurt, creamer, cheese, nuts for cheese, dip, sauce, pesto, latte, k-cup, syrup, pie, bread, creamy, crunchy, spread]
+attributes:
+  type:
+    type: enum
+    values: [almonds, cashews, pistachios, walnuts, peanuts, pecans, mixed]
+    patterns: ['\b(mixed) nuts\b']
+    synonyms: {almonds: [almonds], cashews: [cashews], pistachios: [pistachios], walnuts: [walnuts], peanuts: [peanuts], pecans: [pecans]}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [almonds, cashews, mixed nuts]
+food: true

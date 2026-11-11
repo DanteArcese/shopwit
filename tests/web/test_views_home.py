@@ -21,7 +21,6 @@ def test_home_renders_search_and_categories(client, categories):
     assert 'type="search"' in html
     assert 'aria-label="Search products"' in html
     assert 'name="viewport" content="width=device-width, initial-scale=1"' in html
-    assert 'href="/c/dairy/milk/"' in html
     assert 'href="/disclosure"' in html
     assert 'aria-label="Search all products"' in html
 

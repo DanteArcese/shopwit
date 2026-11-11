@@ -29,8 +29,10 @@
 <section>
   <h2>Browse categories</h2>
   <ul class="category-list">
-    {% for category in active_categories %}
+    {% for category in browse_categories %}
     <li><a href="{% url 'category' category.slug %}">{{ category.name }}</a></li>
+    {% empty %}
+    <li>No category has recent prices yet.</li>
     {% endfor %}
   </ul>
 </section>

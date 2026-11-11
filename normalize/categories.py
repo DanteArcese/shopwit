@@ -14,7 +14,7 @@ import yaml
 Dimension = Literal["volume", "mass", "count", "paper", "laundry", "tissue"]
 
 KNOWN_COMPARISONS: frozenset[str] = frozenset(
-    {"per_volume", "per_mass", "per_count", "area_x_ply", "per_100_sheets", "per_roll", "per_load", "sheets_x_ply"}
+    {"per_volume", "per_mass", "per_count", "area_x_ply", "per_100_sheets", "per_roll", "per_load", "sheets_x_ply", "per_bag"}
 )
 
 _ATTR_TYPES = ("int", "enum", "bool")

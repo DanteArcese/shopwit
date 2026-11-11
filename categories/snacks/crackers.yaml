@@ -1,0 +1,12 @@
+name: Crackers
+dimension: mass
+match:
+  include: [crackers, cracker, cheez-it, goldfish]
+  exclude: [
+    # Cheese-and-cracker snack packs, crisps and pretzels (#125).
+    balanced breaks, cheese & crackers, lunchables, cracker stackers, hillshire, turkey, crisps, pretzels, firecracker, nutcracker, cracker barrel]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [crackers, cheese crackers]
+food: true

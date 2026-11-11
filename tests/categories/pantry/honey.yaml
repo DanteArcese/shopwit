@@ -1,0 +1,12 @@
+- {title: Pure Clover Honey, brand: Gunter's, price: '7.99', off_quantity: 16 oz, expect: {category: pantry/honey, attributes: {raw: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 453.59}, unit_prices: {per_mass: '0.017615'}, unresolved: []}}
+- {title: Raw & Unfiltered Honey, brand: Nate's Honey Co., expect: {category: pantry/honey, attributes: {raw: true, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Organic Raw Unfiltered Honey, brand: Wholesome, expect: {category: pantry/honey, attributes: {raw: true, organic: true, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Manuka Honey KFactor 16, brand: Wedderspoon, off_quantity: 340 g, expect: {category: pantry/honey, attributes: {raw: false, organic: false, brand_tier: name_brand}, measures: {mass_g: 340.0}, unresolved: []}}
+- {title: Clover Honey, brand: Signature Select, expect: {category: pantry/honey, attributes: {raw: false, organic: false, brand_tier: store_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: MGO 50+ Raw Multifloral Manuka Honey, brand: Manukora, expect: {category: pantry/honey, attributes: {raw: true, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Wildflower Honey Blend, brand: Local Hive, expect: {category: pantry/honey, attributes: {raw: false, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Hot Honey, brand: Mike's, expect: {category: null}}
+- {title: Honey Mustard, brand: Gulden's, expect: {category: null}}
+- {title: Crispy Honey Chicken, brand: INNOVASIAN, expect: {category: null}}
+- {title: Vanilla Bean Honey for Tea, brand: null, expect: {category: null}}
+- {title: '100% Organic Honey', brand: Rice's Honey, expect: {category: pantry/honey, attributes: {organic: true}}}

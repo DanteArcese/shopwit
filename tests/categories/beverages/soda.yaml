@@ -7,4 +7,3 @@
 - {title: 'Caffeine Free Diet Coke Soda, 12 fl oz, 12 Pack Cans', expect: {category: beverages/soda, attributes: {diet: true, caffeine_free: true}}}
 - {title: 'Dr Pepper Soda, 16.9 fl oz, 6 Pack Bottles', expect: {category: beverages/soda, measures: {volume_ml: 2998.75}}}
 - {title: 'Arm & Hammer Pure Baking Soda, 1 lb', expect: {category: null}}
-- {title: 'Nabisco Premium Soda Crackers, 16 oz', expect: {category: null}}

@@ -55,6 +55,7 @@ COMPARISONS: dict[str, Comparison] = {
         Comparison("per_roll", "roll", _measure("rolls")),
         Comparison("per_load", "load", _measure("loads")),
         Comparison("sheets_x_ply", "100 sheets·ply", _sheets_x_ply),
+        Comparison("per_bag", "bag", _measure("count")),  # tea bags: the count, labeled per bag
     )
 }
 

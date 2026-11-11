@@ -534,3 +534,30 @@ def test_observed_off_product_without_entry_has_no_nutrition():
     from catalog.observed import observed_off_product
 
     assert observed_off_product(None, [], None, []).nutrition is None
+
+
+def test_next_sync_recategorizes_existing_offer_after_new_category_file(settings, tmp_path):
+    """#125: the daily sync normalizes every observation in the window again, so an
+    observed offer stored before a category existed gains it on the next sync."""
+    import shutil
+
+    real = settings.CATEGORIES_DIR
+    without_tea = tmp_path / "categories"
+    shutil.copytree(real, without_tea)
+    (without_tea / "beverages" / "tea.yaml").unlink()
+    tea = obs(title="Organic Chamomile Herbal Tea 16 CT", brands="Traditional Medicinals",
+              quantity=None, labels=frozenset(), upc="0032917000149")
+
+    settings.CATEGORIES_DIR = without_tea
+    sync(tea)
+    offer = Offer.objects.get()
+    assert offer.category is None and offer.unit_prices == {}
+
+    settings.CATEGORIES_DIR = real
+    sync(tea, now=NOW + timedelta(days=1))
+    offer.refresh_from_db()
+    assert offer.category.slug == "beverages/tea"
+    assert offer.measures == {"count": 16.0}
+    assert offer.attributes["type"]["value"] == "herbal"
+    assert offer.unit_prices == {"per_bag": str((Decimal("4.99") / 16).quantize(Decimal("0.000001")))}
+    assert offer.product.category.slug == "beverages/tea"

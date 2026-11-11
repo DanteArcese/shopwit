@@ -1,0 +1,15 @@
+name: Plant-Based Milk
+dimension: volume
+match:
+  include: [oat milk, oatmilk, oat-milk, almond milk, almondmilk, soy milk, soymilk, cashew milk, cashewmilk, coconutmilk, coconut milk beverage, pistachio milk, pea milk, plant-based milk, plant based milk, almond beverage, soy beverage, coconut beverage, non-dairy beverage, milked almonds, milked oats, milked cashews, milked walnuts, almond breeze]
+  exclude: [
+    # Creamers, coffee drinks and desserts made with plant milk (#125).
+    creamer, latte, cold brew, coffee, frozen dessert, ice cream, yogurt, kefir, cultured, shake, protein,
+    # Flavored plant milks, like chocolate dairy milk.
+    chocolate, dark chocolate, cocoa, strawberry, strawberries]
+attributes:
+  base: {type: enum, values: [oat, almond, soy, coconut], synonyms: {oat: [oat, oats, oatmilk, oat-milk, planet oat], almond: [almond, almonds, almondmilk, almond breeze], soy: [soy, soymilk], coconut: [coconut, coconutmilk]}}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_volume}
+search: [oat milk, almond milk, soy milk]
+food: true

@@ -1,0 +1,15 @@
+name: Honey
+dimension: mass
+match:
+  include: [honey]
+  exclude: [
+    # Foods flavored with honey (#125).
+    hot honey, mustard, dressing, vinaigrette, sauce, bbq, barbecue, ketchup, marinara, sriracha, garlic, chili, chipotle, habanero, harissa,
+    chicken, ham, turkey, salmon, smoked, fish, cheese, goat, roasted, toasted, peanuts, almonds, peanut butter, nougat, chocolate, cacao, infused, vanilla, cinnamon,
+    tea, yogi, caffeine, ginseng, throat, cereal, honey comb, o's, smacks, chips, biscuits, bagelettes, bread, wheat, yogurt, ice cream, stuffing, mix, butter, pretzel, pretzels, nut]
+attributes:
+  raw: {type: bool, synonyms: {true: [raw]}, absent: false}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [honey, raw honey, manuka honey]
+food: true
