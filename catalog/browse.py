@@ -20,7 +20,8 @@ from normalize.compare import COMPARISONS
 from .freshness import fresh_observed, fresh_offers
 from .geo import Near, bounding_box, within
 from .models import Category, Offer, Product
-from .nutrition import nutrition_cost, uncosted_reason
+from .nutrition import SIZE_COMPARISONS, nutrition_cost, uncosted_reason
+from .outliers import HELD_REASON
 
 BRAND_TIERS = ("name_brand", "store_brand")
 SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2", "laundry": "loads", "tissue": "sheets"}
@@ -28,8 +29,6 @@ SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper":
 SIZE_TOLERANCE = 1e-9
 # Attributes a comparison's unit price depends on, beyond quantity.
 COMPARISON_ATTRS = {"area_x_ply": {"ply"}, "sheets_x_ply": {"ply"}}
-# A unit price the outlier pass held from ranking (#127, catalog/outliers.py).
-HELD_REASON = "size looks wrong (held for review)"
 
 
 @dataclass(frozen=True)
@@ -283,10 +282,18 @@ def nutrition_rankable(
     if near is not None:
         seen = seen.filter(_in_box(near))
     costed = Q(protein_cost__isnull=False) | Q(kcal_cost__isnull=False)
+    held = Q(pk__in=[])  # an offer whose costed pack size is held has no cost (#127)
+    for unit, held_comparison in SIZE_COMPARISONS.items():
+        held |= Q(pack_unit=unit, held_comparisons__has_key=held_comparison)
     return (
         (live | seen)
-        .annotate(protein_cost=KT("nutrition__protein_cost"), kcal_cost=KT("nutrition__kcal_cost"))
+        .annotate(
+            protein_cost=KT("nutrition__protein_cost"),
+            kcal_cost=KT("nutrition__kcal_cost"),
+            pack_unit=KT("nutrition__pack_unit"),
+        )
         .filter(costed)
+        .exclude(held)
         .exists()
     )
 

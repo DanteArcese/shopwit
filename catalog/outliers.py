@@ -28,6 +28,8 @@ logger = logging.getLogger(__name__)
 MIN_OFFERS = 5
 RATIO = Decimal(10)
 DETAIL_PREFIX = "outlier:"
+# Why a held offer is unranked: by unit price, by nutrition cost and in generic search.
+HELD_REASON = "size looks wrong (held for review)"
 
 
 def median(values: list[Decimal]) -> Decimal:

@@ -28,6 +28,7 @@ from django.http import QueryDict
 from catalog.browse import BRAND_TIERS, SIZE_TOLERANCE, _tie
 from catalog.freshness import fresh_observed, fresh_offers
 from catalog.models import Offer, Product
+from catalog.outliers import HELD_REASON
 from catalog.nutrition import nutrition_cost, uncosted_reason
 from catalog.units import (
     FL_OZ_PER_GAL,
@@ -145,8 +146,13 @@ def match_offers(
     return Match(offers=offers, fuzzy=fuzzy, capped=capped)
 
 
+def _generic_price(offer: Offer) -> Decimal | None:
+    """The generic unit price, or None while the outlier pass holds the offer's size (#127)."""
+    return None if offer.held_comparisons else offer.generic_unit_price
+
+
 def _unit_key(offer: Offer) -> tuple:
-    unit = offer.generic_unit_price
+    unit = _generic_price(offer)
     return (unit is None, unit if unit is not None else Decimal(0), offer.price, offer.retailer, _tie(offer), offer.id)
 
 
@@ -174,11 +180,16 @@ def group_products(offers: Iterable[Offer], rank: str = "unit") -> GenericResult
             costed = [(c, o) for o in same if nutrition and (c := nutrition_cost(o, rank)) is not None]
             if costed:
                 cost, best = min(costed, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1]), t[1].id))
-                row = GenericRow(product, best, best.generic_unit_price, None, cost)
+                row = GenericRow(product, best, _generic_price(best), None, cost)
             else:
                 best = min(same, key=_unit_key)
-                reason = uncosted_reason(sorted(same, key=_unit_key), rank) if nutrition else None
-                row = GenericRow(product, best, best.generic_unit_price, reason)
+                if nutrition:
+                    reason = uncosted_reason(sorted(same, key=_unit_key), rank)
+                elif _generic_price(best) is None and best.held_comparisons:
+                    reason = HELD_REASON  # every offer's size is held: listed, never ranked
+                else:
+                    reason = None
+                row = GenericRow(product, best, _generic_price(best), reason)
             grouped.setdefault(dim, []).append(row)
         else:
             cheapest = min(product_offers, key=_price_key)
@@ -188,7 +199,8 @@ def group_products(offers: Iterable[Offer], rank: str = "unit") -> GenericResult
     def row_key(row: GenericRow) -> tuple:
         o = row.offer
         unit = row.unit_price
-        return (unit is None, unit if unit is not None else Decimal(0), o.price, row.product.title, o.retailer, o.id)
+        held = row.reason == HELD_REASON
+        return (held, unit is None, unit if unit is not None else Decimal(0), o.price, row.product.title, o.retailer, o.id)
 
     def nutrition_key(row: GenericRow) -> tuple:
         o = row.offer
@@ -202,7 +214,8 @@ def group_products(offers: Iterable[Offer], rank: str = "unit") -> GenericResult
             rest = sorted((r for r in rows if r.cost is None), key=nutrition_key)
             groups.append(MeasureGroup(dim, costed + rest, len(rows), len(costed)))
         else:
-            groups.append(MeasureGroup(dim, sorted(rows, key=row_key), len(rows)))
+            held = sum(r.reason == HELD_REASON for r in rows)
+            groups.append(MeasureGroup(dim, sorted(rows, key=row_key), len(rows), len(rows) - held))
     groups.sort(key=lambda g: (-g.total, order.get(g.dimension, len(order))))
     unknown.sort(key=lambda r: (r.offer.price, r.product.title, r.offer.retailer, r.offer.id))
     return GenericResult(groups=groups, unknown=unknown, total_products=len(by_product))
