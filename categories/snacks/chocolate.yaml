@@ -1,0 +1,18 @@
+name: Chocolate
+dimension: mass
+match:
+  include: [dark chocolate, milk chocolate, white chocolate, chocolate bar, chocolate bars, chocolate chips, chocolate chunks, baking chips, semi-sweet chocolate, semisweet chocolate, bittersweet chocolate, unsweetened chocolate, baking chocolate, chocolates, chocolate candies, chocolate candy, chocolate truffles, lindor, chocolove, ghirardelli, ritter sport, toblerone, taza chocolate, raaka chocolate, theo chocolate, endangered species chocolate, seattle chocolate, chuao chocolatier, chocolonely]
+  exclude: [
+    # Chocolate milk and cocoa drinks (#125).
+    chocolate milk, almond milk, almondmilk, oat, soy, plant-based, malk, fairlife, lactaid, ultra-filtered, shake, milk shake, protein, drink, drinking chocolate, hot cocoa, cocoa mix, latte, coffee, creamer, monster,
+    cocoa powder, cacao powder, baking cocoa, powder, syrup, sauce, spread, frosting, mix,
+    # Ice cream, cookies and other foods with chocolate in them.
+    ice cream, gelato, frozen, culture cup, bombe, jeni's, jenis, cone, van leeuwen, yogurt,
+    cookie, cookies, biscuits, biscotti, cake, tart, donuts, brownie, pop-tarts, cereal, granola, oats, oatmeal, pancakes, waffle, macarons,
+    peanut butter, nut butter, rxbar, covered, freeze-dried, stout, elixir, lunchables]
+attributes:
+  type: {type: enum, values: [dark, milk, white], synonyms: {dark: [dark chocolate, dark], milk: [milk chocolate], white: [white chocolate]}}
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [dark chocolate, milk chocolate, chocolate chips]
+food: true

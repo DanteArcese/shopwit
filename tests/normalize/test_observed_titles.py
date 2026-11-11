@@ -22,6 +22,9 @@ BREAD, RICE, PASTA, FLOUR = "pantry/bread", "pantry/rice", "pantry/pasta", "pant
 PB, OIL, SUGAR = "pantry/peanut-butter", "pantry/cooking-oil", "pantry/sugar"
 WATER, SPARKLING = "beverages/bottled-water", "beverages/sparkling-water"
 OJ, SODA = "beverages/orange-juice", "beverages/soda"
+# #125: these titles stayed out of every category before; now they have their own.
+TEA, PLANT_MILK, ICE_CREAM = "beverages/tea", "beverages/plant-milk", "frozen/ice-cream"
+CHOCOLATE, HONEY, NUTS = "snacks/chocolate", "pantry/honey", "snacks/nuts"
 
 CASES = [
     # Milk: plain dairy milk matches.
@@ -49,20 +52,20 @@ CASES = [
     # Milk: flavored and non-dairy "milks".
     ("Vanilla Ultra Filtered Milk", "Barebells", None),
     ("Strawberry Milk", "Spyt", None),
-    ("Pistachio Milk", "TÁCHE", None),
+    ("Pistachio Milk", "TÁCHE", PLANT_MILK),
     ("organic banana milk", "Mooala", None),
     ("Horchata Milk", "Moozy", None),
     ("DAIRY-FREE MILK", "ripple", None),
-    ("Original Plant-Based Milk Kids", "Ripple Foods", None),
+    ("Original Plant-Based Milk Kids", "Ripple Foods", PLANT_MILK),
     ("Animal Free Dairy Milk", "Strive Freemilk", None),
     ("Choco milk powder drink mix", "Choco Milk", None),
     ("Original malted milk", "Nestlé", None),
     # Milk: teas, candy, desserts.
     ("Brown sugar bubble milk tea", "Rico Bubble Milk Tea", None),
     ("Organic Mother's Milk", "Traditional Medicinals", None),
-    ("Milk Thistle Tea", None, None),
+    ("Milk Thistle Tea", None, TEA),
     ("Milk Duds Candy", "Milk Duds", None),
-    ("Milk Pistachio Truffles", "Lindt Lindor", None),
+    ("Milk Pistachio Truffles", "Lindt Lindor", CHOCOLATE),
     ("Choceur Creamy Milk", "Choceur", None),
     ("Feastables - Milk Crunch", "Feastables, MrBeast", None),
     ("Rye Crumb, Milk & Sea Salt", "Pump Street", None),
@@ -109,8 +112,8 @@ CASES = [
     ("The Original Coffee mate Rich & Smooth", "Nestlé", None),
     ("Coffee Enhancer French Vanilla", "International Delight", None),
     ("Vanilla Coffee Syrup", "Signature Select", None),
-    ("Coffee Ice Cream", "Häagen-Dazs", None),
-    ("Coffee Chip Gelato", "Gelato Boy", None),
+    ("Coffee Ice Cream", "Häagen-Dazs", ICE_CREAM),
+    ("Coffee Chip Gelato", "Gelato Boy", ICE_CREAM),
     ("Yasso Coffee Frozen Yogurt", "Yasso", None),
     ("Coffee Affogato", "Van Leeuwen", None),
     ("Groundwork Coffee & Toffee", "Alec's", None),
@@ -142,7 +145,7 @@ CASES = [
     ("Organic Mini Bagels Plain Awesome", "Dave's Killer Bread", None),
     ("Brazilian Cheese Bread Cheddar & Parmesan", "Brazi Bites", None),
     ("Garlic bread", "Pepperidge farm", None),
-    ("100% Organic Honey", "Rice's Honey", None),
+    ("100% Organic Honey", "Rice's Honey", HONEY),
     ("Rice Vinegar", "Marukan", None),
     ("Chicken Fried Rice", "P.F. Chang's Home Menu", None),
     ("Rice Seasoning", "NORI KOMI FURIKAKE", None),
@@ -261,11 +264,11 @@ CASES = [
         ("Black Cherry Coffee Soda", None, None),
     ("Sparkling Coffee", "Stumptown", None),
     ("Sparkling Orange Juice", None, None),
-    # Household bags: tea bags, snack bags and brands with "liner" stay out.
-    ("Earl grey black tea bags", "twinings", None),
-    ("Organic Awake english breakfast tea 16 tea bags", "Tazo", None),
+    # Household bags: snack bags and brands with "liner" stay out; tea bags are tea (#125).
+    ("Earl grey black tea bags", "twinings", TEA),
+    ("Organic Awake english breakfast tea 16 tea bags", "Tazo", TEA),
     ("Nerds gummy clusters peg bag", "Nerds", None),
-    ("Sabritas Chili Lime Peanuts 7 Ounce Plastic Bag", None, None),
+    ("Sabritas Chili Lime Peanuts 7 Ounce Plastic Bag", None, NUTS),
     ("Asian Grill Rubbed Salmon", "Sea Cuisine, High Liner Foods (Usa) Incorporated", None),
     # Household paper and bags: precedence and collisions (no real members in the data).
     ("Kleenex Facial Tissues 2-Ply", "Kleenex", "household/facial-tissue"),

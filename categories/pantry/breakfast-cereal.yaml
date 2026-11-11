@@ -1,0 +1,14 @@
+name: Breakfast Cereal
+dimension: mass
+match:
+  include: [cereal, frosted flakes, bran flakes, corn flakes, cheerios, lucky charms, cinnamon toast crunch, fruit loops, froot loops, corn pops, honey smacks, special k, reese's puffs, cocoa puffs, pebbles, honey comb, raisin bran, chex, kix, grape-nuts]
+  exclude: [
+    # Oats, granola and muesli are separate (#125), as are hot cereals.
+    granola, muesli, oatmeal, rolled oats, steel cut, overnight, instant, hot cereal, hot or cold, creamy, baby,
+    # Bars, snacks and treats made from cereal.
+    bar, bars, pop-tarts, pop tarts, treats, chex mix, snack mix, mix, milk, ice cream, yogurt]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_mass}
+search: [cereal, breakfast cereal]
+food: true

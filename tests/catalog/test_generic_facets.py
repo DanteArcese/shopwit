@@ -173,7 +173,7 @@ def test_generic_never_invents_attribute():
 
     sync_categories(settings.CATEGORIES_DIR)
     milk = Category.objects.get(slug="dairy/milk")
-    organic = raw(title="Organic Gluten Free Oat Milk", item="O1", brand="Oatly")
+    organic = raw(title="Organic Gluten Free Lemonade", item="O1", brand="Simply")
     conn = FakeConnector({milk.search[0]: SearchResult(offers=[organic], skipped=0)})
     ingest(conn, milk, NOW, off_lookup=lambda upc: None)
     offer = Offer.objects.get(retailer_item_id="O1")
@@ -181,14 +181,14 @@ def test_generic_never_invents_attribute():
     assert offer.labels == [] and "organic" not in str(offer.attributes)
     assert apply_filters([offer], parse("label=en:organic"), STORE_BRANDS) == []
 
-    with_off = raw(title="Organic Gluten Free Oat Milk", item="O1", brand="Oatly", upc="012345678905")
+    with_off = raw(title="Organic Gluten Free Lemonade", item="O1", brand="Simply", upc="012345678905")
     conn = FakeConnector({milk.search[0]: SearchResult(offers=[with_off], skipped=0)})
     ingest(conn, milk, NOW, off_lookup=lambda upc: OffProduct(labels=frozenset({"en:organic"})))
     offer = Offer.objects.get(retailer_item_id="O1")
     assert offer.labels == ["en:organic"]
     assert apply_filters([offer], parse("label=en:organic"), STORE_BRANDS) == [offer]
 
-    gv = raw(title="Great Value Oat Milk", item="G1", brand=None)
+    gv = raw(title="Great Value Lemonade", item="G1", brand=None)
     conn = FakeConnector({milk.search[0]: SearchResult(offers=[gv], skipped=0)})
     ingest(conn, milk, NOW, off_lookup=lambda upc: None)
     gv_offer = Offer.objects.get(retailer_item_id="G1")

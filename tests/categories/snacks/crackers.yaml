@@ -1,0 +1,14 @@
+- {title: Original Baked Snack Crackers, brand: Cheez-It, price: '4.29', off_quantity: 12.4 oz, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 351.53}, unit_prices: {per_mass: '0.012204'}, unresolved: []}}
+- {title: Goldfish Crackers, brand: Pepperidge Farm, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Crunchmaster Multi-Grain 6-Seed Crunchy Baked Rice Crackers, brand: Crunchmaster, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Seeded Crackers, brand: Specially Selected, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: 'Jacob''s, cream crackers', brand: Jacob's, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Pretzel Baked Snack Crackers, brand: Goldfish, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: White Cheddar Baked Snack Crackers, brand: Cheez-It, expect: {category: snacks/crackers, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Cheese & Crackers, brand: Sargento Balanced Breaks, expect: {category: null}}
+- {title: White Cheddar Crisps, brand: Goldfish, expect: {category: null}}
+- {title: Seasoned Pretzels, brand: Goldfish, expect: {category: null}}
+- {title: Ham & Cheddar Cracker Stackers with Vanilla Crème Cookies, brand: Lunchables, expect: {category: null}}
+- {title: 'Nabisco Premium Soda Crackers, 16 oz', expect: {category: snacks/crackers, measures: {mass_g: 453.59}}}
+- {title: 'Cheez-It Original Cheddar Crackers, 12.4 oz', expect: {category: snacks/crackers, measures: {mass_g: 351.53}}}
+- {title: 'Ritz Peanut Butter Cracker Sandwiches, 8 ct', expect: {category: snacks/crackers, measures: {}}}

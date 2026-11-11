@@ -1,0 +1,12 @@
+- {title: Excellence 78% Cocoa Dark Chocolate, brand: Lindt, price: '3.99', off_quantity: 3.5 oz, expect: {category: snacks/chocolate, attributes: {type: dark, organic: false, brand_tier: name_brand}, measures: {mass_g: 99.22}, unit_prices: {per_mass: '0.040212'}, unresolved: []}}
+- {title: Milk Chocolate, brand: Tony's Chocolonely, off_quantity: 180 g, expect: {category: snacks/chocolate, attributes: {type: milk, organic: false, brand_tier: name_brand}, measures: {mass_g: 180.0}, unresolved: []}}
+- {title: Semi-Sweet Chocolate Chips, brand: Ghirardelli, off_quantity: 340 g, expect: {category: snacks/chocolate, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 340.0}, unresolved: ['attribute:type']}}
+- {title: 'Classic recipe white chocolate, classic recipe', brand: 'Lindt,Lindt & Sprungli (Usa) Inc.', expect: {category: snacks/chocolate, attributes: {type: white, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Organic Mint 70% Dark Chocolate, brand: 'Theo, Theo Chocolate', expect: {category: snacks/chocolate, attributes: {type: dark, organic: true, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Fine Hazelnut Chocolates, brand: Ferrero Rocher, expect: {category: snacks/chocolate, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:type', quantity, 'unit_price:per_mass']}}
+- {title: Hungry Blackberry Dark & White Chocolate Truffle Bar, brand: Maeve, expect: {category: snacks/chocolate, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:type:ambiguous', quantity, 'unit_price:per_mass']}}
+- {title: Chocolate milk, brand: Pioneer, expect: {category: null}}
+- {title: 'Hot Cocoa Mix, Double Chocolate', brand: Ghirardelli, expect: {category: null}}
+- {title: Almond Milk Dark Chocolate, brand: Silk, expect: {category: null}}
+- {title: Dark Chocolate Premium Sauce, brand: Sunday Night, expect: {category: null}}
+- {title: caramel & milk chocolate cookie bars, brand: Twix, expect: {category: null}}

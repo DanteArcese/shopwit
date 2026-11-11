@@ -1,0 +1,14 @@
+name: Ice Cream
+dimension: volume
+match:
+  include: [ice cream, gelato, frozen dessert, sorbet, sorbetto]
+  exclude: [
+    # Bars, cones and sandwiches are counted treats, not tubs (#125).
+    bar, bars, cone, cones, sandwich, sandwiches,
+    # Coffee drinks named after gelato.
+    frappuccino, coffee drink, starbucks]
+attributes:
+  organic: {type: bool, synonyms: {true: [organic, o organics]}, off_label: en:organic, absent: false}
+comparison: {default: per_volume}
+search: [ice cream, gelato, vanilla ice cream]
+food: true

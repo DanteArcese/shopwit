@@ -443,7 +443,7 @@ def test_ingest_live_writes_curated_and_generic(milk):
         offers=[
             raw(LACTAID, retailer="walmart", item="W1"),
             raw(
-                "Oatly Oat Milk, 64 fl oz", retailer="walmart", item="W2", brand="Oatly"
+                "Simply Lemonade, 64 fl oz", retailer="walmart", item="W2", brand="Simply"
             ),
         ]
     )

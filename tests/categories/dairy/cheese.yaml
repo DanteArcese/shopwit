@@ -7,7 +7,6 @@
 - {title: 'Sargento Shredded Colby & Monterey Jack Cheese, 8 oz', brand: Sargento, expect: {category: dairy/cheese, attributes: {form: shredded}, unresolved: ['attribute:variety:ambiguous']}}
 - {title: 'Cracker Barrel Extra Sharp White Cheddar Cheese, 8 oz', expect: {category: dairy/cheese, attributes: {variety: cheddar}, measures: {mass_g: 226.8}}}
 - {title: 'Philadelphia Original Cream Cheese, 8 oz', expect: {category: null}}
-- {title: 'Cheez-It Original Cheddar Crackers, 12.4 oz', expect: {category: null}}
 - {title: 'Farm Rich Breaded Mozzarella Sticks, 22 oz', expect: {category: null}}
 - {title: 'Extra Sharp Cheddar Cheese', expect: {category: dairy/cheese, attributes: {variety: cheddar}}}
 - {title: 'Sliced swiss cheese', expect: {category: dairy/cheese, attributes: {form: sliced, variety: swiss}}}

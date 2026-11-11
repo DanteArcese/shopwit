@@ -88,6 +88,8 @@ Off by default. To enable, add `UNITPRICER_OPEN_PRICES=1` to `/srv/unitpricer/ap
 docker compose run --rm -T web python manage.py open_prices_sync </dev/null
 ```
 
+Each sync normalizes every observation in the window again, so a new or edited category file (which `deploy.sh` loads with `sync_categories`) reaches existing in-store offers at the next daily sync, or at once with the command above. No separate recategorize step is needed.
+
 Confirm the `ingest connector=openprices category=all status=succeeded` log line shows `fetched` of about 10,500 (about 5,000 with assisted entries off), and that `/c/dairy/milk/` on the beta host shows "Seen in stores". The ODbL export for a data request: `docker compose run --rm -T web python manage.py export_open_prices --out /tmp/open-prices.jsonl.gz </dev/null` (write to a mounted path to keep the file). The public site has no dump link yet; that waits for the public launch.
 
 #### Sizes from Open Food Facts

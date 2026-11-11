@@ -176,6 +176,10 @@ FOOD_SLUGS = {
     "pantry/bread", "pantry/cooking-oil", "pantry/flour", "pantry/pasta",
     "pantry/peanut-butter", "pantry/protein-powder", "pantry/rice", "pantry/sugar",
     "beverages/orange-juice", "beverages/soda",
+    # #125
+    "beverages/tea", "beverages/plant-milk", "frozen/ice-cream", "pantry/jam", "pantry/honey",
+    "pantry/breakfast-cereal", "snacks/nuts", "snacks/chocolate", "snacks/cookies",
+    "snacks/crackers", "snacks/chips",
 }
 
 

@@ -220,7 +220,7 @@ def test_admin_on_beta_with_token(client, private_key):
 
 
 @pytest.mark.django_db
-@pytest.mark.parametrize("path", ["/", "/admin/", "/search?q=green+tea"])
+@pytest.mark.parametrize("path", ["/", "/admin/", "/search?q=lemonade"])
 def test_unknown_host_still_400(client, path):
     assert client.get(path, HTTP_HOST="evil.example").status_code == 400
 

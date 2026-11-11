@@ -66,3 +66,10 @@ def test_sheets_x_ply():
         "per_100_sheets": Decimal("1.665625"),
     }
     assert unit_prices(Decimal("15.99"), c, {"sheets": 960}, {}) == {"per_100_sheets": Decimal("1.665625")}
+
+
+def test_per_bag_price():
+    c = cat("per_bag", dimension="count")
+    assert COMPARISONS["per_bag"].unit_label == "bag"
+    assert unit_prices(Decimal("4.99"), c, {"count": 20}, {}) == {"per_bag": Decimal("0.249500")}
+    assert unit_prices(Decimal("4.99"), c, {"mass_g": 40}, {}) == {}

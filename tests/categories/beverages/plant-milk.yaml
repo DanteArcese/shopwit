@@ -1,0 +1,13 @@
+- {title: Oat Milk, brand: Oatly, price: '4.49', off_quantity: 32 fl oz, expect: {category: beverages/plant-milk, attributes: {base: oat, organic: false, brand_tier: name_brand}, measures: {volume_ml: 946.35}, unit_prices: {per_volume: '0.004745'}, unresolved: []}}
+- {title: Almondmilk, brand: Califia Farms, off_quantity: 48 fl oz, expect: {category: beverages/plant-milk, attributes: {base: almond, organic: false, brand_tier: name_brand}, measures: {volume_ml: 1419.53}, unresolved: []}}
+- {title: Organic Non-Dairy Soy Beverage Unsweetened, brand: Trader Joe's, expect: {category: beverages/plant-milk, attributes: {base: soy, organic: true}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: NON-DAIRY COCONUT BEVERAGE UNSWEETENED, brand: Trader Joe's, expect: {category: beverages/plant-milk, attributes: {base: coconut, organic: false}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: Coconut & Almondmilk Blend, brand: Califia Farms, expect: {category: beverages/plant-milk, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:base:ambiguous', quantity, 'unit_price:per_volume']}}
+- {title: MILKED ALMONDS UNSWEETENED, brand: Elmhurst, expect: {category: beverages/plant-milk, attributes: {base: almond, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: Pistachio Milk, brand: TÁCHE, expect: {category: beverages/plant-milk, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:base', quantity, 'unit_price:per_volume']}}
+- {title: Sweet and creamy oat milk creamer, brand: Oatly, expect: {category: null}}
+- {title: Chocolate Plant-based Milk, brand: Ripple Foods, expect: {category: null}}
+- {title: Coconut Milk, brand: CHAOKOH, expect: {category: null}}
+- {title: oat milk latte, brand: equator, expect: {category: null}}
+- {title: 'Silk Unsweetened Almond Milk, 64 fl oz', expect: {category: beverages/plant-milk, attributes: {base: almond}, measures: {volume_ml: 1892.71}}}
+- {title: 'Silk Cashew Milk, 64 fl oz', expect: {category: beverages/plant-milk, measures: {volume_ml: 1892.71}, unresolved: ['attribute:base', 'attribute:brand_tier']}}

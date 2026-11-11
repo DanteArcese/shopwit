@@ -1,0 +1,12 @@
+- {title: STONEWALL SW-K AANGO PEACH JAM 340G, brand: Stonewall Kitchen, price: '8.95', expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 340.0}, unit_prices: {per_mass: '0.026324'}, unresolved: []}}
+- {title: 'Brins - Strawberry Lemongrass Jam, 7.5oz (212.6g) Jar', brand: Brins, expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 212.62}, unresolved: []}}
+- {title: Strawberry Preserves, brand: Bonne Maman, off_quantity: 370 g, expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 370.0}, unresolved: []}}
+- {title: Concord Grape Jelly, brand: 'Welch Foods Inc, Welch''s', expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Orange Marmalade Spread, brand: St. Dalfour, expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Organic Raspberry Fruit Spread, brand: O Organics, expect: {category: pantry/jam, attributes: {organic: true, brand_tier: store_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: Wilkin and Sons Tiny Tip Raspberry Conserve 340g, brand: Wilkin & Sons, expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {mass_g: 340.0}, unresolved: []}}
+- {title: Polaner All Fruit Spreadable Fruit Concord Grape, brand: Polaner, expect: {category: pantry/jam, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_mass']}}
+- {title: 'Stonewall Kitchen - Bourbon Bacon Jam, 12.5oz (355g)', brand: Stonewall Kitchen, expect: {category: null}}
+- {title: Roasted Garlic Onion Jam, brand: Stonewall Kitchen, expect: {category: null}}
+- {title: Lychee Jelly Drink, brand: null, expect: {category: null}}
+- {title: Hot Pepper Jelly, brand: Stonewall Kitchen, expect: {category: null}}

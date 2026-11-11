@@ -9,7 +9,7 @@ APEX_ROUTES = [
     ("get", "/", {}),
     ("get", "/c/dairy/milk/", {}),
     ("get", "/c/dairy/milk/", {"HTTP_HX_REQUEST": "true"}),
-    ("get", "/search?q=green+tea", {}),
+    ("get", "/search?q=lemonade", {}),
     ("get", "/settings", {}),
     ("get", "/disclosure", {}),
     ("get", "/feedback", {}),

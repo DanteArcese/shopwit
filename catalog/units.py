@@ -43,6 +43,8 @@ DISPLAY: dict[tuple[str, str], tuple[str, Decimal]] = {
     ("sheets_x_ply", "metric"): ("100 sheets·ply", ONE),
     ("per_load", "imperial"): ("load", ONE),
     ("per_load", "metric"): ("load", ONE),
+    ("per_bag", "imperial"): ("bag", ONE),
+    ("per_bag", "metric"): ("bag", ONE),
     ("per_oz_labeled", "imperial"): ("oz (as labeled)", ONE),
     ("per_oz_labeled", "metric"): ("oz (as labeled)", ONE),
 }

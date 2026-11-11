@@ -17,7 +17,7 @@ from connectors.walmart import WalmartConnector
 from normalize.types import OffProduct
 from tests.catalog.helpers import LACTAID, NOW, FakeConnector, no_off, raw
 
-OATLY = "Oatly Oat Milk, 64 fl oz"
+GENERIC = "Simply Lemonade, 64 fl oz"  # matches no category
 
 
 @pytest.fixture
@@ -32,7 +32,7 @@ def run_ingest(milk, offers, off_lookup=no_off, **kw):
 
 
 def test_scheduled_ingest_keeps_unmatched(milk):
-    run = run_ingest(milk, [raw(title=OATLY, item="O1", brand="Oatly")])
+    run = run_ingest(milk, [raw(title=GENERIC, item="O1", brand="Simply")])
     offer = Offer.objects.get(retailer_item_id="O1")
     assert offer.category is None and offer.product.category is None
     assert offer.measure_dim == "volume"
@@ -55,7 +55,7 @@ def test_curated_offer_gets_generic_fields(milk):
 
 
 def test_generic_product_opens_no_review_item(milk):
-    run_ingest(milk, [raw(title=OATLY, item="O1", brand="Oatly")])
+    run_ingest(milk, [raw(title=GENERIC, item="O1", brand="Simply")])
     merge_product(Product.objects.get(identity="fake:O1"), NOW)
     assert ReviewItem.objects.count() == 0
 
@@ -99,7 +99,7 @@ def test_labels_and_off_path_from_off_entry(milk):
 
 def test_walmart_never_in_price_history_generic(milk):
     conn = FakeConnector(
-        {milk.search[0]: SearchResult([raw(title=OATLY, item="O1", retailer="walmart")], 0)},
+        {milk.search[0]: SearchResult([raw(title=GENERIC, item="O1", retailer="walmart")], 0)},
         records_price_history=False,
     )
     ingest(conn, milk, NOW, off_lookup=no_off)
@@ -112,7 +112,7 @@ def test_backfill_generic_idempotent(milk):
 
     run_ingest(
         milk,
-        [raw(upc="0093966010015"), raw(title=OATLY, item="O1", brand="Oatly")],
+        [raw(upc="0093966010015"), raw(title=GENERIC, item="O1", brand="Simply")],
         off_lookup=lookup,
     )
     want = {
@@ -157,7 +157,7 @@ def _cat(offer):
 
 
 def test_generic_then_curated_gains_category(milk):
-    run_ingest(milk, [raw(title=OATLY, item="G1", upc="0093966010015", brand=None)])
+    run_ingest(milk, [raw(title=GENERIC, item="G1", upc="0093966010015", brand=None)])
     product = Product.objects.get()
     assert product.category is None
     run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="other")])
@@ -169,7 +169,7 @@ def test_generic_then_curated_gains_category(milk):
 def test_curated_then_generic_keeps_category(milk):
     run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="zeta")])
     # a generic offer from a retailer that sorts first
-    run_ingest(milk, [raw(title=OATLY, item="G1", upc="0093966010015", retailer="alpha", brand=None)])
+    run_ingest(milk, [raw(title=GENERIC, item="G1", upc="0093966010015", retailer="alpha", brand=None)])
     product = Product.objects.get()
     assert product.category == milk
     assert not ReviewItem.objects.filter(detail="category").exists()
@@ -177,7 +177,7 @@ def test_curated_then_generic_keeps_category(milk):
 
 def test_curated_offer_reingested_as_unmatched_keeps_product_category(milk):
     run_ingest(milk, [raw(item="C1", upc="0093966010015", retailer="a"), raw(item="C2", upc="0093966010015", retailer="b")])
-    run_ingest(milk, [raw(title=OATLY, item="C1", upc="0093966010015", retailer="a", brand=None)])
+    run_ingest(milk, [raw(title=GENERIC, item="C1", upc="0093966010015", retailer="a", brand=None)])
     assert Offer.objects.get(retailer="a").category is None
     assert Product.objects.get().category == milk
     assert not ReviewItem.objects.filter(detail="category").exists()

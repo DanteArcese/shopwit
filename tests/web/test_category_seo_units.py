@@ -25,6 +25,7 @@ from web.seo import (
         ("each", "item"),
         ("roll", "roll"),
         ("load", "load"),
+        ("bag", "bag"),
         ("100 sheets", "100 sheets"),
         ("100 sheets·ply", "100 sheets·ply"),
         ("100 sq ft·ply", "100 sq ft·ply"),

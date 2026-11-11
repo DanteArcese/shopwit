@@ -84,7 +84,7 @@ def test_paper_towels_plural_both_ways():
 
 
 def test_leftover_never_mutated():
-    assert r("chocolates milk").leftover == "chocolates"
+    assert r("biscuits milk").leftover == "biscuits"
     assert r("kirkland large eggs").leftover == "kirkland"
 
 
@@ -209,3 +209,34 @@ def test_cleaning(text, category, filters):
     res = r(text)
     assert res.category == category
     assert res.filters == filters
+
+
+@pytest.mark.parametrize(
+    "text, category, filters",
+    [
+        ("green tea", "beverages/tea", {"type": "green"}),
+        ("oat milk", "beverages/plant-milk", {"base": "oat"}),
+        ("almond milk", "beverages/plant-milk", {"base": "almond"}),
+        ("almonds", "snacks/nuts", {"type": "almonds"}),
+        ("nuts", "snacks/nuts", {}),
+        ("ice cream", "frozen/ice-cream", {}),
+        ("dark chocolate", "snacks/chocolate", {"type": "dark"}),
+        ("cookies", "snacks/cookies", {}),
+        ("strawberry jam", "pantry/jam", {}),
+        ("raw honey", "pantry/honey", {"raw": True}),
+        ("crackers", "snacks/crackers", {}),
+        ("cereal", "pantry/breakfast-cereal", {}),
+        ("potato chips", "snacks/chips", {}),
+    ],
+)
+def test_more_food_categories(text, category, filters):  # #125
+    res = r(text)
+    assert res.category == category
+    assert res.filters == filters
+
+
+def test_look_alikes_of_new_categories():  # #125
+    assert r("chocolate milk").category != "snacks/chocolate"
+    assert r("peanut butter").category == "pantry/peanut-butter"
+    assert r("oat milk creamer").category is None
+    assert r("chocolate chips").category == "snacks/chocolate"

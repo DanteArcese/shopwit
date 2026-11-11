@@ -1,0 +1,12 @@
+- {title: Original PG Tips 160 tea bags, brand: PG Tips, price: '9.99', expect: {category: beverages/tea, attributes: {organic: false, brand_tier: name_brand}, measures: {count: 160.0}, unit_prices: {per_bag: '0.062438'}, unresolved: ['attribute:type']}}
+- {title: Organic Awake english breakfast tea 16 tea bags, brand: Tazo, expect: {category: beverages/tea, attributes: {organic: true, brand_tier: name_brand}, measures: {count: 16.0}, unresolved: ['attribute:type']}}
+- {title: Organic Chamomile Herbal Tea 16 CT, brand: Traditional Medicinals, expect: {category: beverages/tea, attributes: {type: herbal, organic: true, brand_tier: name_brand}, measures: {count: 16.0}, unresolved: []}}
+- {title: Earl grey black tea bags, brand: twinings, expect: {category: beverages/tea, attributes: {type: black, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_bag']}}
+- {title: Jasmine Green Tea, brand: Twinings, expect: {category: beverages/tea, attributes: {type: green, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_bag']}}
+- {title: Green Tea, brand: Twinings, off_quantity: 40 g, expect: {category: beverages/tea, attributes: {type: green, organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_bag']}}
+- {title: Organic Green Tea Peppermint, brand: Traditional Medicinals, expect: {category: beverages/tea, attributes: {type: green, organic: true, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_bag']}}
+- {title: Brain Boost, brand: The Republic of Tea, expect: {category: beverages/tea, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: ['attribute:type', quantity, 'unit_price:per_bag']}}
+- {title: Pure Leaf Sweet Tea, brand: 'Lipton, Pepsi, Pure Leaf, Unilever', expect: {category: null}}
+- {title: Kombucha a bubbly probiotic tea, brand: Health-Ade, expect: {category: null}}
+- {title: Iced tea with Lemon flavor, brand: AriZona, expect: {category: null}}
+- {title: Cardamom Chai Premix, brand: Surati, expect: {category: null}}

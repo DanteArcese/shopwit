@@ -1,0 +1,13 @@
+- {title: vanilla bean ice cream, brand: Häagen-Dazs, price: '5.49', off_quantity: 14 fl oz, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {volume_ml: 414.03}, unit_prices: {per_volume: '0.013260'}, unresolved: []}}
+- {title: Phish Food Ice Cream, brand: 'Ben & Jerry''s, Unilever', off_quantity: 16 fl oz, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {volume_ml: 473.18}, unresolved: []}}
+- {title: Gelato - Madagascan Vanilla Bean, brand: 'Talenti, Unilever', off_quantity: 473 mL, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {volume_ml: 473.0}, unresolved: []}}
+- {title: Alphonso Mango Sorbetto (non-dairy), brand: 'Talenti, Talenti Sorbetto', expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: vanilla ice cream, brand: Häagen-Dazs, off_quantity: 335 g, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: Organic Strawberry Ice Cream, brand: Straus Family Creamery, expect: {category: frozen/ice-cream, attributes: {organic: true, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: coconut vanilla bean non-dairy frozen dessert, brand: So Delicious Dairy Free, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: cookies & cream ice cream, brand: Häagen-Dazs, expect: {category: frozen/ice-cream, attributes: {organic: false, brand_tier: name_brand}, measures: {}, unresolved: [quantity, 'unit_price:per_volume']}}
+- {title: Coffee almond crunch snack size ice cream bars, brand: Häagen-Dazs, expect: {category: null}}
+- {title: Chocolaty Dipped Ice Cream Cones, brand: Favorite Day, expect: {category: null}}
+- {title: Creamy Vanilla Gelato, brand: Starbucks, expect: {category: null}}
+- {title: Mint Chocolate Chip Frozen Yogurt Bars, brand: Yasso, expect: {category: null}}
+- {title: 'Butter Pecan Ice Cream', expect: {category: frozen/ice-cream}}

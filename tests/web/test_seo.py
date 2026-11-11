@@ -189,3 +189,28 @@ def test_category_with_only_stale_offers_is_noindex(client, db, milk_rows, froze
     monkeypatch.setattr("web.views.now", lambda: later)
     body = client.get("/c/dairy/milk/").content.decode()
     assert '<meta name="robots" content="noindex">' in body
+
+
+def _browse(body):
+    return body.split("Browse categories")[1].split("</section>")[0]
+
+
+def test_home_browse_lists_only_categories_with_fresh_prices(client, db, milk, frozen_now):
+    assert "/c/dairy/milk/" not in _browse(client.get("/").content.decode())
+    # Its own page still answers, as noindex, while it has no prices.
+    page = client.get("/c/dairy/milk/")
+    assert page.status_code == 200
+    assert '<meta name="robots" content="noindex">' in page.content.decode()
+
+    _observed(milk, frozen_now)
+    browse = _browse(client.get("/").content.decode())
+    assert 'href="/c/dairy/milk/"' in browse
+    assert "/c/beverages/soda/" not in browse
+
+
+def test_home_browse_drops_category_whose_prices_went_stale(client, db, milk, frozen_now, monkeypatch):
+    from datetime import timedelta
+
+    _observed(milk, frozen_now)
+    monkeypatch.setattr("web.views.now", lambda: frozen_now + timedelta(days=400))
+    assert "/c/dairy/milk/" not in _browse(client.get("/").content.decode())

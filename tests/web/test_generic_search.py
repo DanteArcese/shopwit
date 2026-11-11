@@ -81,11 +81,11 @@ def test_curated_query_still_redirects(client, milk):
 
 def test_near_miss_links(client, milk):
     for i in range(2):
-        product = Product.objects.create(identity=f"oat{i}", title=f"Oat Milk {i}", category=milk)
-        make_generic_offer(f"Oat Milk {i}", "3", dim="volume", amount=1000, product=product)
-    page = html(client, "oat milk")
+        product = Product.objects.create(identity=f"oat{i}", title=f"Lemon Drink {i}", category=milk)
+        make_generic_offer(f"Lemon Drink {i}", "3", dim="volume", amount=1000, product=product)
+    page = html(client, "lemon drink")
     assert "Milk: more filters" in page
-    assert 'href="/c/dairy/milk/?q_rest=oat+milk"' in page
+    assert 'href="/c/dairy/milk/?q_rest=lemon+drink"' in page
 
 
 def test_near_miss_typo_and_cap(client, db):
@@ -101,9 +101,9 @@ def test_near_miss_typo_and_cap(client, db):
 
 
 def test_curated_row_links_category(client, milk):
-    product = Product.objects.create(identity="m1", title="Oat Milk Barista", category=milk)
-    make_generic_offer("Oat Milk Barista", "3", dim="volume", amount=1000, product=product)
-    assert "In Milk" in html(client, "oat milk barista")
+    product = Product.objects.create(identity="m1", title="Lemon Drink Barista", category=milk)
+    make_generic_offer("Lemon Drink Barista", "3", dim="volume", amount=1000, product=product)
+    assert "In Milk" in html(client, "lemon drink barista")
 
 
 def test_seen_in_stores_generic(client, db):

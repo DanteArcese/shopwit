@@ -14,7 +14,6 @@
 - {title: 'Whipped Butter', expect: {category: dairy/butter}}
 - {title: 'Cultured Butter Lightly Salted', expect: {category: dairy/butter, attributes: {salted: salted}}}
 - {title: 'Almond Butter Smooth', expect: {category: null}}
-- {title: 'Butter Pecan Ice Cream', expect: {category: null}}
 - {title: 'Butter Chicken Sauce', expect: {category: null}}
 - {title: 'PAM Butter Cooking Spray, 5 Ounce', expect: {category: null}}
 - {title: 'Pillsbury Butter Flake Crescent Rolls 8 Count', expect: {category: null}}

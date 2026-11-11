@@ -181,7 +181,7 @@ def _strip_fl_oz(text: str) -> str:
 
 # --- count -------------------------------------------------------------------
 _COUNT_RE = re.compile(
-    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs|bags|pacs|pods|tabs|tablets)\b", re.IGNORECASE
+    rf"{_NUM}\s*(?:ct|count|eggs?|pieces?|pcs|bags|tea\s+bags|pacs|pods|tabs|tablets)\b", re.IGNORECASE
 )
 _DOZEN_RE = re.compile(rf"(?:{_NUM}\s*)?dozen\b", re.IGNORECASE)
 
