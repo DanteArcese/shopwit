@@ -9,6 +9,7 @@ from django.utils import timezone
 
 from catalog.ingest import ingest
 from catalog.models import Category, IngestionRun
+from catalog.outliers import flag_outliers_safely
 from connectors import registry
 from connectors.recording import recorded_transport
 from connectors.walmart import WalmartConnector
@@ -81,6 +82,8 @@ class Command(BaseCommand):
                         f"matched={run.matched} fully_parsed={run.fully_parsed} "
                         f"unresolved={run.unresolved} skipped={run.skipped}"
                     )
+            if IngestionRun.Status.SUCCEEDED in statuses:
+                flag_outliers_safely(timezone.now())  # unit prices changed (#127)
             if statuses and IngestionRun.Status.SUCCEEDED not in statuses:
                 raise CommandError("All ingestion runs failed")
         finally:

@@ -28,6 +28,8 @@ SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper":
 SIZE_TOLERANCE = 1e-9
 # Attributes a comparison's unit price depends on, beyond quantity.
 COMPARISON_ATTRS = {"area_x_ply": {"ply"}, "sheets_x_ply": {"ply"}}
+# A unit price the outlier pass held from ranking (#127, catalog/outliers.py).
+HELD_REASON = "size looks wrong (held for review)"
 
 
 @dataclass(frozen=True)
@@ -147,6 +149,15 @@ def _unit_price(offer: Offer, comparison: str) -> Decimal | None:
         return Decimal(raw)
     except (InvalidOperation, TypeError):
         return None
+
+
+def _held(offer: Offer, comparison: str) -> bool:
+    return comparison in (offer.held_comparisons or {})
+
+
+def _rankable_price(offer: Offer, comparison: str) -> Decimal | None:
+    """The offer's unit price, or None while the outlier pass holds it for ``comparison``."""
+    return None if _held(offer, comparison) else _unit_price(offer, comparison)
 
 
 def _tie(offer: Offer) -> tuple:
@@ -348,18 +359,22 @@ def browse(
             costed = [(c, o) for o in group if (c := nutrition_cost(o, rank)) is not None]
             if costed:
                 c, offer = min(costed, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
-                ranked.append(Row(product, offer, _unit_price(offer, comparison), unknown, None, c))
+                ranked.append(Row(product, offer, _rankable_price(offer, comparison), unknown, None, c))
             else:
                 order = sorted(group, key=lambda o: (o.price, o.retailer, _tie(o)))
                 offer = order[0]
                 unranked.append(
-                    Row(product, offer, _unit_price(offer, comparison), unknown, uncosted_reason(order, rank))
+                    Row(product, offer, _rankable_price(offer, comparison), unknown, uncosted_reason(order, rank))
                 )
             continue
-        priced = [(up, o) for o in group if (up := _unit_price(o, comparison)) is not None]
+        priced = [(up, o) for o in group if (up := _rankable_price(o, comparison)) is not None]
+        held = [o for o in group if _held(o, comparison) and _unit_price(o, comparison) is not None]
         if priced:
             up, offer = min(priced, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
             ranked.append(Row(product, offer, up, unknown, None))
+        elif held:  # only outlier prices: shown unranked, never as the cheapest
+            offer = min(held, key=lambda o: (o.price, o.retailer, _tie(o)))
+            unranked.append(Row(product, offer, None, unknown, HELD_REASON))
         else:
             offer = min(group, key=lambda o: (o.price, o.retailer, _tie(o)))
             unranked.append(Row(product, offer, None, unknown, _reason(offer, comparison)))

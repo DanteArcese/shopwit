@@ -31,6 +31,7 @@ from normalize.types import OffProduct
 from .ingest import INTERRUPTED, _upsert
 from .merge import merge_product
 from .models import IngestionRun, Offer, OpenPriceObservation, Product, Store
+from .outliers import flag_outliers_safely
 
 CONNECTOR = "openprices"
 
@@ -173,6 +174,9 @@ def sync_open_prices(
         return _fail(run, INTERRUPTED)
     except Exception as exc:  # the write transaction rolled back; prior state is intact
         return _fail(run, type(exc).__name__)
+
+    # Unit prices changed: hold the ones far below their category's median (#127).
+    flag_outliers_safely(now)
 
     run.skipped = skipped
     run.status = IngestionRun.Status.SUCCEEDED

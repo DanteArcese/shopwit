@@ -14,6 +14,7 @@ from django.utils import timezone
 from catalog.budget import DbBudget, seed_budgets
 from catalog.models import IngestionRun
 from catalog.observed_off import backfill_sizes
+from catalog.outliers import flag_outliers_safely
 from connectors.recording import recorded_transport
 from enrichment.off import USER_AGENT
 
@@ -43,6 +44,8 @@ class Command(BaseCommand):
         finally:
             if client is not None:
                 client.close()
+        if run.status == IngestionRun.Status.SUCCEEDED:
+            flag_outliers_safely(timezone.now())  # sizes changed unit prices (#127)
         self.stdout.write(f"status={run.status} {stats.line()}" + (f" note={run.error}" if run.error else ""))
         if run.status != IngestionRun.Status.SUCCEEDED:
             raise CommandError(f"OFF size lookup failed: {run.error}")

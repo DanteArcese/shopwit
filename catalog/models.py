@@ -116,6 +116,11 @@ class Offer(TimestampedModel):
     measure_amount = models.FloatField(null=True, blank=True)
     measure_reason = models.CharField(max_length=100, null=True, blank=True)
     nutrition = models.JSONField(default=dict, db_default={})
+    # Unit-price outlier guard (#127), written only by catalog.outliers and the admin approval:
+    # comparison -> category median (str) when this offer's unit price is held from ranking,
+    # and the comparisons staff approved as real prices (never held again).
+    held_comparisons = models.JSONField(default=dict, db_default={})
+    approved_comparisons = models.JSONField(default=list, db_default=[])
     generic_unit_price = models.DecimalField(max_digits=14, decimal_places=6, null=True, blank=True)
     search_vector = models.GeneratedField(
         expression=(
@@ -168,6 +173,7 @@ class ReviewItem(TimestampedModel):
     class Reason(models.TextChoices):
         INGEST = "ingest"  # opened and resolved by the merge as data changes
         USER_REPORT = "user_report"  # a visitor's approved "wrong price or size" report
+        OUTLIER = "outlier"  # a unit price far below the category median, held from ranking
 
     product = models.ForeignKey(Product, on_delete=models.CASCADE, related_name="review_items")
     detail = models.CharField(max_length=255)

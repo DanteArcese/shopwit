@@ -10,6 +10,7 @@ from django.utils import timezone
 from catalog.budget import DbBudget, seed_budgets
 from catalog.cj_gtin import DEFAULT_LIMIT, run_backfill
 from catalog.models import IngestionRun
+from catalog.outliers import flag_outliers_safely
 from connectors import registry
 
 
@@ -34,6 +35,8 @@ class Command(BaseCommand):
                 close = getattr(connector, "close", None)
                 if close is not None:
                     close()
+        if run.status == IngestionRun.Status.SUCCEEDED:
+            flag_outliers_safely(timezone.now())  # new live offers (#127)
         self.stdout.write(f"status={run.status} {stats.line()}" + (f" note={run.error}" if run.error else ""))
         if run.status != IngestionRun.Status.SUCCEEDED:
             raise CommandError(f"CJ barcode lookup failed: {run.error}")

@@ -25,7 +25,8 @@ from .budget import DbBudget, seed_budgets
 from .demand import prune_demand, warm_due, warm_round
 from .fetch import fetch_loop, housekeeping
 from .ingest import ingest
-from .models import Category, IngestionRun
+from .models import Category, FetchJob, IngestionRun
+from .outliers import flag_outliers_safely
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,9 @@ _feedback_purged_at: datetime | None = None
 _magic_purged_at: datetime | None = None
 _demand_pruned_at: datetime | None = None
 DEMAND_PRUNE_INTERVAL = timedelta(days=1)
+_outliers_checked_at: datetime | None = None
+# The outlier pass also runs this often with no new data: offers age out of freshness.
+OUTLIER_INTERVAL = timedelta(hours=1)
 
 
 def due(now: datetime, connectors: Mapping[str, Connector]) -> list[tuple[str, str]]:
@@ -134,12 +138,39 @@ def tick(
                 runs.append(_off_sizes(now, budget))
                 if "cj" in connectors and not budget.stopping:
                     runs.append(_cj_gtin(now, budget, connectors["cj"]))
+    outlier_housekeeping(now, runs)
     fetch_housekeeping(now)
     demand_housekeeping(now)
     clear_expired_sessions(now)
     purge_feedback_emails(now)
     purge_magic_tokens(now)
     return runs
+
+
+def outlier_housekeeping(now: datetime, runs: list[IngestionRun]) -> bool:
+    """Re-run the unit-price outlier pass (#127) when unit prices may have changed.
+
+    That is: a run in this tick succeeded (ingest, Open Prices, OFF sizes, CJ), a fetch
+    job wrote results since the last pass, or OUTLIER_INTERVAL passed. Never raises.
+    """
+    global _outliers_checked_at
+    due = _outliers_checked_at is None or now - _outliers_checked_at >= OUTLIER_INTERVAL
+    due = due or any(r.status == IngestionRun.Status.SUCCEEDED for r in runs)
+    if not due:
+        try:
+            due = FetchJob.objects.filter(
+                status=FetchJob.Status.SUCCEEDED,
+                result_count__gt=0,
+                finished_at__gte=_outliers_checked_at,
+            ).exists()
+        except Exception as exc:  # a DB error here must not stop the loop
+            logger.error("outlier due check failed: %s", type(exc).__name__)
+            return False
+    if not due:
+        return False
+    flag_outliers_safely(now)
+    _outliers_checked_at = now
+    return True
 
 
 def clear_expired_sessions(now: datetime) -> bool:

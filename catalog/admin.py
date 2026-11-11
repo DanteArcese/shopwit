@@ -19,12 +19,13 @@ from .models import (
     SourceBudget,
     Store,
 )
+from .outliers import approve, parse_detail
 
 
 class DetailPrefixFilter(admin.SimpleListFilter):
     title = "detail prefix"
     parameter_name = "detail_prefix"
-    prefixes = ("attribute:", "quantity", "unit_price:", "category")
+    prefixes = ("attribute:", "quantity", "unit_price:", "category", "outlier:")
 
     def lookups(self, request, model_admin):
         return [(p, p) for p in self.prefixes]
@@ -46,14 +47,14 @@ class ReadOnlyAdmin(admin.ModelAdmin):
 
 @admin.register(ReviewItem)
 class ReviewItemAdmin(admin.ModelAdmin):
-    readonly_fields = ("product", "detail", "reason", "status", "resolved_at")
+    readonly_fields = ("product", "detail", "reason", "status", "resolved_at", "outlier")
     fields = readonly_fields
 
-    list_display = ("product", "category", "detail", "reason", "status", "created_at")
+    list_display = ("product", "category", "detail", "outlier", "reason", "status", "created_at")
     list_filter = ("status", "reason", DetailPrefixFilter, "product__category")
     search_fields = ("product__title",)
     list_select_related = ("product__category",)
-    actions = ["mark_resolved"]
+    actions = ["mark_resolved", "approve_real_price"]
 
     def has_add_permission(self, request):
         return False
@@ -61,6 +62,36 @@ class ReviewItemAdmin(admin.ModelAdmin):
     @admin.display(description="category", ordering="product__category__slug")
     def category(self, obj):
         return obj.product.category
+
+    @admin.display(description="unit price vs median")
+    def outlier(self, obj) -> str:
+        """For an outlier item: the held offer's unit price and the median it was judged by."""
+        parsed = parse_detail(obj.detail) if obj.reason == ReviewItem.Reason.OUTLIER else None
+        if parsed is None:
+            return "-"
+        comparison, offer_id = parsed
+        offer = Offer.objects.filter(pk=offer_id).only("unit_prices", "held_comparisons").first()
+        if offer is None:
+            return "offer gone"
+        price = offer.unit_prices.get(comparison, "?")
+        median = offer.held_comparisons.get(comparison)
+        return f"{price} vs median {median}" if median else f"{price} (no longer held)"
+
+    @admin.action(description="Approve as real price (outlier items: never held again)")
+    def approve_real_price(self, request, queryset):
+        now = timezone.now()
+        n = 0
+        items = queryset.filter(reason=ReviewItem.Reason.OUTLIER, status=ReviewItem.Status.OPEN)
+        for item in items:
+            parsed = parse_detail(item.detail)
+            offer = Offer.objects.filter(pk=parsed[1]).first() if parsed else None
+            if offer is not None:
+                approve(offer, parsed[0])
+            item.status = ReviewItem.Status.RESOLVED
+            item.resolved_at = now
+            item.save(update_fields=["status", "resolved_at", "updated_at"])
+            n += 1
+        self.message_user(request, f"{n} outlier price(s) approved.", messages.SUCCESS)
 
     @admin.action(description="Mark resolved (reopens on the next ingest if the condition persists)")
     def mark_resolved(self, request, queryset):
