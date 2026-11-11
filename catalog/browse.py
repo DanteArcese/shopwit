@@ -20,7 +20,8 @@ from normalize.compare import COMPARISONS
 from .freshness import fresh_observed, fresh_offers
 from .geo import Near, bounding_box, within
 from .models import Category, Offer, Product
-from .nutrition import nutrition_cost, uncosted_reason
+from .nutrition import SIZE_COMPARISONS, nutrition_cost, uncosted_reason
+from .outliers import HELD_REASON
 
 BRAND_TIERS = ("name_brand", "store_brand")
 SIZE_KEYS = {"volume": "volume_ml", "mass": "mass_g", "count": "count", "paper": "area_m2", "laundry": "loads", "tissue": "sheets"}
@@ -149,6 +150,15 @@ def _unit_price(offer: Offer, comparison: str) -> Decimal | None:
         return None
 
 
+def _held(offer: Offer, comparison: str) -> bool:
+    return comparison in (offer.held_comparisons or {})
+
+
+def _rankable_price(offer: Offer, comparison: str) -> Decimal | None:
+    """The offer's unit price, or None while the outlier pass holds it for ``comparison``."""
+    return None if _held(offer, comparison) else _unit_price(offer, comparison)
+
+
 def _tie(offer: Offer) -> tuple:
     """Final tie-break: for observed offers newest observation first, then store code."""
     if offer.kind != Offer.Kind.OBSERVED:
@@ -272,10 +282,18 @@ def nutrition_rankable(
     if near is not None:
         seen = seen.filter(_in_box(near))
     costed = Q(protein_cost__isnull=False) | Q(kcal_cost__isnull=False)
+    held = Q(pk__in=[])  # an offer whose costed pack size is held has no cost (#127)
+    for unit, held_comparison in SIZE_COMPARISONS.items():
+        held |= Q(pack_unit=unit, held_comparisons__has_key=held_comparison)
     return (
         (live | seen)
-        .annotate(protein_cost=KT("nutrition__protein_cost"), kcal_cost=KT("nutrition__kcal_cost"))
+        .annotate(
+            protein_cost=KT("nutrition__protein_cost"),
+            kcal_cost=KT("nutrition__kcal_cost"),
+            pack_unit=KT("nutrition__pack_unit"),
+        )
         .filter(costed)
+        .exclude(held)
         .exists()
     )
 
@@ -348,18 +366,22 @@ def browse(
             costed = [(c, o) for o in group if (c := nutrition_cost(o, rank)) is not None]
             if costed:
                 c, offer = min(costed, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
-                ranked.append(Row(product, offer, _unit_price(offer, comparison), unknown, None, c))
+                ranked.append(Row(product, offer, _rankable_price(offer, comparison), unknown, None, c))
             else:
                 order = sorted(group, key=lambda o: (o.price, o.retailer, _tie(o)))
                 offer = order[0]
                 unranked.append(
-                    Row(product, offer, _unit_price(offer, comparison), unknown, uncosted_reason(order, rank))
+                    Row(product, offer, _rankable_price(offer, comparison), unknown, uncosted_reason(order, rank))
                 )
             continue
-        priced = [(up, o) for o in group if (up := _unit_price(o, comparison)) is not None]
+        priced = [(up, o) for o in group if (up := _rankable_price(o, comparison)) is not None]
+        held = [o for o in group if _held(o, comparison) and _unit_price(o, comparison) is not None]
         if priced:
             up, offer = min(priced, key=lambda t: (t[0], t[1].price, t[1].retailer, _tie(t[1])))
             ranked.append(Row(product, offer, up, unknown, None))
+        elif held:  # only outlier prices: shown unranked, never as the cheapest
+            offer = min(held, key=lambda o: (o.price, o.retailer, _tie(o)))
+            unranked.append(Row(product, offer, None, unknown, HELD_REASON))
         else:
             offer = min(group, key=lambda o: (o.price, o.retailer, _tie(o)))
             unranked.append(Row(product, offer, None, unknown, _reason(offer, comparison)))

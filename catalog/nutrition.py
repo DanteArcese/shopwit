@@ -9,10 +9,13 @@ from normalize.nutrition import REASONS, offer_nutrition
 from normalize.types import Nutrition
 
 from .models import OffEntry, Offer
+from .outliers import HELD_REASON
 
 RANKS = {"unit": "Price per unit", "protein": "Protein per $", "kcal": "Calories per $"}
 
 _FIELDS = {"protein": ("protein_cost", "protein_reason"), "kcal": ("kcal_cost", "kcal_reason")}
+# Pack unit of a nutrition cost -> the comparison whose denominator is that same size (#127).
+SIZE_COMPARISONS = {"g": "per_mass", "ml": "per_volume"}
 
 
 def parse_rank(raw: str | None) -> str:
@@ -20,8 +23,14 @@ def parse_rank(raw: str | None) -> str:
     return raw if raw in ("protein", "kcal") else "unit"
 
 
+def size_held(offer: Offer) -> bool:
+    """Whether the outlier pass holds the pack size this offer's nutrition cost divides by."""
+    comparison = SIZE_COMPARISONS.get((offer.nutrition or {}).get("pack_unit"))
+    return comparison is not None and comparison in (offer.held_comparisons or {})
+
+
 def nutrition_cost(offer: Offer, rank: str) -> Decimal | None:
-    if rank not in _FIELDS:
+    if rank not in _FIELDS or size_held(offer):
         return None
     value = (offer.nutrition or {}).get(_FIELDS[rank][0])
     return Decimal(value) if value is not None else None
@@ -32,6 +41,8 @@ def nutrition_reason(offer: Offer, rank: str) -> str:
         return REASONS["no_data"]
     if rank not in _FIELDS:
         return ""
+    if size_held(offer):
+        return HELD_REASON
     return offer.nutrition.get(_FIELDS[rank][1]) or ""
 
 

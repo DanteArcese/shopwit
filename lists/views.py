@@ -237,6 +237,7 @@ def _prefill(parsed: Parsed, prefs, now) -> tuple[str, str | None]:
             o
             for o in offers
             if o.measure_amount is not None and o.generic_unit_price is not None
+            and not o.held_comparisons  # a held size (#127) never suggests the amount
         ]
         if not offers:
             return "", None
